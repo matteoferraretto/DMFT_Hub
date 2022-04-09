@@ -21,13 +21,13 @@ Notebook[{
 
 Cell[CellGroupData[{
 Cell[BoxData[{
- RowBox[{"prova", "=", 
+ RowBox[{"provah", "=", 
   RowBox[{"Table", "[", 
    RowBox[{"n", ",", 
     RowBox[{"{", 
      RowBox[{"n", ",", "1", ",", "10"}], "}"}]}], 
    "]"}]}], "\[IndentingNewLine]", 
- RowBox[{"prova", "+", "1"}]}], "Input",
+ RowBox[{"provah", "+", "1"}]}], "Input",
  CellChangeTimes->{{3.8585065288587947`*^9, 3.8585065397035346`*^9}, {
   3.858508433579584*^9, 3.8585084362214165`*^9}},
  CellLabel->"In[1]:=",ExpressionUUID->"715c5e18-22e4-40ba-9b1e-b0fce8adc8d5"],
