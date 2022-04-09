@@ -10,23 +10,44 @@
 NotebookFileLineBreakTest
 NotebookFileLineBreakTest
 NotebookDataPosition[       158,          7]
-NotebookDataLength[      1212,         44]
-NotebookOptionsPosition[       863,         30]
-NotebookOutlinePosition[      1262,         46]
-CellTagsIndexPosition[      1219,         43]
+NotebookDataLength[      2166,         69]
+NotebookOptionsPosition[      1597,         51]
+NotebookOutlinePosition[      1996,         67]
+CellTagsIndexPosition[      1953,         64]
 WindowFrame->Normal*)
 
 (* Beginning of Notebook Content *)
 Notebook[{
-Cell[BoxData[
+
+Cell[CellGroupData[{
+Cell[BoxData[{
  RowBox[{"prova", "=", 
   RowBox[{"Table", "[", 
    RowBox[{"n", ",", 
     RowBox[{"{", 
-     RowBox[{"n", ",", "1", ",", "10"}], "}"}]}], "]"}]}]], "Input",
- CellChangeTimes->{{3.8585065288587947`*^9, 
-  3.8585065397035346`*^9}},ExpressionUUID->"715c5e18-22e4-40ba-9b1e-\
-b0fce8adc8d5"]
+     RowBox[{"n", ",", "1", ",", "10"}], "}"}]}], 
+   "]"}]}], "\[IndentingNewLine]", 
+ RowBox[{"prova", "+", "1"}]}], "Input",
+ CellChangeTimes->{{3.8585065288587947`*^9, 3.8585065397035346`*^9}, {
+  3.858508433579584*^9, 3.8585084362214165`*^9}},
+ CellLabel->"In[1]:=",ExpressionUUID->"715c5e18-22e4-40ba-9b1e-b0fce8adc8d5"],
+
+Cell[BoxData[
+ RowBox[{"{", 
+  RowBox[{
+  "1", ",", "2", ",", "3", ",", "4", ",", "5", ",", "6", ",", "7", ",", "8", 
+   ",", "9", ",", "10"}], "}"}]], "Output",
+ CellChangeTimes->{3.858508437616211*^9},
+ CellLabel->"Out[1]=",ExpressionUUID->"7fcfd1f1-5e8f-4209-8837-1563d3547b3a"],
+
+Cell[BoxData[
+ RowBox[{"{", 
+  RowBox[{
+  "2", ",", "3", ",", "4", ",", "5", ",", "6", ",", "7", ",", "8", ",", "9", 
+   ",", "10", ",", "11"}], "}"}]], "Output",
+ CellChangeTimes->{3.8585084376292067`*^9},
+ CellLabel->"Out[2]=",ExpressionUUID->"3777f50a-15d5-4c23-bdd4-7bd92259ae32"]
+}, Open  ]]
 },
 WindowSize->{557, 606},
 WindowMargins->{{673, Automatic}, {178, Automatic}},
@@ -45,10 +66,12 @@ CellTagsIndex->{}
 *)
 (*NotebookFileOutline
 Notebook[{
-Cell[558, 20, 301, 8, 29, "Input",ExpressionUUID->"715c5e18-22e4-40ba-9b1e-b0fce8adc8d5"]
+Cell[CellGroupData[{
+Cell[580, 22, 430, 10, 50, "Input",ExpressionUUID->"715c5e18-22e4-40ba-9b1e-b0fce8adc8d5"],
+Cell[1013, 34, 281, 6, 33, "Output",ExpressionUUID->"7fcfd1f1-5e8f-4209-8837-1563d3547b3a"],
+Cell[1297, 42, 284, 6, 56, "Output",ExpressionUUID->"3777f50a-15d5-4c23-bdd4-7bd92259ae32"]
+}, Open  ]]
 }
 ]
 *)
-
-(* End of internal cache information *)
 
