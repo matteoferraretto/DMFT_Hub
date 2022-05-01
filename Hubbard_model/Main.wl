@@ -56,7 +56,7 @@ StoreBathParametersQ = False;(*want to store bath parameters? On which file? (Ve
 BathParametersFile = FolderPath<>"hamiltonian_restart_U="<>ToString[Abs@U]<>".txt";
 
 StoreSelfEnergyQ = False;(*want to store self energy? On which file?*)
-SelfEnergyFile = FolderPath<>"impSigma_U="<>ToString[Abs@U]<>".txt";
+SelfEnergyFile = FolderPath<>"impSigma_U="<>ToString[Abs@U]<>".m";
 StoreSpectralFunctionQ=False;
 SpectralFunctionFile = FolderPath<>"Spectral_Function_U="<>ToString[Abs@U]<>".txt";
 StoreZQ = False;(*want to store z? On which file?*)
