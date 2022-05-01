@@ -236,7 +236,7 @@ Do[
 		]];
 	
 	(* Self energy *)
-	SelfEnergyFile = FolderPath<>"impSigma_U="<>ToString[Abs@U]<>".txt";
+	SelfEnergyFile = FolderPath<>"impSigma_U="<>ToString[Abs@U]<>".m";
 	WriteOutput[StoreObservablesQ, SelfEnergyFile, "SelfEnergy",U,\[CapitalSigma]];
 
 	(* Quasiparticle Weight *)
