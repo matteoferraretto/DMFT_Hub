@@ -1196,7 +1196,7 @@ WriteOutput[condition_,file_,label_,U_,data_]:=Module[
 	(* ---------------------------------------- *)
 		label=="SelfEnergy",
 		If[condition,
-			Export[file,data,"Table"];
+			Export[file,data];
 			Print["Self Energy stored on file.\n"]
 		],
 	(* ---------------------------------------- *)
@@ -1285,7 +1285,7 @@ WriteClusterOutput[condition_,file_,label_,U_,data_]:=Module[
 	(* ---------------------------------------- *)
 		label=="SelfEnergy",
 		If[condition,
-			Export[file,data,"Table"];
+			Export[file,data];
 			Print["Self Energy stored on file.\n"]
 		],
 	(* ---------------------------------------- *)
