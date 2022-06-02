@@ -109,8 +109,8 @@ Dim:=(Dimensions[#][[1]]&);
 Clean:=Select[#,UnsameQ[#,{}]&]&;
 
 (* compute eigenvalues *)
-Eigs[MinLanczosDim_]:=
-	If[Dim@#>=MinLanczosDim,
+Eigs[MinLanczosDim_Integer]:=
+	If[Length[#] >= MinLanczosDim,
 		-Eigensystem[-#,1,Method->{"Arnoldi","Criteria"->"RealPart"}],
 	(*else*)
 		Sort[Transpose[Eigensystem[#]]][[1]]
@@ -118,7 +118,7 @@ Eigs[MinLanczosDim_]:=
 
 
 (* get the bath parameters to start the DMFT loop *)
-StartingBath[InitializeBathMode_,Nbath_,EdMode_]:=Module[
+StartingBath[InitializeBathMode_String, Nbath_Integer, EdMode_String]:=Module[
 	{e,V,\[CapitalDelta]},
 	Which[
 		EdMode=="Normal",
@@ -147,13 +147,13 @@ StartingBath[InitializeBathMode_,Nbath_,EdMode_]:=Module[
 
 (*              HILBERT SPACE SECTORS              *)
 (* integer version of basis for a single flavour *)
-basis[L_,m_]:=FromDigits[#,2]&/@Permutations[IntegerDigits[2^m-1,2,L]];
+basis[L_Integer, m_Integer]:=FromDigits[#,2]&/@Permutations[IntegerDigits[2^m-1,2,L]];
 
 (* integer version of the full basis for all flavours *)
-BASIS[L_,f_,qns_]:=Flatten[Outer[{##}&,##]&@@Table[basis[L,qns[[\[Sigma]]]],{\[Sigma],1,f}],f-1];
+BASIS[L_Integer, f_Integer, qns_]:=Flatten[Outer[{##}&,##]&@@Table[basis[L,qns[[\[Sigma]]]],{\[Sigma],1,f}],f-1];
 
 (* builds all the states in a given sector *)
-BuildSector[L_,f_,qns_,EdMode_]:=Module[
+BuildSector[L_Integer, f_Integer, qns_, EdMode_String]:=Module[
 	{n, Nup, nupmin, nupmax, newstates, states={}, sz, QnsList},
 	Which[
 		EdMode == "Normal",
@@ -182,7 +182,7 @@ BuildSector[L_,f_,qns_,EdMode_]:=Module[
 ];
 
 (* list of the quantum numbers of all the sectors *)
-SectorList[L_,EdMode_]:=Module[
+SectorList[L_Integer, EdMode_String]:=Module[
 	{QnsSectorList},
 	Which[
 		EdMode=="Normal",
@@ -200,7 +200,7 @@ SectorList[L_,EdMode_]:=Module[
 ];
 
 (* dimension of a sector with fixed L and quantum numbers qns *)
-DimSector[L_,qns_,EdMode_]:=Module[
+DimSector[L_Integer, qns_, EdMode_String]:=Module[
 	{n, nup, sz, dim},
 	Which[
 		EdMode=="Normal",
@@ -217,7 +217,7 @@ DimSector[L_,qns_,EdMode_]:=Module[
 ]
 
 (*apply cdg with a given spin to a basis state: return the integer form of the resulting basis state or 0*)
-cdg[L_,\[Sigma]_,state_]:=Module[
+cdg[L_Integer, \[Sigma]_Integer, state_Integer]:=Module[
 	{binarystate},
 	binarystate=IntegerDigits[#,2,L]&@state;
 	If[binarystate[[\[Sigma],1]]==0,
@@ -229,7 +229,7 @@ cdg[L_,\[Sigma]_,state_]:=Module[
 ];
 
 (* apply c with a given spin to a basis state: return the integer form of the resulting basis state or 0 *)
-c[L_,\[Sigma]_,state_]:=Module[
+c[L_Integer, \[Sigma]_Integer, state_Integer]:=Module[
 	{binarystate},
 	binarystate=IntegerDigits[#,2,L]&@state;
 	If[binarystate[[\[Sigma],1]]==1,
@@ -243,7 +243,7 @@ c[L_,\[Sigma]_,state_]:=Module[
 
 
 (*Counts how many fermions there are before state[[\[Sigma],i]] (excluded). If you set i=1,\[Sigma]=1 you get 0; if you set i=L+1,\[Sigma]=f you get the total number of fermions in the state*)
-CountFermions[L_,i_,\[Sigma]_,state_]:=
+CountFermions[L_Integer, i_Integer, \[Sigma]_Integer, state_Integer]:=
 If[\[Sigma]==1,
 	Sum[(IntegerDigits[#,2,L]&@(state[[\[Sigma]]]))[[k]],{k,1,i-1}],
 (*else*)
@@ -255,15 +255,15 @@ If[\[Sigma]==1,
 ];
 
 (* sign accumulated by moving c_i\[Sigma] to the correct position when applying c_i\[Sigma]|state> or cdg_i\[Sigma]|state> *)
-CSign[L_,i_,\[Sigma]_,state_]:=(-1)^CountFermions[L,i,\[Sigma],state];
+CSign[L_Integer, i_Integer, \[Sigma]_Integer, state_Integer]:=(-1)^CountFermions[L,i,\[Sigma],state];
 (* sign accumulated by moving c_i1\[Sigma]1 and c_i2\[Sigma]2 to the correct positions when applying c_i\[Sigma]1 c_i\[Sigma]2 |state> or similar pairs of operators *)
-CCSign[L_,i1_,\[Sigma]1_,i2_,\[Sigma]2_,state_]:=(-1)^(CountFermions[L,i2,\[Sigma]2,state]-CountFermions[L,i1,\[Sigma]1,state]);
+CCSign[L_Integer, i1_Integer, \[Sigma]1_Integer, i2_Integer, \[Sigma]2_Integer, state_Integer]:=(-1)^(CountFermions[L,i2,\[Sigma]2,state]-CountFermions[L,i1,\[Sigma]1,state]);
 
 
 (*apply cdg_\[Sigma] |gs>, where |gs> belongs to the sector (m,nup) and give the resulting vector resized to fit the dimension of the sector (n+1,nup+1) or (n+1,nup) (depending on \[Sigma])*)
-ApplyCdg[L_,f_,\[Sigma]_,gs_,qns_,EdMode_]:=Module[
+ApplyCdg[L_Integer, f_Integer, \[Sigma]_Integer, gs_, qns_, EdMode_String]:=Module[
 	{n,nup,sz,startingsector,finalsector,dim,sign,rules,dispatch,pos,\[Psi],thread,result},
-	startingsector=BuildSector[L,f,qns,EdMode];
+	startingsector = BuildSector[L,f,qns,EdMode];
 	(* build the final sector *)
 	Which[
 		EdMode=="Normal",
@@ -283,7 +283,7 @@ ApplyCdg[L_,f_,\[Sigma]_,gs_,qns_,EdMode_]:=Module[
 		];
 	];
 	(*evaluate the dimension*)
-	dim=Dim@finalsector;
+	dim=Length[finalsector];
 	(*compute the list of signs obtained moving cdg to the correct position*)
 	sign=CSign[L,1,\[Sigma],#]&/@startingsector;
 	(*create a dispatch that labels all these states*)
@@ -303,7 +303,7 @@ ApplyCdg[L_,f_,\[Sigma]_,gs_,qns_,EdMode_]:=Module[
 ];
 
 (*apply c_\[Sigma] |gs>, where |gs> belongs to the sector (m,nup) and give the resulting vector resized to fit the dimension of the sector (n-1,nup-1) or (n-1,nup) (depending on \[Sigma])*)
-ApplyC[L_,f_,\[Sigma]_,gs_,qns_,EdMode_]:=Module[
+ApplyC[L_Integer, f_Integer, \[Sigma]_Integer, gs_, qns_, EdMode_String]:=Module[
 	{n,nup,sz,startingsector,finalsector,dim,sign,rules,dispatch,pos,\[Psi],thread,result},
 	startingsector=BuildSector[L,f,qns,EdMode];
 	(* build the final sector *)
@@ -325,7 +325,7 @@ ApplyC[L_,f_,\[Sigma]_,gs_,qns_,EdMode_]:=Module[
 		];
 	];
 	(*evaluate the dimension*)
-	dim=Dim@finalsector;
+	dim=Length[finalsector];
 	(*compute the list of signs obtained moving cdg to the correct position*)
 	sign=CSign[L,1,\[Sigma],#]&/@startingsector;
 	(*create a dispatch that labels all these states*)
@@ -348,25 +348,25 @@ ApplyC[L_,f_,\[Sigma]_,gs_,qns_,EdMode_]:=Module[
 
 (*     HOPPING FUNCTIONS     *)
 (*gives True if hopping from j to i in sector \[Sigma] is possible, False otherwise*)
-HopQ[L_,i_,j_,\[Sigma]_]:=If[(IntegerDigits[#,2,L]&@#[[\[Sigma]]])[[j]]==1&&(IntegerDigits[#,2,L]&@#[[\[Sigma]]])[[i]]==0,True,False]&;
+HopQ[L_Integer, i_Integer, j_Integer, \[Sigma]_Integer]:=If[(IntegerDigits[#,2,L]&@#[[\[Sigma]]])[[j]]==1&&(IntegerDigits[#,2,L]&@#[[\[Sigma]]])[[i]]==0,True,False]&;
 (*selects states for which hopping j\[Rule]i in sector \[Sigma] is possible*)
-HopSelect[L_,i_,j_,\[Sigma]_]:=Select[#,HopQ[L,i,j,\[Sigma]]]&;
+HopSelect[L_Integer, i_Integer, j_Integer, \[Sigma]_Integer]:=Select[#,HopQ[L,i,j,\[Sigma]]]&;
 (*put 1 in position i and 0 in position j*)
-CdgiCj[i_,j_]:=ReplacePart[#,{i->1,j->0}]&;
+CdgiCj[i_Integer, j_Integer]:=ReplacePart[#,{i->1,j->0}]&;
 (*hop from site j to site i in sector \[Sigma]*)
-Hop[L_,i_,j_,\[Sigma]_]:=ReplacePart[#,\[Sigma]->FromDigits[#,2]&@CdgiCj[i,j]@IntegerDigits[#,2,L]&@#[[\[Sigma]]]]&;
+Hop[L_Integer, i_Integer, j_Integer, \[Sigma]_Integer]:=ReplacePart[#,\[Sigma]->FromDigits[#,2]&@CdgiCj[i,j]@IntegerDigits[#,2,L]&@#[[\[Sigma]]]]&;
 (*counts how many fermions are in site "i" in state "state" considering all the flavours*)
-Density[L_,f_,i_]:=Sum[IntegerDigits[#,2,L][[k,i]],{k,1,f}]&;
+Density[L_Integer, f_Integer, i_Integer]:=Sum[IntegerDigits[#,2,L][[k,i]],{k,1,f}]&;
 
 (*    PAIR CREATION / ANNIHILATION FUNCTIONS     *)
 (*gives True if it is possible to create a pair on site i, False otherwise*)
-PairCreationQ[L_,i_]:=If[(IntegerDigits[#,2,L]&@#[[1]])[[i]]==0&&(IntegerDigits[#,2,L]&@#[[2]])[[i]]==0,True,False]&;
+PairCreationQ[L_Integer, i_Integer]:=If[(IntegerDigits[#,2,L]&@#[[1]])[[i]]==0&&(IntegerDigits[#,2,L]&@#[[2]])[[i]]==0,True,False]&;
 (*selects states for which hopping j\[Rule]i in flavor \[Sigma] is possible*)
-PairCreationSelect[L_,i_]:=Select[#,PairCreationQ[L,i]]&;
+PairCreationSelect[L_Integer, i_Integer]:=Select[#,PairCreationQ[L,i]]&;
 (*put 1 in position i of a list*)
-Cdg[i_]:=ReplacePart[#,{i->1}]&;
+Cdg[i_Integer]:=ReplacePart[#,{i->1}]&;
 (*create a pair of particles with spin up and down in site i and return the integer version of the states.*)
-CreatePair[L_,i_]:=ReplacePart[#,{
+CreatePair[L_Integer, i_Integer]:=ReplacePart[#,{
 	1->FromDigits[#,2]&@Cdg[i]@IntegerDigits[#,2,L]&@#[[1]],
 	2->FromDigits[#,2]&@Cdg[i]@IntegerDigits[#,2,L]&@#[[2]]
 	}]&;
@@ -374,12 +374,12 @@ CreatePair[L_,i_]:=ReplacePart[#,{
 
 (*      IMPURITY HAMILTONIAN           *)
 (* Bath+Hybridization Hamiltonian in the case EdMode = "Normal" *)
-ImpHBlocksNormal[L_,f_,QnsSectorList_]:=Module[
+ImpHBlocksNormal[L_Integer, f_Integer, QnsSectorList_]:=Module[
 	{\[Psi],\[Psi]1,\[Chi],H,Hblock,Hsector,dim,rules,dispatch,cols,rows,pos,\[CapitalSigma],num},
 	H={};
 	Do[
 		Hsector={};
-		\[Psi]=BuildSector[L,f,qns,"Normal"];(* *)dim=Dim@\[Psi];
+		\[Psi]=BuildSector[L,f,qns,"Normal"];(* *)dim=Length[\[Psi]];
 		rules=Flatten[MapIndexed[{#1->#2[[1]]}&,\[Psi]],1];
 		dispatch=Dispatch[rules];
 		Do[
@@ -393,7 +393,7 @@ ImpHBlocksNormal[L_,f_,QnsSectorList_]:=Module[
 				flag=="Hopping",
 				Do[
 					\[Psi]1=HopSelect[L,1,j,\[Sigma]]@\[Psi];
-					If[Dim@\[Psi]1==0,Continue[];];
+					If[Length[\[Psi]1]==0,Continue[];];
 					\[Chi]=Hop[L,1,j,\[Sigma]]/@(\[Psi]1);
 					rows=\[Chi]/.dispatch;(* *)cols=\[Psi]1/.dispatch;(* *)pos={rows,cols}\[Transpose];
 					\[CapitalSigma]=(CCSign[L,1,\[Sigma],j,\[Sigma],#]&/@\[Psi]1);
@@ -409,12 +409,12 @@ ImpHBlocksNormal[L_,f_,QnsSectorList_]:=Module[
 ];
 
 (* Bath+Hybridization Hamiltonian in the case EdMode = "Superc" *)
-ImpHBlocksSuperc[L_,f_,QnsSectorList_]:=Module[
+ImpHBlocksSuperc[L_Integer, f_Integer, QnsSectorList_]:=Module[
 	{\[Psi],\[Psi]1,\[Chi],H,Hblock,Hsector,dim,rules,dispatch,cols,rows,pos,\[CapitalSigma],num},
 	H={};
 	Do[
 		Hsector={};
-		\[Psi]=BuildSector[L,f,sz,"Superc"];(* *)dim=Dim@\[Psi];
+		\[Psi]=BuildSector[L,f,sz,"Superc"];(* *)dim=Length[\[Psi]];
 		rules=Flatten[MapIndexed[{#1->#2[[1]]}&,\[Psi]],1];
 		dispatch=Dispatch[rules];
 		Do[
@@ -428,7 +428,7 @@ ImpHBlocksSuperc[L_,f_,QnsSectorList_]:=Module[
 				flag=="Hopping",
 				Do[
 					\[Psi]1=HopSelect[L,1,j,\[Sigma]]@\[Psi];
-					If[Dim@\[Psi]1==0,Continue[];];
+					If[Length[\[Psi]1]==0,Continue[];];
 					\[Chi]=Hop[L,1,j,\[Sigma]]/@(\[Psi]1);
 					rows=\[Chi]/.dispatch;(* *)cols=\[Psi]1/.dispatch;(* *)pos={rows,cols}\[Transpose];
 					\[CapitalSigma]=(CCSign[L,1,\[Sigma],j,\[Sigma],#]&/@\[Psi]1);
@@ -453,13 +453,13 @@ ImpHBlocksSuperc[L_,f_,QnsSectorList_]:=Module[
 ];
 
 (* choose which case *)
-ImpHBlocks[L_,f_,QnsSectorList_,EdMode_]:=Which[
+ImpHBlocks[L_Integer, f_Integer, QnsSectorList_, EdMode_String]:=Which[
 	EdMode=="Normal",	ImpHBlocksNormal[L,f,QnsSectorList],
 	EdMode=="Superc",	ImpHBlocksSuperc[L,f,QnsSectorList]
 ];
 
 (* Local Hamiltonian EdMode = "Normal" *)
-ImpHLocalNormal[L_,f_,QnsSectorList_]:=Module[
+ImpHLocalNormal[L_Integer, f_Integer, QnsSectorList_]:=Module[
 	{\[Psi],H,Hsector,rules,dispatch,num},
 	H={};
 	Do[
@@ -475,11 +475,11 @@ ImpHLocalNormal[L_,f_,QnsSectorList_]:=Module[
 ];
 
 (* Local Hamiltonian EdMode = "Superc" *)
-ImpHLocalSuperc[L_,f_,QnsSectorList_]:=Module[
+ImpHLocalSuperc[L_Integer, f_Integer, QnsSectorList_]:=Module[
 	{\[Psi],\[Psi]1,\[Chi],H,Hblock,Hsector,dim,rules,dispatch,cols,rows,pos,\[CapitalSigma],num,n,nup,e,V},
 	H={};
 	Do[
-		\[Psi]=BuildSector[L,f,sz,"Superc"];(* *)dim=Dim@\[Psi];
+		\[Psi]=BuildSector[L,f,sz,"Superc"];(* *)dim=Length[\[Psi]];
 		rules=Flatten[MapIndexed[{#1->#2[[1]]}&,\[Psi]],1];
 		dispatch=Dispatch[rules];
 		num=Density[L,f,1]/@\[Psi];(*local density*)
@@ -491,13 +491,13 @@ ImpHLocalSuperc[L_,f_,QnsSectorList_]:=Module[
 ];
 
 (* chose which case *)
-ImpHLocal[L_,f_,QnsSectorList_,EdMode_]:=Which[
+ImpHLocal[L_Integer, f_Integer, QnsSectorList_, EdMode_String]:=Which[
 	EdMode=="Normal",	ImpHLocalNormal[L,f,QnsSectorList],
 	EdMode=="Superc",	ImpHLocalSuperc[L,f,QnsSectorList]
 ];
 
 (* Get the Hamiltonian structure once for all *)
-GetHamiltonian[L_,f_,QnsSectorList_,LoadHamiltonianQ_,ImpHBlocksFile_,ImpHLocalFile_,EdMode_]:=Module[
+GetHamiltonian[L_Integer, f_Integer, QnsSectorList_, LoadHamiltonianQ_, ImpHBlocksFile_String, ImpHLocalFile_String, EdMode_String]:=Module[
 	{impHblocks,impHlocal},
 	If[LoadHamiltonianQ,
 		Print["Getting Hamiltonians from file"];
@@ -520,14 +520,14 @@ GetHamiltonian[L_,f_,QnsSectorList_,LoadHamiltonianQ_,ImpHBlocksFile_,ImpHLocalF
 
 Swap[x_,y_]:=Module[{},Return[{y,x}]];
 
-Lanczos[H_,\[Epsilon]_,miniter_,maxiter_,shift_,startingvector_]:=Module[
+Lanczos[H_, \[Epsilon]_Real, miniter_Integer, maxiter_Integer, shift_Integer, startingvector_]:=Module[
 	{a,b,dim,a0,b1,v,w,HKrilov,E0old,E0new,nfinal},
 	(* initialize array of a_n :  a[1]=a_0 , a[1+n]=a_n *)
 	a=ConstantArray[0,maxiter+1];
 	(*initialize array of b_n : b[n]=b_n *)
 	b=ConstantArray[0,maxiter];
 	(*dimension of H*)
-	dim=Dim@H;
+	dim=Length[H];
 	(* initialize the starting vector: if startingvector=0 drop a default v *)
 	If[startingvector===Null,
 		v=SparseArray[{1->1.0},{dim}],
@@ -594,7 +594,7 @@ G[z_,a_,b_]:=Fold[f,
 Last@b/Last@(a-z*ConstantArray[1,(Dimensions@a)[[1]]]),Reverse@Most@Transpose@{a-z*ConstantArray[1,(Dimensions@a)[[1]]],b}];
 
 (* compute the impurity Normal Green function both with normal and superconducting bath *)
-ImpurityDiagonalGreenFunction[L_,f_,Egs_,gs_,GsSectorIndex_,QnsSectorList_,Hsectors_,EdMode_,\[Sigma]_,z_]:=Module[
+ImpurityDiagonalGreenFunction[L_Integer, f_Integer, Egs_Real, gs_, GsSectorIndex_, QnsSectorList_, Hsectors_, EdMode_String, \[Sigma]_Integer, z_]:=Module[
 	{norm,cdggs,cgs,E0,a,b,bprime,GF,H,rules,dispatch,n,nup,sz,sectorindex,\[Epsilon]=10^(-13),MinLancIter=2,MaxLancIter=10^3,LancShift=0},
 	rules=Flatten[MapIndexed[{#1->#2[[1]]}&,QnsSectorList],1];
 	dispatch=Dispatch[rules];
@@ -669,7 +669,7 @@ ImpurityDiagonalGreenFunction[L_,f_,Egs_,gs_,GsSectorIndex_,QnsSectorList_,Hsect
 ];
 
 (* compute the impurity Green function with superconducting bath *)
-ImpurityGreenFunctionSuperc[L_,f_,Egs_,gs_,GsSectorIndex_,QnsSectorList_,Hsectors_,z_]:=Module[
+ImpurityGreenFunctionSuperc[L_Integer, f_Integer, Egs_Real, gs_, GsSectorIndex_, QnsSectorList_, Hsectors_, z_]:=Module[
 	{cdgup0,cdgdw0,cup0,cdw0,GFAparticle,GFAhole,GFBparticle,GFBhole,GFOparticle,GFOhole,GFO,GFPparticle,GFPhole,GFP,GFA,GFB,rules0,dispatch0,sz0,GF12,GF21},
 	(* create a rule that associates a number 1,2,3,... to all sectors *)
 	rules0 = Flatten[MapIndexed[{#1->#2[[1]]}&,QnsSectorList],1];	dispatch0 = Dispatch[rules0];
@@ -774,12 +774,12 @@ ImpurityGreenFunctionSuperc[L_,f_,Egs_,gs_,GsSectorIndex_,QnsSectorList_,Hsector
 ];
 
 (* Return a list of 2x2 matrices representing the impurity GF in the normal spinor or Nambu spinor basis depending on EdMode *)
-ImpurityGreenFunction[L_,f_,Egs_,gs_,GsSectorIndex_,QnsSectorList_,Hsectors_,EdMode_,z_]:=Module[
+ImpurityGreenFunction[L_Integer, f_Integer, Egs_Real, gs_, GsSectorIndex_, QnsSectorList_, Hsectors_, EdMode_String, z_]:=Module[
 	{GF,GFup,GFdw,zero},
 	Which[
 		EdMode=="Normal",
 		GFup=ImpurityDiagonalGreenFunction[L,f,Egs,gs,GsSectorIndex,QnsSectorList,Hsectors,EdMode,1,z];
-		zero=ConstantArray[0,Dim@GFup];
+		zero=ConstantArray[0, Length[GFup]];
 		GFdw=GFup;(* ok as long as there is spin symmetry *)
 		GF=Partition[#,2]&/@({GFup,zero,zero,GFdw}\[Transpose]),
 	(* --------------------------------------- *)
@@ -790,7 +790,7 @@ ImpurityGreenFunction[L_,f_,Egs_,gs_,GsSectorIndex_,QnsSectorList_,Hsectors_,EdM
 ];
 
 (* Local Green function: only supports Bethe lattice at the moment *)
-LocalGreenFunction[Lattice_,\[CapitalSigma]_,EdMode_,z_]:=Module[
+LocalGreenFunction[Lattice_String, \[CapitalSigma]_, EdMode_String, z_]:=Module[
 	{Gloc,Floc,zero,LE=1000,DBethe=1.0,d\[Epsilon],LocalGF},
 	Which[
 		Lattice!="Bethe",
@@ -804,7 +804,7 @@ LocalGreenFunction[Lattice_,\[CapitalSigma]_,EdMode_,z_]:=Module[
 		Gloc=d\[Epsilon]*Sum[
 			DoS[\[Epsilon]]/(z-\[Epsilon]-\[CapitalSigma][[All,1,1]])
 		,{\[Epsilon],-DBethe,DBethe,d\[Epsilon]}];
-		zero=ConstantArray[0,Dim@Gloc];
+		zero=ConstantArray[0, Length[Gloc]];
 		LocalGF=Partition[#,2]&/@({Gloc,zero,zero,Gloc}\[Transpose]),
 	(* ------------------------------------------------- *)	
 		EdMode=="Superc",
@@ -820,10 +820,10 @@ LocalGreenFunction[Lattice_,\[CapitalSigma]_,EdMode_,z_]:=Module[
 ];
 
 (* compute the spectral function on real frequencies *)
-SpectralFunction[L_,f_,Egs_,GsSectorIndex_,GsSectorList_,QnsSectorList_,Hsectors_,EdMode_,\[Omega]_,\[Eta]_]:=Module[
+SpectralFunction[L_Integer, f_Integer, Egs_Real, GsSectorIndex_, GsSectorList_, QnsSectorList_, Hsectors_, EdMode_String, \[Omega]_, \[Eta]_Real]:=Module[
 	{SpectralFunction,Gs,d\[Omega],Nreal},
-	d\[Omega]=\[Omega][[2]]-\[Omega][[1]];
-	Nreal=Dim@\[Omega];
+	d\[Omega] = \[Omega][[2]]-\[Omega][[1]];
+	Nreal = Length[\[Omega]];
 	(*initialize the spectral function*)
 	SetSharedVariable[SpectralFunction];
 	SpectralFunction=ConstantArray[0,Nreal];
@@ -840,7 +840,7 @@ SpectralFunction[L_,f_,Egs_,GsSectorIndex_,GsSectorList_,QnsSectorList_,Hsectors
 
 (*           HYBRIDIZATION FUNCTION             *)
 (* numerical evaluation of the hybridization function *)
-Hybridization[Nbath_,Parameters_,EdMode_]:=Module[
+Hybridization[Nbath_Integer, Parameters_, EdMode_String]:=Module[
 	{e,V,\[CapitalDelta],eimp=0,Hbath,Himp,Hhyb,hyb},
 	Which[
 		EdMode=="Normal",
@@ -872,7 +872,7 @@ hyb
 ]&;
 
 (* analytic evaluation of the hybridization function *)
-\[CapitalGamma][Nbath_,Parameters_,EdMode_,z_]:=Module[
+\[CapitalGamma][Nbath_Integer, Parameters_, EdMode_String, z_]:=Module[
 	{hyb,e,V,\[CapitalDelta]},
 	Which[
 		EdMode=="Normal",
@@ -892,11 +892,11 @@ hyb
 ];
 
 (* analytic evaluation of non interacting green function *)
-NonInteractingGreenFunction[L_,e_,V_,z_]:=1.0/(z+e[[1]]-\[CapitalGamma][L,Drop[e,1],V,z]);
+NonInteractingGreenFunction[L_Integer, e : {__Reals}, V : {__Reals}, z_]:=1.0/(z+e[[1]]-\[CapitalGamma][L,Drop[e,1],V,z]);
 
 (* useful functions to evaluate the non interacting Green function in the superconducting case *)
-A[Nbath_,Parameters_,z_]:=z-\[CapitalGamma][Nbath,Parameters,"Superc",z];
-B[Nbath_,Parameters_,z_]:=Module[
+A[Nbath_Integer, Parameters : {__Reals}, z_]:=z-\[CapitalGamma][Nbath,Parameters,"Superc",z];
+B[Nbath_Integer, Parameters : {__Reals}, z_]:=Module[
 	{e,V,\[CapitalDelta]},
 	e=Take[Parameters,{1,Nbath}];
 	V=Take[Parameters,{Nbath+1,2Nbath}];
@@ -905,12 +905,12 @@ B[Nbath_,Parameters_,z_]:=Module[
 ];
 
 (* Weiss field (inverse non interacting impurity Green function *)
-WeissField[Nbath_,Parameters_,EdMode_,z_]:=
+WeissField[Nbath_Integer, Parameters : {__Reals}, EdMode_String, z_]:=
 	Which[
 		EdMode=="Normal",
 		Partition[#,2]&/@({
-			z-\[CapitalGamma][Nbath,Parameters,"Normal",z],	ConstantArray[0,Dim@z],
-			ConstantArray[0,Dim@z],	z-\[CapitalGamma][Nbath,Parameters,"Normal",z]
+			z-\[CapitalGamma][Nbath,Parameters,"Normal",z],	ConstantArray[0, Length[z]],
+			ConstantArray[0, Length[z]],	z-\[CapitalGamma][Nbath,Parameters,"Normal",z]
 		}\[Transpose]),
 	(* ---------------------------------------------------- *)
 		EdMode=="Superc",
@@ -930,7 +930,7 @@ NonInteractingGreenFunction[L_,Parameters_,z_]:={
 
 
 (* SELF CONSISTENCY PROCEDURES *)
-SelfConsistencyBethe[Nbath_,LocalGF_,LFit_,Mixing_,StartingParameters_,EdMode_,z_]:=Module[
+SelfConsistencyBethe[Nbath_Integer, LocalGF_, LFit_Integer, Mixing_Real, StartingParameters : {__Reals}, EdMode_String, z_]:=Module[
 	{esymbols,Vsymbols,\[CapitalDelta]symbols,symbols,residue,newparameters,newe,newV,new\[CapitalDelta],lists,e,V,\[CapitalDelta],\[Chi],\[Chi]normal,\[Chi]anomalous,DBethe=1.},
 	Which[
 		EdMode=="Normal",
@@ -953,7 +953,7 @@ SelfConsistencyBethe[Nbath_,LocalGF_,LFit_,Mixing_,StartingParameters_,EdMode_,z
 				\[Chi][symbols],
 				{symbols,StartingParameters}\[Transpose],
 				Method->"ConjugateGradient",
-				MaxIterations->1000,AccuracyGoal->5
+				MaxIterations->700,AccuracyGoal->5
 			];
 		(*update the bath*)
 		{newe,newV}={esymbols,Vsymbols}/.newparameters;
@@ -992,9 +992,10 @@ SelfConsistencyBethe[Nbath_,LocalGF_,LFit_,Mixing_,StartingParameters_,EdMode_,z
 		{residue,newparameters}=
 			FindMinimum[
 				\[Chi][symbols],
-				{symbols,StartingParameters}\[Transpose],
+				{symbols, StartingParameters}\[Transpose],
 				Method->"ConjugateGradient",
-				MaxIterations->700,AccuracyGoal->5
+				MaxIterations->1000,
+				AccuracyGoal->5
 			];
 		(*update the bath*)
 		{newe,newV,new\[CapitalDelta]}={esymbols,Vsymbols,\[CapitalDelta]symbols}/.newparameters;
@@ -1004,6 +1005,8 @@ SelfConsistencyBethe[Nbath_,LocalGF_,LFit_,Mixing_,StartingParameters_,EdMode_,z
 		e=Mixing*e+(1-Mixing)*newe;
 		V=Mixing*V+(1-Mixing)*newV;
 		\[CapitalDelta]=Mixing*\[CapitalDelta]+(1-Mixing)*new\[CapitalDelta];
+		
+		Print["Fit residue = ", residue];
 		Return[{e,V,\[CapitalDelta]}]
 	]
 ];
@@ -1012,7 +1015,7 @@ SelfConsistencyBethe[Nbath_,LocalGF_,LFit_,Mixing_,StartingParameters_,EdMode_,z
 
 (*           OBSERVABLES             *)
 (* Quasiparticle weight *)
-\[NonBreakingSpace]Z[\[CapitalSigma]_,FitCutoff_,i\[Omega]_]:=Module[
+\[NonBreakingSpace]Z[\[CapitalSigma]_, FitCutoff_Integer, i\[Omega]_]:=Module[
 	{Selfenergy,data,a,z},
 	Selfenergy = \[CapitalSigma][[All,1,1]];
 	data=Take[#,FitCutoff]&@Transpose@{Im@i\[Omega],Im@Selfenergy};
@@ -1022,7 +1025,7 @@ SelfConsistencyBethe[Nbath_,LocalGF_,LFit_,Mixing_,StartingParameters_,EdMode_,z
 ];
 
 (* Impurity density *)
-ImpurityDensity[L_,f_,GsSectorIndex_,QnsSectorList_,GsSectorList_,EdMode_]:=Module[
+ImpurityDensity[L_Integer, f_Integer, GsSectorIndex_, QnsSectorList_, GsSectorList_, EdMode_String]:=Module[
 	{qns,\[Psi],gs,num,density=0},
 	(*loop over all the degenerate ground states*)
 	Do[
@@ -1033,11 +1036,11 @@ ImpurityDensity[L_,f_,GsSectorIndex_,QnsSectorList_,GsSectorList_,EdMode_]:=Modu
 		density+=num . (Abs[gs]^2);(* multiply by the weights stored in gs^2 *)
 	,{gssectorindex,Flatten@{GsSectorIndex}}];
 	(* divide by the number of degenerate ground states to normalize *)
-	density=density/(Dim@Flatten@{GsSectorIndex})
+	density = density/(Length@Flatten@{GsSectorIndex})
 ];
 
 (* Square impurity density *)
-SquareDensity[L_,f_,GsSectorIndex_,QnsSectorList_,GsSectorList_,EdMode_]:=Module[
+SquareDensity[L_Integer, f_Integer, GsSectorIndex_, QnsSectorList_, GsSectorList_, EdMode_String]:=Module[
 	{qns,\[Psi],gs,num,squaredensity=0},
 	(*loop over all the degenerate ground states*)
 	Do[
@@ -1048,11 +1051,11 @@ SquareDensity[L_,f_,GsSectorIndex_,QnsSectorList_,GsSectorList_,EdMode_]:=Module
 		squaredensity+=(num^2) . (Abs[gs]^2);(*multiply by the weights stored in gs^2*)
 	,{gssectorindex,Flatten@{GsSectorIndex}}];
 	(*divide by the number of degenerate ground states to normalize*)
-	squaredensity=squaredensity/(Dim@Flatten@{GsSectorIndex})
+	squaredensity = squaredensity/(Length@Flatten@{GsSectorIndex})
 ];
 
 (* Magnetization, i.e. < s_z > *)
-Magnetization[L_,f_,GsSectorIndex_,QnsSectorList_,GsSectorList_,EdMode_]:=Module[
+Magnetization[L_Integer, f_Integer, GsSectorIndex_, QnsSectorList_, GsSectorList_, EdMode_String]:=Module[
 	{ImpuritySz,qns,\[Psi],gs,sp,mag=0,k},
 	(*evaluate (nup-ndw)/2 in the impurity site *)
 	ImpuritySz[l_]:=(1/2)*(IntegerDigits[#,2,l][[1,1]]-IntegerDigits[#,2,l][[2,1]])&;
@@ -1065,10 +1068,10 @@ Magnetization[L_,f_,GsSectorIndex_,QnsSectorList_,GsSectorList_,EdMode_]:=Module
 		mag+=sp . (Abs[gs]^2);(*multiply by the weights stored in gs^2*)
 	,{gssectorindex,Flatten@{GsSectorIndex}}];
 	(*divide by the number of degenerate ground states to normalize*)
-	mag=mag/(Dim@Flatten@{GsSectorIndex})
+	mag=mag/(Length@Flatten@{GsSectorIndex})
 ]
 
-SquareSpinZ[L_,f_,GsSectorIndex_,QnsSectorList_,GsSectorList_,EdMode_]:=Module[
+SquareSpinZ[L_Integer, f_Integer, GsSectorIndex_, QnsSectorList_, GsSectorList_, EdMode_String]:=Module[
 	{ImpuritySz,qns,\[Psi],gs,sp,impuritysquaresz=0,k},
 	(*evaluate (nup-ndw)/2 in the impurity site *)
 	ImpuritySz[l_]:=(1/2)*(IntegerDigits[#,2,l][[1,1]]-IntegerDigits[#,2,l][[2,1]])&;
@@ -1081,11 +1084,11 @@ SquareSpinZ[L_,f_,GsSectorIndex_,QnsSectorList_,GsSectorList_,EdMode_]:=Module[
 		impuritysquaresz+=(sp^2) . (Abs[gs]^2);(*multiply by the weights stored in gs^2*)
 	,{gssectorindex,Flatten@{GsSectorIndex}}];
 	(*divide by the number of degenerate ground states to normalize*)
-	impuritysquaresz=impuritysquaresz/(Dim@Flatten@{GsSectorIndex})
+	impuritysquaresz=impuritysquaresz/(Length@Flatten@{GsSectorIndex})
 ]
 
 (* Empty, single and double occupancies *)
-Occupancies[L_,f_,GsSectorIndex_,QnsSectorList_,GsSectorList_,type_,EdMode_]:=Module[
+Occupancies[L_Integer, f_Integer, GsSectorIndex_, QnsSectorList_, GsSectorList_, type_String, EdMode_String]:=Module[
 	{qns,\[Psi],gs,num,density=0,k},
 	k=Which[
 		type=="Double",2,
@@ -1101,11 +1104,11 @@ Occupancies[L_,f_,GsSectorIndex_,QnsSectorList_,GsSectorList_,type_,EdMode_]:=Mo
 		density += num . (gs^2);(*multiply by the weights stored in gs^2*)
 	,{gssectorindex,Flatten@{GsSectorIndex}}];
 	(* divide by the number of degenerate ground states to normalize *)
-	density = density/(Dim@Flatten@{GsSectorIndex})
+	density = density/(Length@Flatten@{GsSectorIndex})
 ];
 
 (* Kinetic energy, i.e. < Subscript[H, non interacting] > *)
-KineticEnergyBethe[\[CapitalSigma]_,LE_,i\[Omega]_]:=Module[
+KineticEnergyBethe[\[CapitalSigma]_, LE_Integer, i\[Omega]_]:=Module[
 	{Ekin,T,d\[Epsilon],Dos,Glattice,\[CapitalSigma]0,DBethe=1.0},
 	(* initialize variables *)
 	Ekin = 0;
@@ -1132,7 +1135,7 @@ KineticEnergyBethe[\[CapitalSigma]_,LE_,i\[Omega]_]:=Module[
 ]
 
 (* Superconducting order parameter, i.e. < c_dw c_up > *)
-OrderParameter[L_,f_,GsSectorIndex_,QnsSectorList_,GsSectorList_]:=Module[
+OrderParameter[L_Integer, f_Integer, GsSectorIndex_, QnsSectorList_, GsSectorList_]:=Module[
 	{sz,\[Psi],dim,rules,dispatch,\[Psi]1,\[Chi],\[CapitalSigma],rows,cols,pos,gs,mask,\[Phi]},
 	\[Phi]=0;(* initialize \[Phi] *)
 	(*loop over all the degenerate ground states*)
@@ -1140,7 +1143,7 @@ OrderParameter[L_,f_,GsSectorIndex_,QnsSectorList_,GsSectorList_]:=Module[
 		gs=Flatten@GsSectorList[[gssectorindex]];(*ground state vector*)
 		sz=QnsSectorList[[gssectorindex]];(*ground state quantum number sz *)
 		\[Psi]=BuildSector[L,f,sz,"Superc"];(* basis of the sector sz *)
-		dim=Dim@\[Psi];(* dimension of the sector *)
+		dim=Length[\[Psi]];(* dimension of the sector *)
 		rules=Flatten[MapIndexed[{#1->#2[[1]]}&,\[Psi]],1];
 		dispatch=Dispatch[rules];
 		\[Psi]1=PairCreationSelect[L,1]@\[Psi];(* select those states where pair creation in the impurity site is possible *)
@@ -1150,12 +1153,12 @@ OrderParameter[L_,f_,GsSectorIndex_,QnsSectorList_,GsSectorList_]:=Module[
 		mask=SparseArray[pos->\[CapitalSigma],{dim,dim}];
 		\[Phi]+=(Conjugate@gs) . (mask . gs);
 	,{gssectorindex,Flatten@{GsSectorIndex}}];
-	\[Phi]=\[Phi]/(Dim@Flatten@{GsSectorIndex});
+	\[Phi]=\[Phi]/(Length@Flatten@{GsSectorIndex});
 	-\[Phi]
 ];
 
 (* Superfluid Stiffness *)
-SuperfluidStiffnessBethe[\[CapitalSigma]_,LE_,i\[Omega]_]:=Module[
+SuperfluidStiffnessBethe[\[CapitalSigma]_,LE_Integer,i\[Omega]_]:=Module[
 	{DoS,Flattice,Ds,V,T,d\[Epsilon],DBethe=1.},
 	(* initialize parameters *)
 	T=(i\[Omega][[2]]-i\[Omega][[1]])/(2*Pi*I);
@@ -1178,14 +1181,13 @@ DMFTError[Xnew_,Xold_]:=Module[
 	If[Xold===Null,
 		error=1,
 	(*else*)
-		error=Total[Abs[Xnew-Xold]]/Total[Abs[Xnew+Xold]];
+		error=Total[Abs[Xnew-Xold]]/Total[Abs[Xnew]]
 	];
-	Print[Style["Error = ",Bold],Style[error,Bold]];
 	error
 ];
 
 (* general template for output storage *)
-WriteOutput[condition_,file_,label_,U_,data_]:=Module[
+WriteOutput[condition_, file_String, label_String, U_Real, data_]:=Module[
 	{fout},
 	Which[
 		label=="BathParameters",
@@ -1196,7 +1198,7 @@ WriteOutput[condition_,file_,label_,U_,data_]:=Module[
 	(* ---------------------------------------- *)
 		label=="SelfEnergy",
 		If[condition,
-			Export[file,data];
+			Export[file,data,"Table"];
 			Print["Self Energy stored on file.\n"]
 		],
 	(* ---------------------------------------- *)
@@ -1274,7 +1276,7 @@ WriteOutput[condition_,file_,label_,U_,data_]:=Module[
 ];
 
 (* general template for output storage *)
-WriteClusterOutput[condition_,file_,label_,U_,data_]:=Module[
+WriteClusterOutput[condition_, file_String, label_String, U_Real, data_]:=Module[
 	{fout},
 	Which[
 		label=="BathParameters",
@@ -1285,7 +1287,7 @@ WriteClusterOutput[condition_,file_,label_,U_,data_]:=Module[
 	(* ---------------------------------------- *)
 		label=="SelfEnergy",
 		If[condition,
-			Export[file,data];
+			Export[file,data,"Table"];
 			Print["Self Energy stored on file.\n"]
 		],
 	(* ---------------------------------------- *)
@@ -1363,7 +1365,7 @@ WriteClusterOutput[condition_,file_,label_,U_,data_]:=Module[
 ];
 
 
-PlotState[L_,Norb_,state_]:=Module[
+PlotState[L_Integer, Norb_Integer, state_]:=Module[
 	{
 	uparrow={Arrowheads[Large],Arrow[{{0,0},{0,.25}}]},
 	downarrow={Arrowheads[Large],Arrow[{{.25,.25},{.25,0}}]},
