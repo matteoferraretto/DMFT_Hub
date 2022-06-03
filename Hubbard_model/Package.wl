@@ -261,7 +261,7 @@ CCSign[L_Integer, i1_Integer, \[Sigma]1_Integer, i2_Integer, \[Sigma]2_Integer, 
 
 
 (*apply cdg_\[Sigma] |gs>, where |gs> belongs to the sector (m,nup) and give the resulting vector resized to fit the dimension of the sector (n+1,nup+1) or (n+1,nup) (depending on \[Sigma])*)
-ApplyCdg[L_Integer, f_Integer, \[Sigma]_Integer, gs_, qns_, EdMode_String]:=Module[
+ApplyCdg[L_Integer, f_Integer, \[Sigma]_Integer, gs:{__Real}, qns_, EdMode_String]:=Module[
 	{n,nup,sz,startingsector,finalsector,dim,sign,rules,dispatch,pos,\[Psi],thread,result},
 	startingsector = BuildSector[L,f,qns,EdMode];
 	(* build the final sector *)
@@ -303,7 +303,7 @@ ApplyCdg[L_Integer, f_Integer, \[Sigma]_Integer, gs_, qns_, EdMode_String]:=Modu
 ];
 
 (*apply c_\[Sigma] |gs>, where |gs> belongs to the sector (m,nup) and give the resulting vector resized to fit the dimension of the sector (n-1,nup-1) or (n-1,nup) (depending on \[Sigma])*)
-ApplyC[L_Integer, f_Integer, \[Sigma]_Integer, gs_, qns_, EdMode_String]:=Module[
+ApplyC[L_Integer, f_Integer, \[Sigma]_Integer, gs:{__Real}, qns_, EdMode_String]:=Module[
 	{n,nup,sz,startingsector,finalsector,dim,sign,rules,dispatch,pos,\[Psi],thread,result},
 	startingsector=BuildSector[L,f,qns,EdMode];
 	(* build the final sector *)
@@ -594,7 +594,7 @@ G[z_,a_,b_]:=Fold[f,
 Last@b/Last@(a-z*ConstantArray[1,(Dimensions@a)[[1]]]),Reverse@Most@Transpose@{a-z*ConstantArray[1,(Dimensions@a)[[1]]],b}];
 
 (* compute the impurity Normal Green function both with normal and superconducting bath *)
-ImpurityDiagonalGreenFunction[L_Integer, f_Integer, Egs_Real, gs_, GsSectorIndex_, QnsSectorList_, Hsectors_, EdMode_String, \[Sigma]_Integer, z_]:=Module[
+ImpurityDiagonalGreenFunction[L_Integer, f_Integer, Egs_Real, gs:{__Real}, GsSectorIndex_Integer, QnsSectorList_, Hsectors_, EdMode_String, \[Sigma]_Integer, z_]:=Module[
 	{norm,cdggs,cgs,E0,a,b,bprime,GF,H,rules,dispatch,n,nup,sz,sectorindex,\[Epsilon]=10^(-13),MinLancIter=2,MaxLancIter=10^3,LancShift=0},
 	rules=Flatten[MapIndexed[{#1->#2[[1]]}&,QnsSectorList],1];
 	dispatch=Dispatch[rules];
@@ -669,7 +669,7 @@ ImpurityDiagonalGreenFunction[L_Integer, f_Integer, Egs_Real, gs_, GsSectorIndex
 ];
 
 (* compute the impurity Green function with superconducting bath *)
-ImpurityGreenFunctionSuperc[L_Integer, f_Integer, Egs_Real, gs_, GsSectorIndex_, QnsSectorList_, Hsectors_, z_]:=Module[
+ImpurityGreenFunctionSuperc[L_Integer, f_Integer, Egs_Real, gs:{__Real}, GsSectorIndex_, QnsSectorList_, Hsectors_, z_]:=Module[
 	{cdgup0,cdgdw0,cup0,cdw0,GFAparticle,GFAhole,GFBparticle,GFBhole,GFOparticle,GFOhole,GFO,GFPparticle,GFPhole,GFP,GFA,GFB,rules0,dispatch0,sz0,GF12,GF21},
 	(* create a rule that associates a number 1,2,3,... to all sectors *)
 	rules0 = Flatten[MapIndexed[{#1->#2[[1]]}&,QnsSectorList],1];	dispatch0 = Dispatch[rules0];
@@ -774,7 +774,7 @@ ImpurityGreenFunctionSuperc[L_Integer, f_Integer, Egs_Real, gs_, GsSectorIndex_,
 ];
 
 (* Return a list of 2x2 matrices representing the impurity GF in the normal spinor or Nambu spinor basis depending on EdMode *)
-ImpurityGreenFunction[L_Integer, f_Integer, Egs_Real, gs_, GsSectorIndex_, QnsSectorList_, Hsectors_, EdMode_String, z_]:=Module[
+ImpurityGreenFunction[L_Integer, f_Integer, Egs_Real, gs:{__Real}, GsSectorIndex_, QnsSectorList_, Hsectors_, EdMode_String, z_]:=Module[
 	{GF,GFup,GFdw,zero},
 	Which[
 		EdMode=="Normal",
@@ -820,7 +820,7 @@ LocalGreenFunction[Lattice_String, \[CapitalSigma]_, EdMode_String, z_]:=Module[
 ];
 
 (* compute the spectral function on real frequencies *)
-SpectralFunction[L_Integer, f_Integer, Egs_, GsSectorIndex_, GsSectorList_, QnsSectorList_, Hsectors_, EdMode_String, \[Omega]_Real, \[Eta]_Real]:=Module[
+SpectralFunction[L_Integer, f_Integer, Egs_Real, GsSectorIndex_, GsSectorList_, QnsSectorList_, Hsectors_, EdMode_String, \[Omega]_Real, \[Eta]_Real]:=Module[
 	{SpectralFunction,Gs,d\[Omega],Nreal},
 	d\[Omega] = \[Omega][[2]]-\[Omega][[1]];
 	Nreal = Length[\[Omega]];
@@ -892,7 +892,7 @@ hyb
 ];
 
 (* analytic evaluation of non interacting green function *)
-NonInteractingGreenFunction[L_Integer, e_, V_, z_]:=1.0/(z+e[[1]]-\[CapitalGamma][L,Drop[e,1],V,z]);
+NonInteractingGreenFunction[L_Integer, e:{__Reals}, V:{__Reals}, z_]:=1.0/(z+e[[1]]-\[CapitalGamma][L,Drop[e,1],V,z]);
 
 (* useful functions to evaluate the non interacting Green function in the superconducting case *)
 A[Nbath_Integer, Parameters_, z_]:=z-\[CapitalGamma][Nbath,Parameters,"Superc",z];
