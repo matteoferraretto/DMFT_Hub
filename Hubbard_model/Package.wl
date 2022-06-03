@@ -217,7 +217,7 @@ DimSector[L_Integer, qns_, EdMode_String]:=Module[
 ]
 
 (*apply cdg with a given spin to a basis state: return the integer form of the resulting basis state or 0*)
-cdg[L_Integer, \[Sigma]_Integer, state_Integer]:=Module[
+cdg[L_Integer, \[Sigma]_Integer, state_]:=Module[
 	{binarystate},
 	binarystate=IntegerDigits[#,2,L]&@state;
 	If[binarystate[[\[Sigma],1]]==0,
@@ -229,7 +229,7 @@ cdg[L_Integer, \[Sigma]_Integer, state_Integer]:=Module[
 ];
 
 (* apply c with a given spin to a basis state: return the integer form of the resulting basis state or 0 *)
-c[L_Integer, \[Sigma]_Integer, state_Integer]:=Module[
+c[L_Integer, \[Sigma]_Integer, state_]:=Module[
 	{binarystate},
 	binarystate=IntegerDigits[#,2,L]&@state;
 	If[binarystate[[\[Sigma],1]]==1,
@@ -243,7 +243,7 @@ c[L_Integer, \[Sigma]_Integer, state_Integer]:=Module[
 
 
 (*Counts how many fermions there are before state[[\[Sigma],i]] (excluded). If you set i=1,\[Sigma]=1 you get 0; if you set i=L+1,\[Sigma]=f you get the total number of fermions in the state*)
-CountFermions[L_Integer, i_Integer, \[Sigma]_Integer, state_Integer]:=
+CountFermions[L_Integer, i_Integer, \[Sigma]_Integer, state_]:=
 If[\[Sigma]==1,
 	Sum[(IntegerDigits[#,2,L]&@(state[[\[Sigma]]]))[[k]],{k,1,i-1}],
 (*else*)
@@ -255,9 +255,9 @@ If[\[Sigma]==1,
 ];
 
 (* sign accumulated by moving c_i\[Sigma] to the correct position when applying c_i\[Sigma]|state> or cdg_i\[Sigma]|state> *)
-CSign[L_Integer, i_Integer, \[Sigma]_Integer, state_Integer]:=(-1)^CountFermions[L,i,\[Sigma],state];
+CSign[L_Integer, i_Integer, \[Sigma]_Integer, state_]:=(-1)^CountFermions[L,i,\[Sigma],state];
 (* sign accumulated by moving c_i1\[Sigma]1 and c_i2\[Sigma]2 to the correct positions when applying c_i\[Sigma]1 c_i\[Sigma]2 |state> or similar pairs of operators *)
-CCSign[L_Integer, i1_Integer, \[Sigma]1_Integer, i2_Integer, \[Sigma]2_Integer, state_Integer]:=(-1)^(CountFermions[L,i2,\[Sigma]2,state]-CountFermions[L,i1,\[Sigma]1,state]);
+CCSign[L_Integer, i1_Integer, \[Sigma]1_Integer, i2_Integer, \[Sigma]2_Integer, state_]:=(-1)^(CountFermions[L,i2,\[Sigma]2,state]-CountFermions[L,i1,\[Sigma]1,state]);
 
 
 (*apply cdg_\[Sigma] |gs>, where |gs> belongs to the sector (m,nup) and give the resulting vector resized to fit the dimension of the sector (n+1,nup+1) or (n+1,nup) (depending on \[Sigma])*)
@@ -520,7 +520,7 @@ GetHamiltonian[L_Integer, f_Integer, QnsSectorList_, LoadHamiltonianQ_, ImpHBloc
 
 Swap[x_,y_]:=Module[{},Return[{y,x}]];
 
-Lanczos[H_, \[Epsilon]_Real, miniter_Integer, maxiter_Integer, shift_Integer, startingvector_]:=Module[
+Lanczos[H_, \[Epsilon]_, miniter_Integer, maxiter_Integer, shift_Integer, startingvector_]:=Module[
 	{a,b,dim,a0,b1,v,w,HKrilov,E0old,E0new,nfinal},
 	(* initialize array of a_n :  a[1]=a_0 , a[1+n]=a_n *)
 	a=ConstantArray[0,maxiter+1];
@@ -594,7 +594,7 @@ G[z_,a_,b_]:=Fold[f,
 Last@b/Last@(a-z*ConstantArray[1,(Dimensions@a)[[1]]]),Reverse@Most@Transpose@{a-z*ConstantArray[1,(Dimensions@a)[[1]]],b}];
 
 (* compute the impurity Normal Green function both with normal and superconducting bath *)
-ImpurityDiagonalGreenFunction[L_Integer, f_Integer, Egs_Real, gs_, GsSectorIndex_, QnsSectorList_, Hsectors_, EdMode_String, \[Sigma]_Integer, z_]:=Module[
+ImpurityDiagonalGreenFunction[L_Integer, f_Integer, Egs_, gs_, GsSectorIndex_, QnsSectorList_, Hsectors_, EdMode_String, \[Sigma]_Integer, z_]:=Module[
 	{norm,cdggs,cgs,E0,a,b,bprime,GF,H,rules,dispatch,n,nup,sz,sectorindex,\[Epsilon]=10^(-13),MinLancIter=2,MaxLancIter=10^3,LancShift=0},
 	rules=Flatten[MapIndexed[{#1->#2[[1]]}&,QnsSectorList],1];
 	dispatch=Dispatch[rules];
@@ -669,7 +669,7 @@ ImpurityDiagonalGreenFunction[L_Integer, f_Integer, Egs_Real, gs_, GsSectorIndex
 ];
 
 (* compute the impurity Green function with superconducting bath *)
-ImpurityGreenFunctionSuperc[L_Integer, f_Integer, Egs_Real, gs_, GsSectorIndex_, QnsSectorList_, Hsectors_, z_]:=Module[
+ImpurityGreenFunctionSuperc[L_Integer, f_Integer, Egs_, gs_, GsSectorIndex_, QnsSectorList_, Hsectors_, z_]:=Module[
 	{cdgup0,cdgdw0,cup0,cdw0,GFAparticle,GFAhole,GFBparticle,GFBhole,GFOparticle,GFOhole,GFO,GFPparticle,GFPhole,GFP,GFA,GFB,rules0,dispatch0,sz0,GF12,GF21},
 	(* create a rule that associates a number 1,2,3,... to all sectors *)
 	rules0 = Flatten[MapIndexed[{#1->#2[[1]]}&,QnsSectorList],1];	dispatch0 = Dispatch[rules0];
@@ -774,7 +774,7 @@ ImpurityGreenFunctionSuperc[L_Integer, f_Integer, Egs_Real, gs_, GsSectorIndex_,
 ];
 
 (* Return a list of 2x2 matrices representing the impurity GF in the normal spinor or Nambu spinor basis depending on EdMode *)
-ImpurityGreenFunction[L_Integer, f_Integer, Egs_Real, gs_, GsSectorIndex_, QnsSectorList_, Hsectors_, EdMode_String, z_]:=Module[
+ImpurityGreenFunction[L_Integer, f_Integer, Egs_, gs_, GsSectorIndex_, QnsSectorList_, Hsectors_, EdMode_String, z_]:=Module[
 	{GF,GFup,GFdw,zero},
 	Which[
 		EdMode=="Normal",
@@ -820,7 +820,7 @@ LocalGreenFunction[Lattice_String, \[CapitalSigma]_, EdMode_String, z_]:=Module[
 ];
 
 (* compute the spectral function on real frequencies *)
-SpectralFunction[L_Integer, f_Integer, Egs_Real, GsSectorIndex_, GsSectorList_, QnsSectorList_, Hsectors_, EdMode_String, \[Omega]_, \[Eta]_Real]:=Module[
+SpectralFunction[L_Integer, f_Integer, Egs_, GsSectorIndex_, GsSectorList_, QnsSectorList_, Hsectors_, EdMode_String, \[Omega]_Real, \[Eta]_Real]:=Module[
 	{SpectralFunction,Gs,d\[Omega],Nreal},
 	d\[Omega] = \[Omega][[2]]-\[Omega][[1]];
 	Nreal = Length[\[Omega]];
@@ -892,11 +892,11 @@ hyb
 ];
 
 (* analytic evaluation of non interacting green function *)
-NonInteractingGreenFunction[L_Integer, e : {__Reals}, V : {__Reals}, z_]:=1.0/(z+e[[1]]-\[CapitalGamma][L,Drop[e,1],V,z]);
+NonInteractingGreenFunction[L_Integer, e_, V_, z_]:=1.0/(z+e[[1]]-\[CapitalGamma][L,Drop[e,1],V,z]);
 
 (* useful functions to evaluate the non interacting Green function in the superconducting case *)
-A[Nbath_Integer, Parameters : {__Reals}, z_]:=z-\[CapitalGamma][Nbath,Parameters,"Superc",z];
-B[Nbath_Integer, Parameters : {__Reals}, z_]:=Module[
+A[Nbath_Integer, Parameters_, z_]:=z-\[CapitalGamma][Nbath,Parameters,"Superc",z];
+B[Nbath_Integer, Parameters_, z_]:=Module[
 	{e,V,\[CapitalDelta]},
 	e=Take[Parameters,{1,Nbath}];
 	V=Take[Parameters,{Nbath+1,2Nbath}];
@@ -905,7 +905,7 @@ B[Nbath_Integer, Parameters : {__Reals}, z_]:=Module[
 ];
 
 (* Weiss field (inverse non interacting impurity Green function *)
-WeissField[Nbath_Integer, Parameters : {__Reals}, EdMode_String, z_]:=
+WeissField[Nbath_Integer, Parameters_, EdMode_String, z_]:=
 	Which[
 		EdMode=="Normal",
 		Partition[#,2]&/@({
@@ -930,7 +930,7 @@ NonInteractingGreenFunction[L_,Parameters_,z_]:={
 
 
 (* SELF CONSISTENCY PROCEDURES *)
-SelfConsistencyBethe[Nbath_Integer, LocalGF_, LFit_Integer, Mixing_Real, StartingParameters : {__Reals}, EdMode_String, z_]:=Module[
+SelfConsistencyBethe[Nbath_Integer, LocalGF_, LFit_Integer, Mixing_, StartingParameters_, EdMode_String, z_]:=Module[
 	{esymbols,Vsymbols,\[CapitalDelta]symbols,symbols,residue,newparameters,newe,newV,new\[CapitalDelta],lists,e,V,\[CapitalDelta],\[Chi],\[Chi]normal,\[Chi]anomalous,DBethe=1.},
 	Which[
 		EdMode=="Normal",
