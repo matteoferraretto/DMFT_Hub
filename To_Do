@@ -1,0 +1,6 @@
+*To Do list
+
+1.
+The functions ApplyCdg[] and ApplyC[] have to build the starting and final sectors on the fly. 
+This is a waste of time since all the sectors are build at the beginning. 
+The code can be improved by storing the sectors at the beginning and passing all the sectors to these functions rather than generating them on the fly.
