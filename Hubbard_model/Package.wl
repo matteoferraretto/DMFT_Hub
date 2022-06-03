@@ -520,7 +520,7 @@ GetHamiltonian[L_Integer, f_Integer, QnsSectorList_, LoadHamiltonianQ_, ImpHBloc
 
 Swap[x_,y_]:=Module[{},Return[{y,x}]];
 
-Lanczos[H_, \[Epsilon]_Real, miniter_Integer, maxiter_Integer, shift_Integer, startingvector_]:=Module[
+Lanczos[H_, \[Epsilon]_, miniter_Integer, maxiter_Integer, shift_Integer, startingvector_]:=Module[
 	{a,b,dim,a0,b1,v,w,HKrilov,E0old,E0new,nfinal},
 	(* initialize array of a_n :  a[1]=a_0 , a[1+n]=a_n *)
 	a=ConstantArray[0,maxiter+1];
