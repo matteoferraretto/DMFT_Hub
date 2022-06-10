@@ -261,29 +261,29 @@ CCSign[L_Integer, i1_Integer, \[Sigma]1_Integer, i2_Integer, \[Sigma]2_Integer, 
 
 
 (*apply cdg_\[Sigma] |gs>, where |gs> belongs to the sector (m,nup) and give the resulting vector resized to fit the dimension of the sector (n+1,nup+1) or (n+1,nup) (depending on \[Sigma])*)
-ApplyCdg[L_Integer, f_Integer, \[Sigma]_Integer, gs:{__Real}, qns_, EdMode_String]:=Module[
+ApplyCdg[L_Integer, f_Integer, \[Sigma]_Integer, gs:{__Real}, qns_, Sectors_, SectorsDispatch_, EdMode_String]:=Module[
 	{n,nup,sz,startingsector,finalsector,dim,sign,rules,dispatch,pos,\[Psi],thread,result},
-	startingsector = BuildSector[L,f,qns,EdMode];
+	startingsector = Sectors[[qns/.SectorsDispatch]];
 	(* build the final sector *)
 	Which[
 		EdMode=="Normal",
 		{n,nup}=qns;
 		If[(\[Sigma]==1&&nup==L)||(\[Sigma]==2&&(n-nup)==L),Return[0]];  (* trivial case *)
 		finalsector=Which[
-			\[Sigma]==1,BuildSector[L,f,{n+1,nup+1},"Normal"],
-			\[Sigma]==2,BuildSector[L,f,{n+1,nup},"Normal"]
+			\[Sigma]==1, Sectors[[{n+1,nup+1}/.SectorsDispatch]],
+			\[Sigma]==2, Sectors[[{n+1,nup}/.SectorsDispatch]]
 		],
 	(* --------------------------- *)
 		EdMode=="Superc",
 		sz=qns;
 		If[(sz==-L&&\[Sigma]==2)||(sz==L&&\[Sigma]==1),Return[0]];  (* trivial case *)
-		finalsector=Which[
-			\[Sigma]==1,BuildSector[L,f,sz+1,"Superc"],
-			\[Sigma]==2,BuildSector[L,f,sz-1,"Superc"]
+		finalsector = Which[
+			\[Sigma]==1, Sectors[[(sz+1)/.SectorsDispatch]],
+			\[Sigma]==2, Sectors[[(sz-1)/.SectorsDispatch]]
 		];
 	];
 	(*evaluate the dimension*)
-	dim=Length[finalsector];
+	dim = Length[finalsector];
 	(*compute the list of signs obtained moving cdg to the correct position*)
 	sign=CSign[L,1,\[Sigma],#]&/@startingsector;
 	(*create a dispatch that labels all these states*)
@@ -303,29 +303,29 @@ ApplyCdg[L_Integer, f_Integer, \[Sigma]_Integer, gs:{__Real}, qns_, EdMode_Strin
 ];
 
 (*apply c_\[Sigma] |gs>, where |gs> belongs to the sector (m,nup) and give the resulting vector resized to fit the dimension of the sector (n-1,nup-1) or (n-1,nup) (depending on \[Sigma])*)
-ApplyC[L_Integer, f_Integer, \[Sigma]_Integer, gs:{__Real}, qns_, EdMode_String]:=Module[
+ApplyC[L_Integer, f_Integer, \[Sigma]_Integer, gs:{__Real}, qns_, Sectors_, SectorsDispatch_, EdMode_String]:=Module[
 	{n,nup,sz,startingsector,finalsector,dim,sign,rules,dispatch,pos,\[Psi],thread,result},
-	startingsector=BuildSector[L,f,qns,EdMode];
+	startingsector = Sectors[[qns/.SectorsDispatch]];
 	(* build the final sector *)
 	Which[
 		EdMode=="Normal",
 		{n,nup}=qns;
 		If[(\[Sigma]==1&&nup==0)||(\[Sigma]==2&&(n-nup)==0),Return[0]];  (* trivial case *)
 		finalsector=Which[
-			\[Sigma]==1,BuildSector[L,f,{n-1,nup-1},"Normal"],
-			\[Sigma]==2,BuildSector[L,f,{n-1,nup},"Normal"]
+			\[Sigma]==1, Sectors[[{n-1,nup-1}/.SectorsDispatch]],
+			\[Sigma]==2, Sectors[[{n-1,nup}/.SectorsDispatch]]
 		],
 	(* --------------------------- *)
 		EdMode=="Superc",
 		sz=qns;
 		If[(sz==-L&&\[Sigma]==1)||(sz==L&&\[Sigma]==2),Return[0]];
 		finalsector=Which[
-			\[Sigma]==1,BuildSector[L,f,sz-1,"Superc"],
-			\[Sigma]==2,BuildSector[L,f,sz+1,"Superc"]
+			\[Sigma]==1, Sectors[[(sz-1)/.SectorsDispatch]],
+			\[Sigma]==2, Sectors[[(sz+1)/.SectorsDispatch]]
 		];
 	];
 	(*evaluate the dimension*)
-	dim=Length[finalsector];
+	dim = Length[finalsector];
 	(*compute the list of signs obtained moving cdg to the correct position*)
 	sign=CSign[L,1,\[Sigma],#]&/@startingsector;
 	(*create a dispatch that labels all these states*)
@@ -520,7 +520,7 @@ GetHamiltonian[L_Integer, f_Integer, QnsSectorList_, LoadHamiltonianQ_, ImpHBloc
 
 Swap[x_,y_]:=Module[{},Return[{y,x}]];
 
-Lanczos[H_, \[Epsilon]_, miniter_Integer, maxiter_Integer, shift_Integer, startingvector_]:=Module[
+Lanczos[H_, \[Epsilon]_Real, miniter_Integer, maxiter_Integer, shift_Integer, startingvector_]:=Module[
 	{a,b,dim,a0,b1,v,w,HKrilov,E0old,E0new,nfinal},
 	(* initialize array of a_n :  a[1]=a_0 , a[1+n]=a_n *)
 	a=ConstantArray[0,maxiter+1];
@@ -594,35 +594,33 @@ G[z_,a_,b_]:=Fold[f,
 Last@b/Last@(a-z*ConstantArray[1,(Dimensions@a)[[1]]]),Reverse@Most@Transpose@{a-z*ConstantArray[1,(Dimensions@a)[[1]]],b}];
 
 (* compute the impurity Normal Green function both with normal and superconducting bath *)
-ImpurityDiagonalGreenFunction[L_Integer, f_Integer, Egs_Real, gs:{__Real}, GsSectorIndex_Integer, QnsSectorList_, Hsectors_, EdMode_String, \[Sigma]_Integer, z_]:=Module[
-	{norm,cdggs,cgs,E0,a,b,bprime,GF,H,rules,dispatch,n,nup,sz,sectorindex,\[Epsilon]=10^(-13),MinLancIter=2,MaxLancIter=10^3,LancShift=0},
-	rules=Flatten[MapIndexed[{#1->#2[[1]]}&,QnsSectorList],1];
-	dispatch=Dispatch[rules];
+ImpurityDiagonalGreenFunction[L_Integer, f_Integer, Egs_Real, gs:{__Real}, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, EdMode_String, \[Sigma]_Integer, z_]:=Module[
+	{norm,cdggs,cgs,E0,a,b,bprime,GF,H,rules,dispatch,n,nup,sz,sectorindex,\[Epsilon]=1.*10^(-13),MinLancIter=2,MaxLancIter=10^3,LancShift=0},
 	Which[
 		EdMode=="Normal",
-		{n,nup}=QnsSectorList[[GsSectorIndex]];
+		{n,nup} = GsQns;
 		(*apply Cdg_\[Sigma]|gs> and C_\[Sigma]|gs> and  n = <gs| Cdg_\[Sigma] C_\[Sigma] |gs>*)
-		cdggs=ApplyCdg[L,f,\[Sigma],gs/Norm[gs],{n,nup},"Normal"];(*add a particle*)
-		cgs=ApplyC[L,f,\[Sigma],gs/Norm[gs],{n,nup},"Normal"];(*remove a particle*)
-		norm=(Conjugate@cgs) . cgs;
+		cdggs = ApplyCdg[L,f,\[Sigma],gs/Norm[gs],{n,nup},Sectors,SectorsDispatch,"Normal"];(*add a particle*)
+		cgs = ApplyC[L,f,\[Sigma],gs/Norm[gs],{n,nup},Sectors,SectorsDispatch,"Normal"];(*remove a particle*)
+		norm = (Conjugate@cgs) . cgs;
 	(*                                       *)	
 	(*           add a particle              *)
 		Which[
-			\[Sigma]==1,sectorindex={n+1,nup+1}/.dispatch,
-			\[Sigma]==2,sectorindex={n+1,nup}/.dispatch		
+			\[Sigma]==1, sectorindex={n+1,nup+1}/.SectorsDispatch,
+			\[Sigma]==2, sectorindex={n+1,nup}/.SectorsDispatch		
 		];
-		H=Hsectors[[sectorindex]];
+		H = Hsectors[[sectorindex]];
 		(*Lanczos iteration starting from the input state Cdg_\[Sigma]|gs>*)
-		{E0,a,b}=Lanczos[H,\[Epsilon],MinLancIter,MaxLancIter,LancShift,cdggs/Norm[cdggs]];
+		{E0,a,b} = Lanczos[H,\[Epsilon],MinLancIter,MaxLancIter,LancShift,cdggs/Norm[cdggs]];
 		(*adapt the list b to construct the continued fraction*)
-		bprime=(Flatten@{1,-ReplacePart[b^2,-1->-(b[[-1]])^2]});
+		bprime = (Flatten@{1,-ReplacePart[b^2,-1->-(b[[-1]])^2]});
 		(*G[z,{a0,a1,a2,a3},{1,-b1^2,-b2^2,b3^2}]*)
 		GF=(1-norm)*Map[G[#+Egs,a,bprime]&,z];
 	(*                                          *)
 	(*           remove a particle              *)
 		Which[
-			\[Sigma]==1,sectorindex={n-1,nup-1}/.dispatch,
-			\[Sigma]==2,sectorindex={n-1,nup}/.dispatch
+			\[Sigma]==1,sectorindex={n-1,nup-1}/.SectorsDispatch,
+			\[Sigma]==2,sectorindex={n-1,nup}/.SectorsDispatch
 		];
 		H=Hsectors[[sectorindex]];
 		(*Lanczos iteration starting from the input state \[Psi]*)
@@ -633,18 +631,18 @@ ImpurityDiagonalGreenFunction[L_Integer, f_Integer, Egs_Real, gs:{__Real}, GsSec
 		GF+=norm*Map[G[#-Egs,-a,bprime]&,z],
 	(* ------------------------------------------------------ *)	
 		EdMode=="Superc",
-		sz=QnsSectorList[[GsSectorIndex]];
+		sz = GsQns;
 		(*apply Cdg_\[Sigma]|gs> and C_\[Sigma]|gs> and  n = <gs| Cdg_\[Sigma] C_\[Sigma] |gs>*)
-		cdggs=ApplyCdg[L,f,\[Sigma],gs/Norm[gs],sz,"Superc"];(*add a particle*)
-		cgs=ApplyC[L,f,\[Sigma],gs/Norm[gs],sz,"Superc"];(*remove a particle*)
+		cdggs = ApplyCdg[L,f,\[Sigma],gs/Norm[gs],sz,Sectors,SectorsDispatch,"Superc"];(*add a particle*)
+		cgs = ApplyC[L,f,\[Sigma],gs/Norm[gs],sz,Sectors,SectorsDispatch,"Superc"];(*remove a particle*)
 		norm=(Conjugate@cgs) . cgs;
 	(*                                       *)	
 	(*           add a particle              *)
 		Which[
-			\[Sigma]==1,sectorindex=(sz+1)/.dispatch,
-			\[Sigma]==2,sectorindex=(sz-1)/.dispatch
+			\[Sigma]==1, sectorindex=(sz+1)/.SectorsDispatch,
+			\[Sigma]==2, sectorindex=(sz-1)/.SectorsDispatch
 		];
-		H=Hsectors[[sectorindex]];
+		H = Hsectors[[sectorindex]];
 		(*Lanczos iteration starting from the input state Cdg_\[Sigma]|gs>*)
 		{E0,a,b}=Lanczos[H,\[Epsilon],MinLancIter,MaxLancIter,LancShift,cdggs/Norm[cdggs]];
 		(*adapt the list b to construct the continued fraction*)
@@ -654,8 +652,8 @@ ImpurityDiagonalGreenFunction[L_Integer, f_Integer, Egs_Real, gs:{__Real}, GsSec
 	(*                                          *)
 	(*           remove a particle              *)
 		Which[
-			\[Sigma]==1,sectorindex=(sz-1)/.dispatch,
-			\[Sigma]==2,sectorindex=(sz+1)/.dispatch
+			\[Sigma]==1,sectorindex=(sz-1)/.SectorsDispatch,
+			\[Sigma]==2,sectorindex=(sz+1)/.SectorsDispatch
 		];
 		H=Hsectors[[sectorindex]];
 		(*Lanczos iteration starting from the input state \[Psi]*)
@@ -669,94 +667,92 @@ ImpurityDiagonalGreenFunction[L_Integer, f_Integer, Egs_Real, gs:{__Real}, GsSec
 ];
 
 (* compute the impurity Green function with superconducting bath *)
-ImpurityGreenFunctionSuperc[L_Integer, f_Integer, Egs_Real, gs:{__Real}, GsSectorIndex_, QnsSectorList_, Hsectors_, z_]:=Module[
+ImpurityGreenFunctionSuperc[L_Integer, f_Integer, Egs_Real, gs:{__Real}, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, z_]:=Module[
 	{cdgup0,cdgdw0,cup0,cdw0,GFAparticle,GFAhole,GFBparticle,GFBhole,GFOparticle,GFOhole,GFO,GFPparticle,GFPhole,GFP,GFA,GFB,rules0,dispatch0,sz0,GF12,GF21},
-	(* create a rule that associates a number 1,2,3,... to all sectors *)
-	rules0 = Flatten[MapIndexed[{#1->#2[[1]]}&,QnsSectorList],1];	dispatch0 = Dispatch[rules0];
 	(* quantum number of the ground state sector *)
-	sz0 = QnsSectorList[[GsSectorIndex]];
+	sz0 = GsQns;
 	(* communicate all the functions to all the kernels *)
 	DistributeDefinitions[ApplyCdg,ApplyC,Lanczos,G];
 	(* compute cdg_s|gs> and c_s|gs> for s = up, dw *)
 	{cdgup0, cdgdw0, cup0, cdw0} = 
 	With[{sz=sz0},
 		Parallelize[{
-			ApplyCdg[L,f,1,gs/Norm[gs],sz,"Superc"],
-			ApplyCdg[L,f,2,gs/Norm[gs],sz,"Superc"],
-			ApplyC[L,f,1,gs/Norm[gs],sz,"Superc"],
-			ApplyC[L,f,2,gs/Norm[gs],sz,"Superc"]
+			ApplyCdg[L,f,1,gs/Norm[gs],sz,Sectors,SectorsDispatch,"Superc"],
+			ApplyCdg[L,f,2,gs/Norm[gs],sz,Sectors,SectorsDispatch,"Superc"],
+			ApplyC[L,f,1,gs/Norm[gs],sz,Sectors,SectorsDispatch,"Superc"],
+			ApplyC[L,f,2,gs/Norm[gs],sz,Sectors,SectorsDispatch,"Superc"]
 		}]
 	];
 	(* compute all the main contributions to the Green function *)
 	{GFOparticle, GFOhole, GFPparticle, GFPhole, GFAparticle, GFAhole, GFBparticle, GFBhole} = 
 	With[
-	{rules=rules0, dispatch=dispatch0, sz=sz0, cdgup=cdgup0, cdgdw=cdgdw0, cup=cup0, cdw=cdw0},
+	{sz=sz0, cdgup=cdgup0, cdgdw=cdgdw0, cup=cup0, cdw=cdw0},
 		Parallelize[{
 			(*          O "Particle" contribution             *)
 			Module[{Odggs,sectorindex,H,E0,a,b,bprime},
 				Odggs = cdgup + cdw;(* apply Odg|gs> = (Cdg_up + C_dw)|gs> *)
-				sectorindex = (sz+1)/.dispatch;(*if you create an up fermion or destroy a down fermion, you go from sz to sz+1*)
+				sectorindex=(sz+1)/.SectorsDispatch;(*if you create an up fermion or destroy a down fermion, you go from sz to sz+1*)
 				H = Hsectors[[sectorindex]];(*Hamiltonian on that sector*)
-				{E0,a,b} = Lanczos[H, 10^(-16), 2, 1000, 0, Odggs/Norm[Odggs]];(* Apply Lanczos starting from Odg|gs> *)
+				{E0,a,b}=Lanczos[H, 1.*10^(-16), 2, 1000, 0, Odggs/Norm[Odggs]];(* Apply Lanczos starting from Odg|gs> *)
 				bprime = (Flatten@{1,-ReplacePart[b^2,-1->-(b[[-1]])^2]});(* adapt the list b to construct the continued fraction *)
 				((Conjugate@Odggs) . Odggs)*Map[G[#+Egs,a,bprime]&,z]
 			],
 			(*           O "Hole" contribution               *)
 			Module[{Ogs,sectorindex,H,E0,a,b,bprime},	
 				Ogs = cup + cdgdw;(* apply (C_up + Cdg_dw)|gs> = O|gs> *)
-				sectorindex = (sz-1)/.dispatch;(*if you remove an up fermion or create a down fermion, you go from sz to sz-1*)
+				sectorindex = (sz-1)/.SectorsDispatch;(*if you remove an up fermion or create a down fermion, you go from sz to sz-1*)
 				H = Hsectors[[sectorindex]];
-				{E0,a,b} = Lanczos[H,10^(-16),2,1000,0,Ogs/Norm[Ogs]];
+				{E0,a,b} = Lanczos[H, 1.*10^(-16),2,1000,0,Ogs/Norm[Ogs]];
 				bprime = (Flatten@{1,-ReplacePart[b^2,-1->-(b[[-1]])^2]});(*adapt the list b to construct the continued fraction*)
 				((Conjugate@Ogs) . Ogs)*Map[G[#-Egs,-a,bprime]&,z]
 			],
 			(*         P "Particle" contribution           *)
 			Module[{Pdggs,sectorindex,H,E0,a,b,bprime},
 				Pdggs = cdgup + I*cdw;(* apply (Cdg_up + I*C_dw)|gs> = Pdg|gs> *)
-				sectorindex = (sz+1)/.dispatch;(* if you create an up fermion or destroy a down fermion, you go from sz to sz+1 *)
+				sectorindex = (sz+1)/.SectorsDispatch;(* if you create an up fermion or destroy a down fermion, you go from sz to sz+1 *)
 				H = Hsectors[[sectorindex]];(* Hamiltonian on that sector *)
-				{E0,a,b} = Lanczos[H,10^(-16),2,1000,0,Pdggs/Norm[Pdggs]];(*Apply Lanczos starting from Adg|gs> *)
+				{E0,a,b} = Lanczos[H, 1.*10^(-16), 2, 1000, 0,Pdggs/Norm[Pdggs]];(*Apply Lanczos starting from Adg|gs> *)
 				bprime = (Flatten@{1,-ReplacePart[b^2,-1->-(b[[-1]])^2]});(*adapt the list b to construct the continued fraction*)
 				((Conjugate@Pdggs) . Pdggs)*Map[G[#+Egs,a,bprime]&,z]
 			],
 			(*          P "Hole" contribution             *)
 			Module[{Pgs,sectorindex,H,E0,a,b,bprime},
 				Pgs = cup - I*cdgdw;(*apply (C_up - I*Cdg_dw)|gs> = P|gs> *)
-				sectorindex = (sz-1)/.dispatch;(*if you remove an up fermion or create a down fermion, you go from sz to sz-1*)
+				sectorindex = (sz-1)/.SectorsDispatch;(*if you remove an up fermion or create a down fermion, you go from sz to sz-1*)
 				H = Hsectors[[sectorindex]];
-				{E0,a,b} = Lanczos[H,10^(-16),2,1000,0,Pgs/Norm[Pgs]];
+				{E0,a,b} = Lanczos[H,1.*10^(-16),2,1000,0,Pgs/Norm[Pgs]];
 				bprime = (Flatten@{1,-ReplacePart[b^2,-1->-(b[[-1]])^2]});(*adapt the list b to construct the continued fraction*)
 				((Conjugate@Pgs) . Pgs)*Map[G[#-Egs,-a,bprime]&,z]
 			],
 			(*          C_up "Particle" contribution             *)
 			Module[{sectorindex,H,E0,a,b,bprime},
-				sectorindex = (sz+1)/.dispatch;(*if you remove an up fermion or create a down fermion, you go from sz to sz-1*)
+				sectorindex = (sz+1)/.SectorsDispatch;(*if you remove an up fermion or create a down fermion, you go from sz to sz-1*)
 				H = Hsectors[[sectorindex]];
-				{E0,a,b} = Lanczos[H,10^(-16),2,1000,0,cdgup/Norm[cdgup]];
+				{E0,a,b} = Lanczos[H,1.*10^(-16),2,1000,0,cdgup/Norm[cdgup]];
 				bprime = (Flatten@{1,-ReplacePart[b^2,-1->-(b[[-1]])^2]});(*adapt the list b to construct the continued fraction*)
 				((Conjugate@cdgup) . cdgup)*Map[G[#+Egs,a,bprime]&,z]
 			],
 			(*          C_up "Hole" contribution             *)
 			Module[{sectorindex,H,E0,a,b,bprime},
-				sectorindex = (sz-1)/.dispatch;(*if you remove an up fermion or create a down fermion, you go from sz to sz-1*)
+				sectorindex = (sz-1)/.SectorsDispatch;(*if you remove an up fermion or create a down fermion, you go from sz to sz-1*)
 				H = Hsectors[[sectorindex]];
-				{E0,a,b} = Lanczos[H,10^(-16),2,1000,0,cup/Norm[cup]];
+				{E0,a,b} = Lanczos[H,1.*10^(-16),2,1000,0,cup/Norm[cup]];
 				bprime = (Flatten@{1,-ReplacePart[b^2,-1->-(b[[-1]])^2]});(*adapt the list b to construct the continued fraction*)
 				((Conjugate@cup) . cup)*Map[G[#-Egs,-a,bprime]&,z]
 			],
 			(*          C_dw "Particle" contribution             *)
 			Module[{sectorindex,H,E0,a,b,bprime},
-				sectorindex = (sz-1)/.dispatch;(*if you remove an up fermion or create a down fermion, you go from sz to sz-1*)
+				sectorindex = (sz-1)/.SectorsDispatch;(*if you remove an up fermion or create a down fermion, you go from sz to sz-1*)
 				H = Hsectors[[sectorindex]];
-				{E0,a,b} = Lanczos[H,10^(-16),2,1000,0,cdgdw/Norm[cdgdw]];
+				{E0,a,b} = Lanczos[H,1.*10^(-16),2,1000,0,cdgdw/Norm[cdgdw]];
 				bprime = (Flatten@{1,-ReplacePart[b^2,-1->-(b[[-1]])^2]});(*adapt the list b to construct the continued fraction*)
 				((Conjugate@cdgdw) . cdgdw)*Map[G[#+Egs,a,bprime]&,-z]
 			],
 			(*          C_dw "Hole" contribution             *)
 			Module[{sectorindex,H,E0,a,b,bprime},
-				sectorindex = (sz+1)/.dispatch;(*if you remove an up fermion or create a down fermion, you go from sz to sz-1*)
+				sectorindex = (sz+1)/.SectorsDispatch;(*if you remove an up fermion or create a down fermion, you go from sz to sz-1*)
 				H = Hsectors[[sectorindex]];
-				{E0,a,b} = Lanczos[H,10^(-16),2,1000,0,cdw/Norm[cdw]];
+				{E0,a,b} = Lanczos[H,1.*10^(-16),2,1000,0,cdw/Norm[cdw]];
 				bprime = (Flatten@{1,-ReplacePart[b^2,-1->-(b[[-1]])^2]});(*adapt the list b to construct the continued fraction*)
 				((Conjugate@cdw) . cdw)*Map[G[#-Egs,-a,bprime]&,-z]
 			]
@@ -774,17 +770,17 @@ ImpurityGreenFunctionSuperc[L_Integer, f_Integer, Egs_Real, gs:{__Real}, GsSecto
 ];
 
 (* Return a list of 2x2 matrices representing the impurity GF in the normal spinor or Nambu spinor basis depending on EdMode *)
-ImpurityGreenFunction[L_Integer, f_Integer, Egs_Real, gs:{__Real}, GsSectorIndex_, QnsSectorList_, Hsectors_, EdMode_String, z_]:=Module[
+ImpurityGreenFunction[L_Integer, f_Integer, Egs_Real, gs:{__Real}, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, EdMode_String, z_]:=Module[
 	{GF,GFup,GFdw,zero},
 	Which[
 		EdMode=="Normal",
-		GFup=ImpurityDiagonalGreenFunction[L,f,Egs,gs,GsSectorIndex,QnsSectorList,Hsectors,EdMode,1,z];
+		GFup=ImpurityDiagonalGreenFunction[L,f,Egs,gs,GsQns,Hsectors,Sectors,SectorsDispatch,EdMode,1,z];
 		zero=ConstantArray[0, Length[GFup]];
 		GFdw=GFup;(* ok as long as there is spin symmetry *)
 		GF=Partition[#,2]&/@({GFup,zero,zero,GFdw}\[Transpose]),
 	(* --------------------------------------- *)
 		EdMode=="Superc",
-		GF=ImpurityGreenFunctionSuperc[L,f,Egs,gs,GsSectorIndex,QnsSectorList,Hsectors,z];
+		GF=ImpurityGreenFunctionSuperc[L,f,Egs,gs,GsQns,Hsectors,Sectors,SectorsDispatch,z];
 	];
 	GF
 ];
@@ -820,8 +816,8 @@ LocalGreenFunction[Lattice_String, \[CapitalSigma]_, EdMode_String, z_]:=Module[
 ];
 
 (* compute the spectral function on real frequencies *)
-SpectralFunction[L_Integer, f_Integer, Egs_Real, GsSectorIndex_, GsSectorList_, QnsSectorList_, Hsectors_, EdMode_String, \[Omega]_Real, \[Eta]_Real]:=Module[
-	{SpectralFunction,Gs,d\[Omega],Nreal},
+SpectralFunction[L_Integer, f_Integer, Egs_Real, GsSectorIndex_, GsSectorList_, QnsSectorList_, Hsectors_, Sectors_, SectorDispatch_, EdMode_String, \[Omega]_, \[Eta]_Real]:=Module[
+	{SpectralFunction,Gs,GsQns,d\[Omega],Nreal},
 	d\[Omega] = \[Omega][[2]]-\[Omega][[1]];
 	Nreal = Length[\[Omega]];
 	(*initialize the spectral function*)
@@ -829,11 +825,12 @@ SpectralFunction[L_Integer, f_Integer, Egs_Real, GsSectorIndex_, GsSectorList_, 
 	SpectralFunction=ConstantArray[0,Nreal];
 	(*compute the spectral function for every ground state and sum up*)
 	Do[(*loop over the elements of GsSectorList*)
-		Gs=GsSectorList[[gssectorindex]];(*compute the ground state and flatten properly*)
-		SpectralFunction+=-(1./Pi)*Tr/@Im@(ImpurityGreenFunction[L,f,Egs,Gs,gssectorindex,QnsSectorList,Hsectors,EdMode,\[Omega]+I*\[Eta]]);
+		Gs = GsSectorList[[gssectorindex]];(*compute the ground state and flatten properly*)
+		GsQns = QnsSectorList[[gssectorindex]];(*quantum numbers of the ground state sector*)
+		SpectralFunction += -(1./Pi)*Tr/@Im@(ImpurityGreenFunction[L, f, Egs, Gs, GsQns, Hsectors, Sectors, SectorDispatch, EdMode, \[Omega]+I*\[Eta]]);
 	,{gssectorindex,Flatten@{GsSectorIndex}}];
 	(*normalize the spectral function*)
-	SpectralFunction=SpectralFunction/(d\[Omega]*Total@SpectralFunction);
+	SpectralFunction = SpectralFunction/(d\[Omega]*Total@SpectralFunction);
 	{\[Omega],SpectralFunction}\[Transpose]
 ];
 
@@ -978,12 +975,12 @@ SelfConsistencyBethe[Nbath_Integer, LocalGF_, LFit_Integer, Mixing_, StartingPar
 		(* distance function between normal compoents (1,1) *)
 		\[Chi]normal[symbols_]:=
 			Total@Take[#,LFit]&@(Abs[
-				LocalGF[[All,1,1]]*(DBethe^2)/4-(\[CapitalGamma][Nbath,symbols,"Superc",#]&/@z)
+				LocalGF[[All,1,1]]*(DBethe^2)/4. - (\[CapitalGamma][Nbath,symbols,"Superc",#]&/@z)
 			]^2);
 		(* distance function between anomalous compoents (2,1) *)
 		\[Chi]anomalous[symbols_]:=
 			Total@Take[#,LFit]&@(Abs[
-				LocalGF[[All,2,1]]*(DBethe^2)/4-(-B[Nbath,symbols,#]&/@z)
+				LocalGF[[All,1,2]]*(DBethe^2)/4. + (B[Nbath,symbols,#]&/@z)
 			]^2);
 		(* target function to minimize (average of the two) *)
 		\[Chi][symbols_]:=
@@ -995,7 +992,7 @@ SelfConsistencyBethe[Nbath_Integer, LocalGF_, LFit_Integer, Mixing_, StartingPar
 				{symbols, StartingParameters}\[Transpose],
 				Method->"ConjugateGradient",
 				MaxIterations->1000,
-				AccuracyGoal->5
+				PrecisionGoal->6
 			];
 		(*update the bath*)
 		{newe,newV,new\[CapitalDelta]}={esymbols,Vsymbols,\[CapitalDelta]symbols}/.newparameters;
@@ -1181,7 +1178,7 @@ DMFTError[Xnew_,Xold_]:=Module[
 	If[Xold===Null,
 		error=1,
 	(*else*)
-		error=Total[Abs[Xnew-Xold]]/Total[Abs[Xnew]]
+		error=Total[Abs[Xnew-Xold]]/Max[Total[Abs[Xnew]],Total[Abs[Xold]]]
 	];
 	error
 ];
