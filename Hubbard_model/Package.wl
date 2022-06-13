@@ -261,7 +261,7 @@ CCSign[L_Integer, i1_Integer, \[Sigma]1_Integer, i2_Integer, \[Sigma]2_Integer, 
 
 
 (*apply cdg_\[Sigma] |gs>, where |gs> belongs to the sector (m,nup) and give the resulting vector resized to fit the dimension of the sector (n+1,nup+1) or (n+1,nup) (depending on \[Sigma])*)
-ApplyCdg[L_Integer, f_Integer, \[Sigma]_Integer, gs:{__Real}, qns_, Sectors_, SectorsDispatch_, EdMode_String]:=Module[
+ApplyCdg[L_Integer, f_Integer, \[Sigma]_Integer, gs_, qns_, Sectors_, SectorsDispatch_, EdMode_String]:=Module[
 	{n,nup,sz,startingsector,finalsector,dim,sign,rules,dispatch,pos,\[Psi],thread,result},
 	startingsector = Sectors[[qns/.SectorsDispatch]];
 	(* build the final sector *)
@@ -303,7 +303,7 @@ ApplyCdg[L_Integer, f_Integer, \[Sigma]_Integer, gs:{__Real}, qns_, Sectors_, Se
 ];
 
 (*apply c_\[Sigma] |gs>, where |gs> belongs to the sector (m,nup) and give the resulting vector resized to fit the dimension of the sector (n-1,nup-1) or (n-1,nup) (depending on \[Sigma])*)
-ApplyC[L_Integer, f_Integer, \[Sigma]_Integer, gs:{__Real}, qns_, Sectors_, SectorsDispatch_, EdMode_String]:=Module[
+ApplyC[L_Integer, f_Integer, \[Sigma]_Integer, gs_, qns_, Sectors_, SectorsDispatch_, EdMode_String]:=Module[
 	{n,nup,sz,startingsector,finalsector,dim,sign,rules,dispatch,pos,\[Psi],thread,result},
 	startingsector = Sectors[[qns/.SectorsDispatch]];
 	(* build the final sector *)
@@ -594,7 +594,7 @@ G[z_,a_,b_]:=Fold[f,
 Last@b/Last@(a-z*ConstantArray[1,(Dimensions@a)[[1]]]),Reverse@Most@Transpose@{a-z*ConstantArray[1,(Dimensions@a)[[1]]],b}];
 
 (* compute the impurity Normal Green function both with normal and superconducting bath *)
-ImpurityDiagonalGreenFunction[L_Integer, f_Integer, Egs_Real, gs:{__Real}, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, EdMode_String, \[Sigma]_Integer, z_]:=Module[
+ImpurityDiagonalGreenFunction[L_Integer, f_Integer, Egs_Real, gs_, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, EdMode_String, \[Sigma]_Integer, z_]:=Module[
 	{norm,cdggs,cgs,E0,a,b,bprime,GF,H,rules,dispatch,n,nup,sz,sectorindex,\[Epsilon]=1.*10^(-13),MinLancIter=2,MaxLancIter=10^3,LancShift=0},
 	Which[
 		EdMode=="Normal",
@@ -667,7 +667,7 @@ ImpurityDiagonalGreenFunction[L_Integer, f_Integer, Egs_Real, gs:{__Real}, GsQns
 ];
 
 (* compute the impurity Green function with superconducting bath *)
-ImpurityGreenFunctionSuperc[L_Integer, f_Integer, Egs_Real, gs:{__Real}, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, z_]:=Module[
+ImpurityGreenFunctionSuperc[L_Integer, f_Integer, Egs_Real, gs_, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, z_]:=Module[
 	{cdgup0,cdgdw0,cup0,cdw0,GFAparticle,GFAhole,GFBparticle,GFBhole,GFOparticle,GFOhole,GFO,GFPparticle,GFPhole,GFP,GFA,GFB,rules0,dispatch0,sz0,GF12,GF21},
 	(* quantum number of the ground state sector *)
 	sz0 = GsQns;
@@ -770,7 +770,7 @@ ImpurityGreenFunctionSuperc[L_Integer, f_Integer, Egs_Real, gs:{__Real}, GsQns_,
 ];
 
 (* Return a list of 2x2 matrices representing the impurity GF in the normal spinor or Nambu spinor basis depending on EdMode *)
-ImpurityGreenFunction[L_Integer, f_Integer, Egs_Real, gs:{__Real}, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, EdMode_String, z_]:=Module[
+ImpurityGreenFunction[L_Integer, f_Integer, Egs_Real, gs_, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, EdMode_String, z_]:=Module[
 	{GF,GFup,GFdw,zero},
 	Which[
 		EdMode=="Normal",
