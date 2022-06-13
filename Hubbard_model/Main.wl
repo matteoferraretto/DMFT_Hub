@@ -108,31 +108,32 @@ SectorsDispatch = Dispatch@Flatten[
 		QnsSectorList],1]; (* dispatch of the sectors, i.e. rule that associates an integer to some quantum numbers *)
 
 (* INPUT RECAP *)
-Print[Style["Recap of input:",16,Bold]];
-Print["Nbath: ",Nbath,". Nsectors: ", Length[QnsSectorList], ". Dim. of the largest sector: ",Max@DimSectorList];
+Print[Style["Recap of input:", 16, Bold]];
+Print["Nbath: ", Nbath, ". Nsectors: ", Length[QnsSectorList], ". Dim. of the largest sector: ", Max@DimSectorList];
 
 (* GET HAMILTONIANS *)
 {impHblocks, impHlocal} = GetHamiltonian[L, Nf, QnsSectorList, LoadHamiltonianQ, ImpHBlocksFile, ImpHLocalFile, EdMode];
+
 
 (*                   DMFT LOOP                     *)
 Do[
 
 	(* First print *)
-	Print[Style["DMFT Loop n. ",20,Bold,Red],Style[DMFTiterator,20,Bold,Red]];
+	Print[Style["DMFT Loop n. ", 20, Bold, Red], Style[DMFTiterator, 20, Bold, Red]];
 	Print["----------------------------------------------------------------------------------------"];
-	Print[Style["        Exact Diagonalization start",16,Bold,Orange]];
-	Print["e = ",e];
-	Print["V = ",V];
-	If[EdMode=="Superc",Print["\[CapitalDelta] = ",\[CapitalDelta]]];
+	Print[Style["        Exact Diagonalization start", 16, Bold, Orange]];
+	Print["e = ", e];
+	Print["V = ", V];
+	If[EdMode=="Superc", Print["\[CapitalDelta] = ", \[CapitalDelta]]];
 
 	(* Build and diagonalize the AIM Hamiltonian + print timing *)
-	Print["E.D. time: ",First@AbsoluteTiming[
+	Print["E.D. time: ", First@AbsoluteTiming[
 		
 		Hsectors =
 			ParallelTable[
 				Sum[
 					impHblocks[[sectorindex,j]]*Parameters[[j]]
-				,{j,1,Nparams}]
+				,{j, 1, Nparams}]
 				+U*impHlocal[[sectorindex]]
 			,{sectorindex, Length[QnsSectorList]}];(*list of all the hamiltonians for every sector*)
 		
@@ -183,9 +184,9 @@ Do[
 
 
 		(*Self energy of the previous iteration*)
-		WeissOld = If[DMFTiterator==1,ConstantArray[0,{NMatsubara,2,2}],InverseGF0];
+		WeissOld = If[DMFTiterator==1, ConstantArray[0, {NMatsubara, 2, 2}], InverseGF0];
 		(* Getting the inverse non interacting impurity Green function *)
-		InverseGF0 = WeissField[Nbath,Parameters,EdMode,i\[Omega]];
+		InverseGF0 = WeissField[Nbath, Parameters, EdMode, i\[Omega]];
 		WeissNew = InverseGF0; (* <----- to be substituted by the self consistency equation *)
 		(* Getting the inverse interacting impurity Green function *)
 		InverseGF = Inverse/@ImpurityGF;
@@ -196,7 +197,7 @@ Do[
 		\[CapitalGamma]new = Partition[#,2]&/@({# + \[Mu],0,0,	  # - \[Mu] }\[Transpose]&/@i\[Omega]) - Inverse/@LocalGF - \[CapitalSigma];
 	];
 
-	Print["Green functions computed. Total time: ",GFTime," sec."];(*show evaluation time*)
+	Print["Green functions computed. Total time: ", GFTime, " sec."];(*show evaluation time*)
 
 
 	(* Print *)
@@ -206,14 +207,14 @@ Do[
 
 
 	(* Self Consistency Equation *)
-	Print["S.C. time: ",First@AbsoluteTiming[
+	Print["S.C. time: ", First@AbsoluteTiming[
 		
 		Which[
 			EdMode == "Normal",
 			(*update bath parameters minimizing the distance between hybridizations*)
 			{e,V} = SelfConsistencyBethe[Nbath, LocalGF, LFit, Mixing, Parameters, EdMode, i\[Omega]];
 			Parameters = Flatten@{e,V},
-		(* ---------------------------------------------------------------------- *)
+		(* ------------------------------------------------------------------------------- *)
 			EdMode == "Superc",
 			{e,V,\[CapitalDelta]} = SelfConsistencyBethe[Nbath, LocalGF, LFit, Mixing, Parameters, EdMode, i\[Omega]];	
 			Parameters = Flatten@{e,V,\[CapitalDelta]};
@@ -224,8 +225,8 @@ Do[
 	(* Compute error and check convergence *)
 	error = DMFTError[WeissNew, WeissOld, EdMode];
 	(* store error *)
-	Print[Style["Error = ",Bold],Style[error,Bold]];
-	AppendTo[ErrorList,{DMFTiterator,error}];
+	Print[Style["Error = ", Bold], Style[error,Bold]];
+	AppendTo[ErrorList, {DMFTiterator, error}];
 
 	(*Print*)
 	Print[Style["           Self Consistency completed",16,Bold,Magenta]];
@@ -234,11 +235,11 @@ Do[
 	Print["----------------------------------------------------------------------------------------"];
 
 	(*Exit DMFT Loop if convengerce is reached*)
-	If[DMFTiterator>DMFTMinIterations&&error<DMFTerror&&LastIteration,Break[];];
-	If[error<DMFTerror,LastIteration=True,(*else*)LastIteration=False];
+	If[DMFTiterator > DMFTMinIterations && error<DMFTerror && LastIteration, Break[];];
+	If[error < DMFTerror, LastIteration = True, (*else*) LastIteration = False];
 
 
-,{DMFTiterator,1,DMFTMaxIterations}]
+,{DMFTiterator, 1, DMFTMaxIterations}]
 
 
 
