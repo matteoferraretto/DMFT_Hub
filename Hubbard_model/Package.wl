@@ -1173,12 +1173,33 @@ Re@Ds
 
 
 (* DMFT error *)
-DMFTError[Xnew_,Xold_]:=Module[
-	{error},
-	If[Xold===Null,
-		error=1,
+DMFTError[Xnew_, Xold_, EdMode_String]:=Module[
+	{error = 0.0},
+	If[
+	Xold === Null, error=1.0,
 	(*else*)
-		error=Total[Abs[Xnew-Xold]]/Max[Total[Abs[Xnew]],Total[Abs[Xold]]]
+	Which[
+		EdMode == "Normal",
+		error = Total[Abs[
+					Xnew[[All, 1, 1]] - Xold[[All, 1, 1]]
+				]]/Max[
+					Total[Abs[Xnew[[All, 1, 1]]]], Total[Abs[Xold[[All, 1, 1]]]]
+			],
+		(* ------------------------------- *)
+		EdMode == "Superc",
+		error = Mean[{
+					Total[Abs[
+						Xnew[[All, 1, 1]] - Xold[[All, 1, 1]]
+					]]/Max[
+						Total[Abs[Xnew[[All, 1, 1]]]], Total[Abs[Xold[[All, 1, 1]]]]		
+				],
+				Total[Abs[
+						Xnew[[All, 1, 2]] - Xold[[All, 1, 2]]
+					]]/Max[
+						Total[Abs[Xnew[[All, 1, 2]]]], Total[Abs[Xold[[All, 1, 2]]]]		
+				]
+			}]
+	];
 	];
 	error
 ];

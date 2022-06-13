@@ -86,14 +86,6 @@ LastIteration=False;(*allows to do one more iteration after convergence threshol
 Converged=False;(*True if DMFT has converged, false otherwise*)
 ErrorList={};(*list of DMFT errors*) 
 
-(* GET SECTORS *)
-QnsSectorList = SectorList[L, EdMode](* list of quantum numbers of all the sectors {n,nup} or sz *)
-DimSectorList = DimSector[L, #, EdMode]&/@QnsSectorList(* list of dimensions of all the sectors *)
-Sectors = BuildSector[L, Nf, #, EdMode]&/@QnsSectorList;(* list of all the sectors *)
-SectorDispatch = Dispatch@Flatten[
-		MapIndexed[{#1->#2[[1]]}&,
-		QnsSectorList],1];
-
 (* GET BATH PARAMETERS *)
 Which[
 	EdMode=="Normal",
@@ -103,18 +95,17 @@ Which[
 	EdMode=="Superc", 
 	{e,V,\[CapitalDelta]} = StartingBath[InitializeBathMode, Nbath, EdMode]; 
 	\[CapitalDelta]=\[CapitalDelta]0*\[CapitalDelta]; 
-	(* REMOVE!!! *)
-	(*e = {-0.35, -0.0, 0.0, 0.35};
-	V = {0.31, 0.13, 0.12, 0.31};
-	\[CapitalDelta] = {0.02, 0.02, -0.04, 0.01};*)
-	(* END REMOVE *)
 	Parameters=Flatten@{e,V,\[CapitalDelta]}
 ];
 Nparams = Length[Parameters];(* total number of parameters *)
 
 (* GET SECTORS *)
-QnsSectorList = SectorList[L,EdMode];(* list of quantum numbers of all the sectors {n,nup} or sz *)
-DimSectorList = DimSector[L,#,EdMode]&/@QnsSectorList;(*list of dimensions of all the sectors*)
+QnsSectorList = SectorList[L,EdMode]; (* list of quantum numbers of all the sectors {n,nup} or sz *)
+DimSectorList = DimSector[L,#,EdMode]&/@QnsSectorList; (* list of dimensions of all the sectors *)
+Sectors = BuildSector[L, Nf, #, EdMode]&/@QnsSectorList; (* list of all the sectors *)
+SectorDispatch = Dispatch@Flatten[
+		MapIndexed[{#1->#2[[1]]}&,
+		QnsSectorList],1]; (* dispatch of the sectors, i.e. rule that associates an integer to some quantum numbers *)
 
 (* INPUT RECAP *)
 Print[Style["Recap of input:",16,Bold]];
@@ -203,7 +194,6 @@ Do[
 		(* Getting the lattice local Green function *)
 		LocalGF = LocalGreenFunction["Bethe",\[CapitalSigma],EdMode,i\[Omega]];
 		\[CapitalGamma]new = Partition[#,2]&/@({# + \[Mu],0,0,	  # - \[Mu] }\[Transpose]&/@i\[Omega]) - Inverse/@LocalGF - \[CapitalSigma];
-		Print@Dimensions[InverseGF0];
 	];
 
 	Print["Green functions computed. Total time: ",GFTime," sec."];(*show evaluation time*)
@@ -232,12 +222,7 @@ Do[
 	]," sec."];
 
 	(* Compute error and check convergence *)
-	(* compute the error *)
-	errornormal = DMFTError[WeissNew[[All,1,1]],WeissOld[[All,1,1]]];
-	erroranomal = DMFTError[WeissNew[[All,1,2]],WeissOld[[All,1,2]]];
-	Print[errornormal,"   ",erroranomal];
-	error = (errornormal + erroranomal)/2.;
-
+	error = DMFTError[WeissNew, WeissOld, EdMode];
 	(* store error *)
 	Print[Style["Error = ",Bold],Style[error,Bold]];
 	AppendTo[ErrorList,{DMFTiterator,error}];
@@ -325,6 +310,9 @@ ListLogPlot[
 		Joined->True,
 		AxesLabel->{"Iteration","Error"}
 ]
+
+
+
 
 
 
