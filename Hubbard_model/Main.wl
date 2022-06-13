@@ -82,20 +82,20 @@ StiffnessFile = FolderPath<>"Ds.txt";
 (*DMFT LOOP*)
 
 
-LastIteration=False;(*allows to do one more iteration after convergence threshold is reached*)
-Converged=False;(*True if DMFT has converged, false otherwise*)
-ErrorList={};(*list of DMFT errors*) 
+LastIteration = False;(*allows to do one more iteration after convergence threshold is reached*)
+Converged = False;(*True if DMFT has converged, false otherwise*)
+ErrorList = {};(*list of DMFT errors*) 
 
 (* GET BATH PARAMETERS *)
 Which[
-	EdMode=="Normal",
+	EdMode == "Normal",
 	{e,V} = StartingBath[InitializeBathMode, Nbath, EdMode];
 	Parameters = Flatten@{e,V},
 (* ----------------------------------------------------------------- *)
-	EdMode=="Superc", 
+	EdMode == "Superc", 
 	{e,V,\[CapitalDelta]} = StartingBath[InitializeBathMode, Nbath, EdMode]; 
-	\[CapitalDelta]=\[CapitalDelta]0*\[CapitalDelta]; 
-	Parameters=Flatten@{e,V,\[CapitalDelta]}
+	\[CapitalDelta] = \[CapitalDelta]0*\[CapitalDelta]; 
+	Parameters = Flatten@{e, V, \[CapitalDelta]}
 ];
 Nparams = Length[Parameters];(* total number of parameters *)
 
@@ -103,7 +103,7 @@ Nparams = Length[Parameters];(* total number of parameters *)
 QnsSectorList = SectorList[L,EdMode]; (* list of quantum numbers of all the sectors {n,nup} or sz *)
 DimSectorList = DimSector[L,#,EdMode]&/@QnsSectorList; (* list of dimensions of all the sectors *)
 Sectors = BuildSector[L, Nf, #, EdMode]&/@QnsSectorList; (* list of all the sectors *)
-SectorDispatch = Dispatch@Flatten[
+SectorsDispatch = Dispatch@Flatten[
 		MapIndexed[{#1->#2[[1]]}&,
 		QnsSectorList],1]; (* dispatch of the sectors, i.e. rule that associates an integer to some quantum numbers *)
 
@@ -112,7 +112,7 @@ Print[Style["Recap of input:",16,Bold]];
 Print["Nbath: ",Nbath,". Nsectors: ", Length[QnsSectorList], ". Dim. of the largest sector: ",Max@DimSectorList];
 
 (* GET HAMILTONIANS *)
-{impHblocks,impHlocal}=GetHamiltonian[L,Nf,QnsSectorList,LoadHamiltonianQ,ImpHBlocksFile,ImpHLocalFile,EdMode];
+{impHblocks, impHlocal} = GetHamiltonian[L, Nf, QnsSectorList, LoadHamiltonianQ, ImpHBlocksFile, ImpHLocalFile, EdMode];
 
 (*                   DMFT LOOP                     *)
 Do[
@@ -128,7 +128,7 @@ Do[
 	(* Build and diagonalize the AIM Hamiltonian + print timing *)
 	Print["E.D. time: ",First@AbsoluteTiming[
 		
-		Hsectors=
+		Hsectors =
 			ParallelTable[
 				Sum[
 					impHblocks[[sectorindex,j]]*Parameters[[j]]
@@ -136,49 +136,49 @@ Do[
 				+U*impHlocal[[sectorindex]]
 			,{sectorindex, Length[QnsSectorList]}];(*list of all the hamiltonians for every sector*)
 		
-		{EgsSectorList,GsSectorList}=ParallelMap[Eigs[32],Hsectors]\[Transpose];(*find the ground state for each sector*)
-		EgsSectorList=Flatten@EgsSectorList;(*correctly reshape the list *)
-		GsSectorList=Replace[GsSectorList,{x_List}:>x,{0,-2}](*correctly reshape the list*)
+		{EgsSectorList, GsSectorList} = ParallelMap[Eigs[32],Hsectors]\[Transpose];(*find the ground state for each sector*)
+		EgsSectorList = Flatten@EgsSectorList;(*correctly reshape the list *)
+		GsSectorList = Replace[GsSectorList,{x_List}:>x,{0,-2}](*correctly reshape the list*)
 
 	]," sec.\n"];
 
 	Print["Computing ground state and Green functions..."];
 
 	(* Compute the ground state *)
-	Egs=Min@EgsSectorList;(*ground state energy (lowest of all the sectors)*)
-	GsSectorIndex=
+	Egs = Min@EgsSectorList;(*ground state energy (lowest of all the sectors)*)
+	GsSectorIndex =
 		Flatten@Position[EgsSectorList,
 			_?((#>Egs-DegeneracyThreshold&&#<Egs+DegeneracyThreshold)&)
 		];(*sector index where the lowest energy is obtained: if this list contains more than 1 element, there is a degeneracy*)
-	DegeneracyWarning=If[Length[GsSectorIndex]>1,True,(*else*)False];(*is True if the ground state is degenerate, False otherwise*)
+	DegeneracyWarning = If[Length[GsSectorIndex]>1, True, (*else*) False];(*is True if the ground state is degenerate, False otherwise*)
 
 
-	GFTime=First@AbsoluteTiming[(*time for computing Green Functions and Self energies*)
+	GFTime = First@AbsoluteTiming[(*time for computing Green Functions and Self energies*)
 		
 		qnsstring = Which[
-					EdMode=="Normal", ";  {n,nup} = ",
-					EdMode=="Superc","; sz = "
-					]; (* just a stupid output string *)
+					EdMode == "Normal", ";  {n,nup} = ",
+					EdMode == "Superc", "; sz = "
+				]; (* just a stupid output string *)
 		If[!DegeneracyWarning,(*if there is NO degeneracy*)
 			GsSectorIndex = First@GsSectorIndex;(*extract the number from the list*)
 			GsQns = QnsSectorList[[GsSectorIndex]];(*quantum numbers {n,nup} or sz of the sector with minimal energy*)
 			Gs = GsSectorList[[GsSectorIndex]];(*compute the ground state and flatten properly*)
 			Print["        Ground state info:"];(*print relevant information on the ground state*)
 			Print["Egs = ", Egs, qnsstring, GsQns];
-			ImpurityGF=ImpurityGreenFunction[L,Nf,Egs,Gs,GsQns,Hsectors,Sectors,SectorDispatch,EdMode,i\[Omega]](*impurity Green function*)
+			ImpurityGF = ImpurityGreenFunction[L,Nf,Egs,Gs,GsQns,Hsectors,Sectors,SectorsDispatch,EdMode,i\[Omega]](*impurity Green function*)
 		];
 
 		If[DegeneracyWarning,(*if there is degeneracy*)
 			SetSharedVariable[ImpurityGF];(*make the impurity green function a shared variable between running kernels*)
-			ImpurityGF=ConstantArray[0,{NMatsubara,2,2}];(*initialize impurity green function*)
+			ImpurityGF = ConstantArray[0,{NMatsubara,2,2}];(*initialize impurity green function*)
 			ParallelDo[(*parallel loop over the elements of GsSectorList*)
-				GsQns=QnsSectorList[[gssectorindex]];(*quantum numbers {n,nup} of the sector with minimal energy*)
-				Gs=GsSectorList[[gssectorindex]];(*compute the ground state and flatten properly*)
+				GsQns = QnsSectorList[[gssectorindex]];(*quantum numbers {n,nup} of the sector with minimal energy*)
+				Gs = GsSectorList[[gssectorindex]];(*compute the ground state and flatten properly*)
 				Print["        Ground state info:\n",(*print relevant information on the ground state*)
 				"Egs = ", Egs, qnsstring, GsQns];
-				ImpurityGF+=ImpurityGreenFunction[L,Nf,Egs,Gs,GsQns,Hsectors,Sectors,SectorDispatch,EdMode,i\[Omega]]
-			,{gssectorindex,GsSectorIndex},DistributedContexts->Automatic];
-		ImpurityGF=ImpurityGF/(Length[GsSectorIndex])(*divide the green function by the number of degenerate states.*)
+				ImpurityGF += ImpurityGreenFunction[L,Nf,Egs,Gs,GsQns,Hsectors,Sectors,SectorsDispatch,EdMode,i\[Omega]]
+			,{gssectorindex, GsSectorIndex},DistributedContexts->Automatic];
+		ImpurityGF = ImpurityGF/(Length[GsSectorIndex])(*divide the green function by the number of degenerate states.*)
 		];
 
 
@@ -192,7 +192,7 @@ Do[
 		(* Getting the Self Energy *)
 		\[CapitalSigma] = InverseGF0 - InverseGF;
 		(* Getting the lattice local Green function *)
-		LocalGF = LocalGreenFunction["Bethe",\[CapitalSigma],EdMode,i\[Omega]];
+		LocalGF = LocalGreenFunction["Bethe", \[CapitalSigma], EdMode, i\[Omega]];
 		\[CapitalGamma]new = Partition[#,2]&/@({# + \[Mu],0,0,	  # - \[Mu] }\[Transpose]&/@i\[Omega]) - Inverse/@LocalGF - \[CapitalSigma];
 	];
 
