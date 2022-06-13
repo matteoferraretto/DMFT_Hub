@@ -87,9 +87,9 @@ Converged=False;(*True if DMFT has converged, false otherwise*)
 ErrorList={};(*list of DMFT errors*) 
 
 (* GET SECTORS *)
-QnsSectorList = SectorList[L,EdMode](* list of quantum numbers of all the sectors {n,nup} or sz *)
-DimSectorList = DimSector[L,#,EdMode]&/@QnsSectorList(* list of dimensions of all the sectors *)
-Sectors = BuildSector[L, Nf, #, "Superc"]&/@QnsSectorList;(* list of all the sectors *)
+QnsSectorList = SectorList[L, EdMode](* list of quantum numbers of all the sectors {n,nup} or sz *)
+DimSectorList = DimSector[L, #, EdMode]&/@QnsSectorList(* list of dimensions of all the sectors *)
+Sectors = BuildSector[L, Nf, #, EdMode]&/@QnsSectorList;(* list of all the sectors *)
 SectorDispatch = Dispatch@Flatten[
 		MapIndexed[{#1->#2[[1]]}&,
 		QnsSectorList],1];
