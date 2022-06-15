@@ -374,68 +374,70 @@ CreatePair[L_Integer, i_Integer]:=ReplacePart[#,{
 
 (*      IMPURITY HAMILTONIAN           *)
 (* Bath+Hybridization Hamiltonian in the case EdMode = "Normal" *)
-ImpHBlocksNormal[L_Integer, f_Integer, QnsSectorList_]:=Module[
+ImpHBlocksNormal[L_Integer, f_Integer, QnsSectorList_, Sectors_, SectorsDispatch_]:=Module[
 	{\[Psi],\[Psi]1,\[Chi],H,Hblock,Hsector,dim,rules,dispatch,cols,rows,pos,\[CapitalSigma],num},
 	H={};
 	Do[
 		Hsector={};
-		\[Psi]=BuildSector[L,f,qns,"Normal"];(* *)dim=Length[\[Psi]];
-		rules=Flatten[MapIndexed[{#1->#2[[1]]}&,\[Psi]],1];
-		dispatch=Dispatch[rules];
+		\[Psi] = Sectors[[qns/.SectorsDispatch]];
+		dim = Length[\[Psi]];
+		rules = Flatten[MapIndexed[{#1->#2[[1]]}&,\[Psi]],1];
+		dispatch = Dispatch[rules];
 		Do[
-			Hblock=SparseArray[{},{dim,dim}];
+			Hblock = SparseArray[{},{dim,dim}];
 			Which[
-				flag=="Bath",
-				num=Density[L,f,j]/@\[Psi];(*local density*)
-				Hblock+=SparseArray@DiagonalMatrix[num];
-				AppendTo[Hsector,Hblock],
+				flag == "Bath",
+				num = Density[L,f,j]/@\[Psi];(*local density*)
+				Hblock += SparseArray@DiagonalMatrix[num];
+				AppendTo[Hsector, Hblock],
 			(* ----------------------- *)
-				flag=="Hopping",
+				flag == "Hopping",
 				Do[
-					\[Psi]1=HopSelect[L,1,j,\[Sigma]]@\[Psi];
-					If[Length[\[Psi]1]==0,Continue[];];
-					\[Chi]=Hop[L,1,j,\[Sigma]]/@(\[Psi]1);
-					rows=\[Chi]/.dispatch;(* *)cols=\[Psi]1/.dispatch;(* *)pos={rows,cols}\[Transpose];
-					\[CapitalSigma]=(CCSign[L,1,\[Sigma],j,\[Sigma],#]&/@\[Psi]1);
-					Hblock+=SparseArray[pos->\[CapitalSigma],{dim,dim}];
+					\[Psi]1 = HopSelect[L,1,j,\[Sigma]]@\[Psi];
+					If[Length[\[Psi]1] == 0, Continue[];];
+					\[Chi] = Hop[L,1,j,\[Sigma]]/@(\[Psi]1);
+					rows = \[Chi]/.dispatch;(* *)cols=\[Psi]1/.dispatch;(* *)pos={rows,cols}\[Transpose];
+					\[CapitalSigma] = (CCSign[L,1,\[Sigma],j,\[Sigma],#]&/@\[Psi]1);
+					Hblock += SparseArray[pos->\[CapitalSigma],{dim,dim}];
 				,{\[Sigma],1,f}];
-				Hblock=Hblock+Hblock\[ConjugateTranspose];
-				AppendTo[Hsector,Hblock]
+				Hblock = Hblock+Hblock\[ConjugateTranspose];
+				AppendTo[Hsector, Hblock]
 			];
-		,{flag,{"Bath","Hopping"}},{j,2,L}];
-		AppendTo[H,Hsector];
-	,{qns,QnsSectorList}];
+		,{flag, {"Bath", "Hopping"}},{j,2,L}];
+		AppendTo[H, Hsector];
+	,{qns, QnsSectorList}];
 	H
 ];
 
 (* Bath+Hybridization Hamiltonian in the case EdMode = "Superc" *)
-ImpHBlocksSuperc[L_Integer, f_Integer, QnsSectorList_]:=Module[
+ImpHBlocksSuperc[L_Integer, f_Integer, QnsSectorList_, Sectors_, SectorsDispatch_]:=Module[
 	{\[Psi],\[Psi]1,\[Chi],H,Hblock,Hsector,dim,rules,dispatch,cols,rows,pos,\[CapitalSigma],num},
 	H={};
 	Do[
 		Hsector={};
-		\[Psi]=BuildSector[L,f,sz,"Superc"];(* *)dim=Length[\[Psi]];
-		rules=Flatten[MapIndexed[{#1->#2[[1]]}&,\[Psi]],1];
-		dispatch=Dispatch[rules];
+		\[Psi] = Sectors[[sz/.SectorsDispatch]];
+		dim = Length[\[Psi]];
+		rules = Flatten[MapIndexed[{#1->#2[[1]]}&,\[Psi]],1];
+		dispatch = Dispatch[rules];
 		Do[
-			Hblock=SparseArray[{},{dim,dim}];
+			Hblock = SparseArray[{},{dim,dim}];
 			Which[
-				flag=="Bath",
-				num=Density[L,f,j]/@\[Psi];(*local density*)
-				Hblock+=SparseArray@DiagonalMatrix[num];
-				AppendTo[Hsector,Hblock],
+				flag == "Bath",
+				num = Density[L,f,j]/@\[Psi];(*local density*)
+				Hblock += SparseArray@DiagonalMatrix[num];
+				AppendTo[Hsector, Hblock],
 			(* --------------------------------------------------------------- *)
-				flag=="Hopping",
+				flag == "Hopping",
 				Do[
-					\[Psi]1=HopSelect[L,1,j,\[Sigma]]@\[Psi];
+					\[Psi]1 = HopSelect[L,1,j,\[Sigma]]@\[Psi];
 					If[Length[\[Psi]1]==0,Continue[];];
-					\[Chi]=Hop[L,1,j,\[Sigma]]/@(\[Psi]1);
-					rows=\[Chi]/.dispatch;(* *)cols=\[Psi]1/.dispatch;(* *)pos={rows,cols}\[Transpose];
-					\[CapitalSigma]=(CCSign[L,1,\[Sigma],j,\[Sigma],#]&/@\[Psi]1);
-					Hblock+=SparseArray[pos->\[CapitalSigma],{dim,dim}];
+					\[Chi] = Hop[L,1,j,\[Sigma]]/@(\[Psi]1);
+					rows = \[Chi]/.dispatch;(* *)cols=\[Psi]1/.dispatch;(* *)pos={rows,cols}\[Transpose];
+					\[CapitalSigma] = (CCSign[L,1,\[Sigma],j,\[Sigma],#]&/@\[Psi]1);
+					Hblock += SparseArray[pos->\[CapitalSigma],{dim,dim}];
 				,{\[Sigma],1,f}];
-				Hblock=Hblock+Hblock\[ConjugateTranspose];
-				AppendTo[Hsector,Hblock],
+				Hblock = Hblock+Hblock\[ConjugateTranspose];
+				AppendTo[Hsector, Hblock],
 			(* --------------------------------------------------------------- *)
 				flag=="Superc",
 				\[Psi]1=PairCreationSelect[L,j]@\[Psi];
@@ -453,33 +455,33 @@ ImpHBlocksSuperc[L_Integer, f_Integer, QnsSectorList_]:=Module[
 ];
 
 (* choose which case *)
-ImpHBlocks[L_Integer, f_Integer, QnsSectorList_, EdMode_String]:=Which[
-	EdMode=="Normal",	ImpHBlocksNormal[L,f,QnsSectorList],
-	EdMode=="Superc",	ImpHBlocksSuperc[L,f,QnsSectorList]
+ImpHBlocks[L_Integer, f_Integer, QnsSectorList_, Sectors_, SectorsDispatch_, EdMode_String]:=Which[
+	EdMode == "Normal",	ImpHBlocksNormal[L, f, QnsSectorList, Sectors, SectorsDispatch],
+	EdMode == "Superc",	ImpHBlocksSuperc[L, f, QnsSectorList, Sectors, SectorsDispatch]
 ];
 
 (* Local Hamiltonian EdMode = "Normal" *)
-ImpHLocalNormal[L_Integer, f_Integer, QnsSectorList_]:=Module[
+ImpHLocalNormal[L_Integer, f_Integer, QnsSectorList_, Sectors_, SectorsDispatch_]:=Module[
 	{\[Psi],H,Hsector,rules,dispatch,num},
 	H={};
 	Do[
-		\[Psi]=BuildSector[L,f,qns,"Normal"];
-		rules=Flatten[MapIndexed[{#1->#2[[1]]}&,\[Psi]],1];
-		dispatch=Dispatch[rules];
-		num=Density[L,f,1]/@\[Psi];(*local density*)
+		\[Psi] = Sectors[[qns/.SectorsDispatch]];
+		rules = Flatten[MapIndexed[{#1->#2[[1]]}&,\[Psi]],1];
+		dispatch = Dispatch[rules];
+		num = Density[L,f,1]/@\[Psi];(*local density*)
 		(*interaction term*)
-		Hsector=(1./2)*SparseArray@DiagonalMatrix[(num-1)^2-1/2];
-		AppendTo[H,Hsector];
-	,{qns,QnsSectorList}];
+		Hsector = (1./2)*SparseArray@DiagonalMatrix[(num-1)^2-1/2];
+		AppendTo[H, Hsector];
+	,{qns, QnsSectorList}];
 	H
 ];
 
 (* Local Hamiltonian EdMode = "Superc" *)
-ImpHLocalSuperc[L_Integer, f_Integer, QnsSectorList_]:=Module[
+ImpHLocalSuperc[L_Integer, f_Integer, QnsSectorList_, Sectors_, SectorsDispatch_]:=Module[
 	{\[Psi],\[Psi]1,\[Chi],H,Hblock,Hsector,dim,rules,dispatch,cols,rows,pos,\[CapitalSigma],num,n,nup,e,V},
 	H={};
 	Do[
-		\[Psi]=BuildSector[L,f,sz,"Superc"];(* *)dim=Length[\[Psi]];
+		\[Psi]=Sectors[[sz/.SectorsDispatch]];(* *)dim=Length[\[Psi]];
 		rules=Flatten[MapIndexed[{#1->#2[[1]]}&,\[Psi]],1];
 		dispatch=Dispatch[rules];
 		num=Density[L,f,1]/@\[Psi];(*local density*)
@@ -491,13 +493,13 @@ ImpHLocalSuperc[L_Integer, f_Integer, QnsSectorList_]:=Module[
 ];
 
 (* chose which case *)
-ImpHLocal[L_Integer, f_Integer, QnsSectorList_, EdMode_String]:=Which[
-	EdMode=="Normal",	ImpHLocalNormal[L,f,QnsSectorList],
-	EdMode=="Superc",	ImpHLocalSuperc[L,f,QnsSectorList]
+ImpHLocal[L_Integer, f_Integer, QnsSectorList_, Sectors_, SectorsDispatch_, EdMode_String]:=Which[
+	EdMode == "Normal",	ImpHLocalNormal[L, f, QnsSectorList, Sectors, SectorsDispatch],
+	EdMode == "Superc",	ImpHLocalSuperc[L, f, QnsSectorList, Sectors, SectorsDispatch]
 ];
 
 (* Get the Hamiltonian structure once for all *)
-GetHamiltonian[L_Integer, f_Integer, QnsSectorList_, LoadHamiltonianQ_, ImpHBlocksFile_String, ImpHLocalFile_String, EdMode_String]:=Module[
+GetHamiltonian[L_Integer, f_Integer, QnsSectorList_, Sectors_, SectorsDispatch_, LoadHamiltonianQ_, ImpHBlocksFile_String, ImpHLocalFile_String, EdMode_String]:=Module[
 	{impHblocks,impHlocal},
 	If[LoadHamiltonianQ,
 		Print["Getting Hamiltonians from file"];
@@ -507,9 +509,9 @@ GetHamiltonian[L_Integer, f_Integer, QnsSectorList_, LoadHamiltonianQ_, ImpHBloc
 	(*else*)
 		Print["Computing Hamiltonians..."];
 		Print["Time: ",First@AbsoluteTiming[
-			impHblocks=ImpHBlocks[L,f,QnsSectorList,EdMode];
+			impHblocks=ImpHBlocks[L,f,QnsSectorList,Sectors,SectorsDispatch,EdMode];
 			Export[ImpHBlocksFile,impHblocks];
-			impHlocal=ImpHLocal[L,f,QnsSectorList,EdMode];
+			impHlocal=ImpHLocal[L,f,QnsSectorList,Sectors,SectorsDispatch,EdMode];
 			Export[ImpHLocalFile,impHlocal];
 		]," sec."];
 		Print["Done! Let's get started! \n"];
@@ -945,12 +947,13 @@ SelfConsistencyBethe[Nbath_Integer, LocalGF_, LFit_Integer, Mixing_, StartingPar
 				LocalGF[[All,1,1]]*(DBethe^2)/4-(\[CapitalGamma][Nbath,symbols,"Normal",#]&/@z)
 			]^2);
 		(*search a local minimum of such function*)
-		{residue,newparameters}=
+		{residue, newparameters}=
 			FindMinimum[
 				\[Chi][symbols],
-				{symbols,StartingParameters}\[Transpose],
+				{symbols, StartingParameters}\[Transpose],
 				Method->"ConjugateGradient",
-				MaxIterations->700,AccuracyGoal->5
+				MaxIterations->700,
+				AccuracyGoal->5
 			];
 		(*update the bath*)
 		{newe,newV}={esymbols,Vsymbols}/.newparameters;

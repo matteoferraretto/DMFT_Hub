@@ -17,14 +17,14 @@ FolderPath=NotebookDirectory[];
 
 (* ::Input::Initialization:: *)
 (*             GENERAL INPUT              *)
-Nbath=4;(*number of bath sites*)
+Nbath=7;(*number of bath sites*)
 Nimp=1;(*number of impurity sites*)
 L=Nimp+Nbath;(*total number of sites: bath+impurity*)
 Nf=2;(*number of flavours*)
-EdMode="Superc";(* "Normal" = no symmetry breaking;  "Superc" = bath exchanging pairs with reservoir *)
+EdMode="Normal";(* "Normal" = no symmetry breaking;  "Superc" = bath exchanging pairs with reservoir *)
 
 (*      INPUT PHYSICAL PARAMETERS        *)
-U=-0.3;(* interaction energy in units of DBethe = 1.0 *)
+U=0.3;(* interaction energy in units of DBethe = 1.0 *)
 InitializeBathMode="Default";(*path to input file of bath parameters or "Default"*)
 \[CapitalDelta]0=0.2;(* starting value of symmetry breaking field if EdMode="Superc" *)
 \[Mu]=0;(*chemical potential*)
@@ -34,7 +34,7 @@ DMFTerror=10^(-5);(*convergence threshold*)
 DMFTMinIterations=1;(*minimum number of iterations*)
 DMFTMaxIterations=30;(*maximum number of iterations*)
 DegeneracyThreshold=10^(-6);(*two states are degenerate when |Subscript[E, 1]-Subscript[E, 2]|<DegeneracyThreshold *)
-Mixing=0.3;(*mixing parameter: at iteration n set {Subscript[e, n],Subscript[V, n]}=Mixing*{Subscript[e, n-1],Subscript[V, n-1]}+(1-Mixing)*{Subscript[e, n],Subscript[V, n]} *)
+Mixing=0.0;(*mixing parameter: at iteration n set {Subscript[e, n],Subscript[V, n]}=Mixing*{Subscript[e, n-1],Subscript[V, n-1]}+(1-Mixing)*{Subscript[e, n],Subscript[V, n]} *)
 LFit=1000;(*number of Matsubara frequencies used for the \[Chi]^2 fit*)
 RoughIntegrationQ=False;(*set True to use a rough calculation of \[Integral]d\[Epsilon]D[\[Epsilon]]..., set False to use a more refined calculation using NIntegrate*)
 LE=500;(* number of channels used to divide the interval [-DBethe,+DBethe] for the rough calculation of \[Integral]d\[Epsilon]D[\[Epsilon]]... *)
@@ -112,7 +112,7 @@ Print[Style["Recap of input:", 16, Bold]];
 Print["Nbath: ", Nbath, ". Nsectors: ", Length[QnsSectorList], ". Dim. of the largest sector: ", Max@DimSectorList];
 
 (* GET HAMILTONIANS *)
-{impHblocks, impHlocal} = GetHamiltonian[L, Nf, QnsSectorList, LoadHamiltonianQ, ImpHBlocksFile, ImpHLocalFile, EdMode];
+{impHblocks, impHlocal} = GetHamiltonian[L, Nf, QnsSectorList, Sectors, SectorsDispatch, LoadHamiltonianQ, ImpHBlocksFile, ImpHLocalFile, EdMode];
 
 
 (*                   DMFT LOOP                     *)
@@ -295,7 +295,7 @@ fluctuationsz = Sqrt[squaresz-sz^2];
 WriteOutput[StoreSpinQ,SpinFile,"Spin",U,{sz,squaresz,fluctuationsz}]
 
 (*Spectral function*)
-spectralfunction = SpectralFunction[L, Nf, Egs, GsSectorIndex, GsSectorList, QnsSectorList, Hsectors, Sectors, SectorDispatch, EdMode, \[Omega], \[Eta]];
+spectralfunction = SpectralFunction[L, Nf, Egs, GsSectorIndex, GsSectorList, QnsSectorList, Hsectors, Sectors, SectorsDispatch, EdMode, \[Omega], \[Eta]];
 WriteOutput[StoreSpectralFunctionQ, SpectralFunctionFile, "SpectralFunction", U, spectralfunction]
 ListPlot[
 	spectralfunction,
@@ -311,6 +311,9 @@ ListLogPlot[
 		Joined->True,
 		AxesLabel->{"Iteration","Error"}
 ]
+
+
+
 
 
 
