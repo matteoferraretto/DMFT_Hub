@@ -17,14 +17,14 @@ FolderPath=NotebookDirectory[];
 
 (* ::Input::Initialization:: *)
 (*             GENERAL INPUT              *)
-Nbath=7;(*number of bath sites*)
+Nbath=4;(*number of bath sites*)
 Nimp=1;(*number of impurity sites*)
 L=Nimp+Nbath;(*total number of sites: bath+impurity*)
 Nf=2;(*number of flavours*)
-EdMode="Normal";(* "Normal" = no symmetry breaking;  "Superc" = bath exchanging pairs with reservoir *)
+EdMode="Superc";(* "Normal" = no symmetry breaking;  "Superc" = bath exchanging pairs with reservoir *)
 
 (*      INPUT PHYSICAL PARAMETERS        *)
-U=0.3;(* interaction energy in units of DBethe = 1.0 *)
+U=-0.3;(* interaction energy in units of DBethe = 1.0 *)
 InitializeBathMode="Default";(*path to input file of bath parameters or "Default"*)
 \[CapitalDelta]0=0.2;(* starting value of symmetry breaking field if EdMode="Superc" *)
 \[Mu]=0;(*chemical potential*)
@@ -183,27 +183,26 @@ Do[
 		];
 
 
-		(*Self energy of the previous iteration*)
+		(* Weiss field of the (n-1)-th iteration *)
 		WeissOld = If[DMFTiterator==1, ConstantArray[0, {NMatsubara, 2, 2}], InverseGF0];
-		(* Getting the inverse non interacting impurity Green function *)
+		(* Weiss field of the n-th iteration Subscript[G, 0]^-1, i.e. inverse non interacting impurity Green function *)
 		InverseGF0 = WeissField[Nbath, Parameters, EdMode, i\[Omega]];
 		WeissNew = InverseGF0; (* <----- to be substituted by the self consistency equation *)
-		(* Getting the inverse interacting impurity Green function *)
+		(* Inverse impurity Green function G^-1 at the n-th iteration *)
 		InverseGF = Inverse/@ImpurityGF;
 		(* Getting the Self Energy *)
 		\[CapitalSigma] = InverseGF0 - InverseGF;
-		(* Getting the lattice local Green function *)
-		LocalGF = LocalGreenFunction["Bethe", \[CapitalSigma], EdMode, i\[Omega]];
-		\[CapitalGamma]new = Partition[#,2]&/@({# + \[Mu],0,0,	  # - \[Mu] }\[Transpose]&/@i\[Omega]) - Inverse/@LocalGF - \[CapitalSigma];
+		(* Lattice local Green function Subscript[G, loc] *)
+		LocalGF = LocalGreenFunction["Bethe", \[CapitalSigma], EdMode, i\[Omega]]
+		(*\[CapitalGamma]new = Partition[#,2]&/@({# + \[Mu],0,0,	  # - \[Mu] }\[Transpose]&/@i\[Omega]) - Inverse/@LocalGF - \[CapitalSigma];*)
 	];
 
+
+	(* End of exact diagonalization *)
 	Print["Green functions computed. Total time: ", GFTime, " sec."];(*show evaluation time*)
-
-
-	(* Print *)
-	Print[Style["        Exact Diagonalization completed",16,Bold,Orange]];
+	Print[Style["        Exact Diagonalization completed", 16, Bold, Orange]];
 	Print["----------------------------------------------------------------------------------------"];
-	Print[Style["           Self Consistency start ",16,Bold,Magenta]];
+	Print[Style["           Self Consistency start ", 16, Bold, Magenta]];
 
 
 	(* Self Consistency Equation *)
@@ -213,23 +212,22 @@ Do[
 			EdMode == "Normal",
 			(*update bath parameters minimizing the distance between hybridizations*)
 			{e,V} = SelfConsistencyBethe[Nbath, LocalGF, LFit, Mixing, Parameters, EdMode, i\[Omega]];
-			Parameters = Flatten@{e,V},
+			Parameters = Flatten@{e, V},
 		(* ------------------------------------------------------------------------------- *)
 			EdMode == "Superc",
 			{e,V,\[CapitalDelta]} = SelfConsistencyBethe[Nbath, LocalGF, LFit, Mixing, Parameters, EdMode, i\[Omega]];	
-			Parameters = Flatten@{e,V,\[CapitalDelta]};
+			Parameters = Flatten@{e, V, \[CapitalDelta]};
 		];
 		
 	]," sec."];
 
-	(* Compute error and check convergence *)
+	(* Compute, print and store error *)
 	error = DMFTError[WeissNew, WeissOld, EdMode];
-	(* store error *)
-	Print[Style["Error = ", Bold], Style[error,Bold]];
+	Print[Style["Error = ", Bold], Style[error, Bold]];
 	AppendTo[ErrorList, {DMFTiterator, error}];
 
 	(*Print*)
-	Print[Style["           Self Consistency completed",16,Bold,Magenta]];
+	Print[Style["           Self Consistency completed", 16, Bold, Magenta]];
 	Print["----------------------------------------------------------------------------------------"];
 	Print["----------------------------------------------------------------------------------------"];
 	Print["----------------------------------------------------------------------------------------"];
@@ -311,12 +309,6 @@ ListLogPlot[
 		Joined->True,
 		AxesLabel->{"Iteration","Error"}
 ]
-
-
-
-
-
-
 
 
 
