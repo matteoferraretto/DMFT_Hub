@@ -5,6 +5,7 @@
 
 
 (* ::Input::Initialization:: *)
+ClearAll["Global`*"];
 FolderPath=NotebookDirectory[];
 <<(FolderPath<>"Package.wl");
 ?"DMFT`*"
@@ -23,9 +24,9 @@ Nf=2;(*number of flavours*)
 EdMode="Superc";(* "Normal" = no symmetry breaking;  "Superc" = bath exchanging pairs with reservoir *)
 
 (*      INPUT PHYSICAL PARAMETERS        *)
-U=-0.2;(* interaction energy in units of DBethe = 1.0 *)
+U=-0.3;(* interaction energy in units of DBethe = 1.0 *)
 InitializeBathMode="Default";(*path to input file of bath parameters or "Default"*)
-\[CapitalDelta]0=0.5;(* starting value of symmetry breaking field if EdMode="Superc" *)
+\[CapitalDelta]0=0.2;(* starting value of symmetry breaking field if EdMode="Superc" *)
 \[Mu]=0;(*chemical potential*)
 
 (*         INFO ON DMFT LOOPS         *)
@@ -33,10 +34,12 @@ DMFTerror=10^(-5);(*convergence threshold*)
 DMFTMinIterations=1;(*minimum number of iterations*)
 DMFTMaxIterations=30;(*maximum number of iterations*)
 DegeneracyThreshold=10^(-6);(*two states are degenerate when |Subscript[E, 1]-Subscript[E, 2]|<DegeneracyThreshold *)
-Mixing=0;(*mixing parameter: at iteration n set {Subscript[e, n],Subscript[V, n]}=Mixing*{Subscript[e, n-1],Subscript[V, n-1]}+(1-Mixing)*{Subscript[e, n],Subscript[V, n]} *)
+Mixing=0.3;(*mixing parameter: at iteration n set {Subscript[e, n],Subscript[V, n]}=Mixing*{Subscript[e, n-1],Subscript[V, n-1]}+(1-Mixing)*{Subscript[e, n],Subscript[V, n]} *)
 LFit=1000;(*number of Matsubara frequencies used for the \[Chi]^2 fit*)
 RoughIntegrationQ=False;(*set True to use a rough calculation of \[Integral]d\[Epsilon]D[\[Epsilon]]..., set False to use a more refined calculation using NIntegrate*)
 LE=500;(* number of channels used to divide the interval [-DBethe,+DBethe] for the rough calculation of \[Integral]d\[Epsilon]D[\[Epsilon]]... *)
+FitMode = "LocalMinimum";
+FitOptions = {LFit, FitMode, Mixing};
 
 (*      INFO ON MATSUBARA AND REAL FREQUENCIES         *)
 T=0.001;(*fictitious temperature to define Matsubara frequencies*)
@@ -46,7 +49,7 @@ i\[Omega]=Table[(2*n+1)*Pi*I*T,{n,0,NMatsubara-1}];(*list of Matsubara frequenci
 NReal=10000;(*number of real frequencies*)
 d\[Omega]=(\[Omega]max-\[Omega]min)/NReal;(*real frequency step*)
 \[Omega]=Table[\[Omega]min+n*d\[Omega],{n,0,NReal}];(*list of real frequencies*)
-\[Eta]=0.125;(*small shift of the pole in the imaginary axis: this avoids singularities, but introduces an artificial broadening of the spectrum*)
+\[Eta]=0.025;(*small shift of the pole in the imaginary axis: this avoids singularities, but introduces an artificial broadening of the spectrum*)
 
 (*          INFO ON OUTPUT STORAGE FILE PATH         *)
 LoadHamiltonianQ = False; (*set True if you want to load the Hamiltonian from a file, False if you want to generate it on the fly and then store it on a file*)
@@ -56,7 +59,7 @@ StoreBathParametersQ = False;(*want to store bath parameters? On which file? (Ve
 BathParametersFile = FolderPath<>"hamiltonian_restart_U="<>ToString[Abs@U]<>".txt";
 
 StoreSelfEnergyQ = False;(*want to store self energy? On which file?*)
-SelfEnergyFile = FolderPath<>"impSigma_U="<>ToString[Abs@U]<>".m";
+SelfEnergyFile = FolderPath<>"impSigma_U="<>ToString[Abs@U]<>".txt";
 StoreSpectralFunctionQ=False;
 SpectralFunctionFile = FolderPath<>"Spectral_Function_U="<>ToString[Abs@U]<>".txt";
 StoreZQ = False;(*want to store z? On which file?*)
@@ -79,116 +82,122 @@ StiffnessFile = FolderPath<>"Ds.txt";
 (*DMFT LOOP*)
 
 
-LastIteration=False;(*allows to do one more iteration after convergence threshold is reached*)
-Converged=False;(*True if DMFT has converged, false otherwise*)
-ErrorList={};(*list of DMFT errors*) 
+LastIteration = False;(*allows to do one more iteration after convergence threshold is reached*)
+Converged = False;(*True if DMFT has converged, false otherwise*)
+ErrorList = {};(*list of DMFT errors*) 
 
 (* GET BATH PARAMETERS *)
 Which[
-	EdMode=="Normal",
+	EdMode == "Normal",
 	{e,V} = StartingBath[InitializeBathMode, Nbath, EdMode];
 	Parameters = Flatten@{e,V},
 (* ----------------------------------------------------------------- *)
-	EdMode=="Superc", 
+	EdMode == "Superc", 
 	{e,V,\[CapitalDelta]} = StartingBath[InitializeBathMode, Nbath, EdMode]; 
-	\[CapitalDelta]=\[CapitalDelta]0*\[CapitalDelta]; 
-	Parameters=Flatten@{e,V,\[CapitalDelta]}
+	\[CapitalDelta] = \[CapitalDelta]0*\[CapitalDelta]; 
+	Parameters = Flatten@{e, V, \[CapitalDelta]}
 ];
-Nparams = Dim@Parameters;(* total number of parameters *)
+Nparams = Length[Parameters];(* total number of parameters *)
 
 (* GET SECTORS *)
-QnsSectorList = SectorList[L,EdMode];(* list of quantum numbers of all the sectors {n,nup} or sz *)
-DimSectorList = DimSector[L,#,EdMode]&/@QnsSectorList;(*list of dimensions of all the sectors*)
+QnsSectorList = SectorList[L,EdMode]; (* list of quantum numbers of all the sectors {n,nup} or sz *)
+DimSectorList = DimSector[L,#,EdMode]&/@QnsSectorList; (* list of dimensions of all the sectors *)
+Sectors = BuildSector[L, Nf, #, EdMode]&/@QnsSectorList; (* list of all the sectors *)
+SectorsDispatch = Dispatch@Flatten[
+		MapIndexed[{#1->#2[[1]]}&,
+		QnsSectorList],1]; (* dispatch of the sectors, i.e. rule that associates an integer to some quantum numbers *)
 
 (* INPUT RECAP *)
-Print[Style["Recap of input:",16,Bold]];
-Print["Nbath: ",Nbath,". Nsectors: ",Dim@QnsSectorList,". Dim. of the largest sector: ",Max@DimSectorList];
+Print[Style["Recap of input:", 16, Bold]];
+Print["Nbath: ", Nbath, ". Nsectors: ", Length[QnsSectorList], ". Dim. of the largest sector: ", Max@DimSectorList];
 
 (* GET HAMILTONIANS *)
-{impHblocks,impHlocal}=GetHamiltonian[L,Nf,QnsSectorList,LoadHamiltonianQ,ImpHBlocksFile,ImpHLocalFile,EdMode];
+{impHblocks, impHlocal} = GetHamiltonian[L, Nf, QnsSectorList, LoadHamiltonianQ, ImpHBlocksFile, ImpHLocalFile, EdMode];
+
 
 (*                   DMFT LOOP                     *)
 Do[
 
 	(* First print *)
-	Print[Style["DMFT Loop n. ",20,Bold,Red],Style[DMFTiterator,20,Bold,Red]];
+	Print[Style["DMFT Loop n. ", 20, Bold, Red], Style[DMFTiterator, 20, Bold, Red]];
 	Print["----------------------------------------------------------------------------------------"];
-	Print[Style["        Exact Diagonalization start",16,Bold,Orange]];
-	Print["e = ",e];
-	Print["V = ",V];
-	If[EdMode=="Superc",Print["\[CapitalDelta] = ",\[CapitalDelta]]];
+	Print[Style["        Exact Diagonalization start", 16, Bold, Orange]];
+	Print["e = ", e];
+	Print["V = ", V];
+	If[EdMode=="Superc", Print["\[CapitalDelta] = ", \[CapitalDelta]]];
 
 	(* Build and diagonalize the AIM Hamiltonian + print timing *)
-	Print["E.D. time: ",First@AbsoluteTiming[
+	Print["E.D. time: ", First@AbsoluteTiming[
 		
-		Hsectors=
+		Hsectors =
 			ParallelTable[
 				Sum[
 					impHblocks[[sectorindex,j]]*Parameters[[j]]
-				,{j,1,Nparams}]
+				,{j, 1, Nparams}]
 				+U*impHlocal[[sectorindex]]
-			,{sectorindex,Dim@QnsSectorList}];(*list of all the hamiltonians for every sector*)
+			,{sectorindex, Length[QnsSectorList]}];(*list of all the hamiltonians for every sector*)
 		
-		{EgsSectorList,GsSectorList}=ParallelMap[Eigs[32],Hsectors]\[Transpose];(*find the ground state for each sector*)
-		EgsSectorList=Flatten@EgsSectorList;(*correctly reshape the list *)
-		GsSectorList=Replace[GsSectorList,{x_List}:>x,{0,-2}](*correctly reshape the list*)
+		{EgsSectorList, GsSectorList} = ParallelMap[Eigs[32],Hsectors]\[Transpose];(*find the ground state for each sector*)
+		EgsSectorList = Flatten@EgsSectorList;(*correctly reshape the list *)
+		GsSectorList = Replace[GsSectorList,{x_List}:>x,{0,-2}](*correctly reshape the list*)
 
 	]," sec.\n"];
 
 	Print["Computing ground state and Green functions..."];
 
 	(* Compute the ground state *)
-	Egs=Min@EgsSectorList;(*ground state energy (lowest of all the sectors)*)
-	GsSectorIndex=
+	Egs = Min@EgsSectorList;(*ground state energy (lowest of all the sectors)*)
+	GsSectorIndex =
 		Flatten@Position[EgsSectorList,
 			_?((#>Egs-DegeneracyThreshold&&#<Egs+DegeneracyThreshold)&)
 		];(*sector index where the lowest energy is obtained: if this list contains more than 1 element, there is a degeneracy*)
-	DegeneracyWarning=If[Dim@GsSectorIndex>1,True,(*else*)False];(*is True if the ground state is degenerate, False otherwise*)
+	DegeneracyWarning = If[Length[GsSectorIndex]>1, True, (*else*) False];(*is True if the ground state is degenerate, False otherwise*)
 
 
-	GFTime=First@AbsoluteTiming[(*time for computing Green Functions and Self energies*)
+	GFTime = First@AbsoluteTiming[(*time for computing Green Functions and Self energies*)
 		
 		qnsstring = Which[
-					EdMode=="Normal", ";  {n,nup} = ",
-					EdMode=="Superc","; sz = "
-					]; (* just a stupid output string *)
+					EdMode == "Normal", ";  {n,nup} = ",
+					EdMode == "Superc", "; sz = "
+				]; (* just a stupid output string *)
 		If[!DegeneracyWarning,(*if there is NO degeneracy*)
-			GsSectorIndex=First@GsSectorIndex;(*extract the number from the list*)
-			GsQns=QnsSectorList[[GsSectorIndex]];(*quantum numbers {n,nup} or sz of the sector with minimal energy*)
-			Gs=GsSectorList[[GsSectorIndex]];(*compute the ground state and flatten properly*)
+			GsSectorIndex = First@GsSectorIndex;(*extract the number from the list*)
+			GsQns = QnsSectorList[[GsSectorIndex]];(*quantum numbers {n,nup} or sz of the sector with minimal energy*)
+			Gs = GsSectorList[[GsSectorIndex]];(*compute the ground state and flatten properly*)
 			Print["        Ground state info:"];(*print relevant information on the ground state*)
 			Print["Egs = ", Egs, qnsstring, GsQns];
-			ImpurityGF=ImpurityGreenFunction[L,Nf,Egs,Gs,GsSectorIndex,QnsSectorList,Hsectors,EdMode,i\[Omega]](*impurity Green function*)
+			ImpurityGF = ImpurityGreenFunction[L,Nf,Egs,Gs,GsQns,Hsectors,Sectors,SectorsDispatch,EdMode,i\[Omega]](*impurity Green function*)
 		];
 
 		If[DegeneracyWarning,(*if there is degeneracy*)
 			SetSharedVariable[ImpurityGF];(*make the impurity green function a shared variable between running kernels*)
-			ImpurityGF=ConstantArray[0,{NMatsubara,2,2}];(*initialize impurity green function*)
+			ImpurityGF = ConstantArray[0,{NMatsubara,2,2}];(*initialize impurity green function*)
 			ParallelDo[(*parallel loop over the elements of GsSectorList*)
-				GsQns=QnsSectorList[[gssectorindex]];(*quantum numbers {n,nup} of the sector with minimal energy*)
-				Gs=GsSectorList[[gssectorindex]];(*compute the ground state and flatten properly*)
+				GsQns = QnsSectorList[[gssectorindex]];(*quantum numbers {n,nup} of the sector with minimal energy*)
+				Gs = GsSectorList[[gssectorindex]];(*compute the ground state and flatten properly*)
 				Print["        Ground state info:\n",(*print relevant information on the ground state*)
 				"Egs = ", Egs, qnsstring, GsQns];
-				ImpurityGF+=ImpurityGreenFunction[L,Nf,Egs,Gs,gssectorindex,QnsSectorList,Hsectors,EdMode,i\[Omega]]
-			,{gssectorindex,GsSectorIndex},DistributedContexts->Automatic];
-		ImpurityGF=ImpurityGF/(Dim@GsSectorIndex)(*divide the green function by the number of degenerate states.*)
+				ImpurityGF += ImpurityGreenFunction[L,Nf,Egs,Gs,GsQns,Hsectors,Sectors,SectorsDispatch,EdMode,i\[Omega]]
+			,{gssectorindex, GsSectorIndex},DistributedContexts->Automatic];
+		ImpurityGF = ImpurityGF/(Length[GsSectorIndex])(*divide the green function by the number of degenerate states.*)
 		];
 
 
 		(*Self energy of the previous iteration*)
-		\[CapitalSigma]old=If[DMFTiterator==1,ConstantArray[0,{NMatsubara,2,2}],\[CapitalSigma]];
+		WeissOld = If[DMFTiterator==1, ConstantArray[0, {NMatsubara, 2, 2}], InverseGF0];
 		(* Getting the inverse non interacting impurity Green function *)
-		InverseGF0=WeissField[Nbath,Parameters,EdMode,i\[Omega]];
+		InverseGF0 = WeissField[Nbath, Parameters, EdMode, i\[Omega]];
+		WeissNew = InverseGF0; (* <----- to be substituted by the self consistency equation *)
 		(* Getting the inverse interacting impurity Green function *)
-		InverseGF=Inverse/@ImpurityGF;
+		InverseGF = Inverse/@ImpurityGF;
 		(* Getting the Self Energy *)
-		\[CapitalSigma]=InverseGF0-InverseGF;
+		\[CapitalSigma] = InverseGF0 - InverseGF;
 		(* Getting the lattice local Green function *)
-		LocalGF=LocalGreenFunction["Bethe",\[CapitalSigma],EdMode,i\[Omega]];
-		
+		LocalGF = LocalGreenFunction["Bethe", \[CapitalSigma], EdMode, i\[Omega]];
+		\[CapitalGamma]new = Partition[#,2]&/@({# + \[Mu],0,0,	  # - \[Mu] }\[Transpose]&/@i\[Omega]) - Inverse/@LocalGF - \[CapitalSigma];
 	];
 
-	Print["Green functions computed. Total time: ",GFTime," sec."];(*show evaluation time*)
+	Print["Green functions computed. Total time: ", GFTime, " sec."];(*show evaluation time*)
 
 
 	(* Print *)
@@ -198,29 +207,26 @@ Do[
 
 
 	(* Self Consistency Equation *)
-	Print["S.C. time: ",First@AbsoluteTiming[
+	Print["S.C. time: ", First@AbsoluteTiming[
 		
 		Which[
 			EdMode == "Normal",
 			(*update bath parameters minimizing the distance between hybridizations*)
 			{e,V} = SelfConsistencyBethe[Nbath, LocalGF, LFit, Mixing, Parameters, EdMode, i\[Omega]];
 			Parameters = Flatten@{e,V},
-		(* ---------------------------------------------------------------------- *)
+		(* ------------------------------------------------------------------------------- *)
 			EdMode == "Superc",
 			{e,V,\[CapitalDelta]} = SelfConsistencyBethe[Nbath, LocalGF, LFit, Mixing, Parameters, EdMode, i\[Omega]];	
-			Parameters = Flatten@{e,V,\[CapitalDelta]}
+			Parameters = Flatten@{e,V,\[CapitalDelta]};
 		];
 		
 	]," sec."];
 
 	(* Compute error and check convergence *)
-	(* function used to evaluate the error: in this case diagonal Self energy. *)
-	X = \[CapitalSigma][[All,1,1]];
-	Xold = \[CapitalSigma]old[[All,1,1]];
-	(* compute the error *)
-	error = DMFTError[X,Xold];
+	error = DMFTError[WeissNew, WeissOld, EdMode];
 	(* store error *)
-	AppendTo[ErrorList,{DMFTiterator,error}];
+	Print[Style["Error = ", Bold], Style[error,Bold]];
+	AppendTo[ErrorList, {DMFTiterator, error}];
 
 	(*Print*)
 	Print[Style["           Self Consistency completed",16,Bold,Magenta]];
@@ -229,11 +235,14 @@ Do[
 	Print["----------------------------------------------------------------------------------------"];
 
 	(*Exit DMFT Loop if convengerce is reached*)
-	If[DMFTiterator>DMFTMinIterations&&error<DMFTerror&&LastIteration,Break[];];
-	If[error<DMFTerror,LastIteration=True,(*else*)LastIteration=False];
+	If[DMFTiterator > DMFTMinIterations && error<DMFTerror && LastIteration, Break[];];
+	If[error < DMFTerror, LastIteration = True, (*else*) LastIteration = False];
 
 
-,{DMFTiterator,1,DMFTMaxIterations}]
+,{DMFTiterator, 1, DMFTMaxIterations}]
+
+
+
 
 
 
@@ -286,7 +295,7 @@ fluctuationsz = Sqrt[squaresz-sz^2];
 WriteOutput[StoreSpinQ,SpinFile,"Spin",U,{sz,squaresz,fluctuationsz}]
 
 (*Spectral function*)
-spectralfunction = SpectralFunction[L,Nf,Egs,GsSectorIndex,GsSectorList,QnsSectorList,Hsectors,EdMode,\[Omega],\[Eta]];
+spectralfunction = SpectralFunction[L, Nf, Egs, GsSectorIndex, GsSectorList, QnsSectorList, Hsectors, Sectors, SectorDispatch, EdMode, \[Omega], \[Eta]];
 WriteOutput[StoreSpectralFunctionQ, SpectralFunctionFile, "SpectralFunction", U, spectralfunction]
 ListPlot[
 	spectralfunction,
@@ -302,8 +311,6 @@ ListLogPlot[
 		Joined->True,
 		AxesLabel->{"Iteration","Error"}
 ]
-
-
 
 
 
