@@ -193,10 +193,31 @@ Do[
 		(* Getting the Self Energy *)
 		\[CapitalSigma] = InverseGF0 - InverseGF;
 		(* Lattice local Green function Subscript[G, loc] *)
-		LocalGF = LocalGreenFunction["Bethe", \[CapitalSigma], EdMode, i\[Omega]]
-		(*\[CapitalGamma]new = Partition[#,2]&/@({# + \[Mu],0,0,	  # - \[Mu] }\[Transpose]&/@i\[Omega]) - Inverse/@LocalGF - \[CapitalSigma];*)
+		LocalGF = LocalGreenFunction["Bethe", \[CapitalSigma], EdMode, i\[Omega]];
+		(* New Hybriziation to be used in fit *)
+		\[CapitalGamma]new = Partition[#,2]&/@({# + \[Mu], 0, 0,	  # - \[Mu] }\[Transpose]&/@i\[Omega]) - Inverse/@LocalGF - \[CapitalSigma];
 	];
-
+	
+	(* --------   CHECK ---------- 
+	Print@GraphicsRow[{
+	ListPlot[{
+		Im@ImpurityGF[[All,1,1]],
+		Im@LocalGF[[All,1,1]]
+	},
+	Joined->True,
+	PlotRange->{{0,1000},All},
+	PlotStyle->{{Red,Thick},{Orange,Dashing[.05]}
+	}],
+	ListPlot[{
+		Re@ImpurityGF[[All,1,2]],
+		Re@LocalGF[[All,1,2]]
+	},
+	Joined->True,
+	PlotRange->{{0,1000},All},
+	PlotStyle->{{Red,Thick},{Orange,Dashing[.05]}
+	}]
+	}]
+	 -------- END CHECK ---------- *)
 
 	(* End of exact diagonalization *)
 	Print["Green functions computed. Total time: ", GFTime, " sec."];(*show evaluation time*)
@@ -211,11 +232,13 @@ Do[
 		Which[
 			EdMode == "Normal",
 			(*update bath parameters minimizing the distance between hybridizations*)
-			{e,V} = SelfConsistencyBethe[Nbath, LocalGF, LFit, Mixing, Parameters, EdMode, i\[Omega]];
+			(*{e,V} = SelfConsistencyBethe[Nbath, LocalGF, LFit, Mixing, Parameters, EdMode, i\[Omega]];*)
+			{e,V} = SelfConsistency[Nbath, \[CapitalGamma]new, LFit, Mixing, Parameters, EdMode, i\[Omega]];
 			Parameters = Flatten@{e, V},
 		(* ------------------------------------------------------------------------------- *)
 			EdMode == "Superc",
-			{e,V,\[CapitalDelta]} = SelfConsistencyBethe[Nbath, LocalGF, LFit, Mixing, Parameters, EdMode, i\[Omega]];	
+			(*{e,V,\[CapitalDelta]} = SelfConsistencyBethe[Nbath, LocalGF, LFit, Mixing, Parameters, EdMode, i\[Omega]];*)	
+			{e,V,\[CapitalDelta]} = SelfConsistency[Nbath, \[CapitalGamma]new, LFit, Mixing, Parameters, EdMode, i\[Omega]];
 			Parameters = Flatten@{e, V, \[CapitalDelta]};
 		];
 		
@@ -309,6 +332,12 @@ ListLogPlot[
 		Joined->True,
 		AxesLabel->{"Iteration","Error"}
 ]
+
+
+
+
+
+
 
 
 

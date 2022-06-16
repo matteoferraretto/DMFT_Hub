@@ -97,6 +97,8 @@ If EdMode = ''Normal'', the output list has the form {e,V}; if EdMode = ''Superc
 - the local Green function (LocalGF) and the set of Matsubara frequencies (z);
 - technical details like the number of Matsubara frequencies used to perform the fit (LFit), the mixing parameter (Mixing) and the starting parameters for the minimization process (StartingParameters) in a flat list. " 
 
+SelfConsistency::usage = "SelfConsistency[Nbath, \[CapitalGamma]new, LFit, Mixing, StartingParameters, EdMode, z]. "
+
 DMFTError::usage = "DMFTError[Xnew,Xold] evaluates the relative distance between the lists Xnew and Xold: Total[Abs[Xnew-Xold]]/Total[Xnew]. If Xold is set to Null it returns 1, as if Xold=0. The function prints the result on screen."
 
 
@@ -789,30 +791,30 @@ ImpurityGreenFunction[L_Integer, f_Integer, Egs_Real, gs_, GsQns_, Hsectors_, Se
 
 (* Local Green function: only supports Bethe lattice at the moment *)
 LocalGreenFunction[Lattice_String, \[CapitalSigma]_, EdMode_String, z_]:=Module[
-	{Gloc,Floc,zero,LE=1000,DBethe=1.0,d\[Epsilon],LocalGF},
+	{Gloc,Floc,zero,LE=1000,DBethe=1.0,d\[Epsilon],LocalGF,DoS},
 	Which[
 		Lattice!="Bethe",
 		Return@Print["Error, LocalGreenFunction only supports Bethe lattice"],
 		Lattice=="Bethe",
 		DoS[\[Epsilon]_]:=(2./(Pi*DBethe^2))*Sqrt[DBethe^2-\[Epsilon]^2];
 	];
-	d\[Epsilon]=2.*DBethe/LE;
+	d\[Epsilon] = 2 * DBethe/(1.0 * LE);
 	Which[
-		EdMode=="Normal",
-		Gloc=d\[Epsilon]*Sum[
+		EdMode == "Normal",
+		Gloc = d\[Epsilon] * Sum[
 			DoS[\[Epsilon]]/(z-\[Epsilon]-\[CapitalSigma][[All,1,1]])
-		,{\[Epsilon],-DBethe,DBethe,d\[Epsilon]}];
-		zero=ConstantArray[0, Length[Gloc]];
-		LocalGF=Partition[#,2]&/@({Gloc,zero,zero,Gloc}\[Transpose]),
+		,{\[Epsilon], -DBethe, DBethe, d\[Epsilon]}];
+		zero = ConstantArray[0, Length[Gloc]];
+		LocalGF = Partition[#,2]&/@({Gloc,zero,zero,Gloc}\[Transpose]),
 	(* ------------------------------------------------- *)	
-		EdMode=="Superc",
-		Gloc=d\[Epsilon]*Total@Table[
-				DoS[\[Epsilon]]*(-z-Conjugate@\[CapitalSigma][[All,1,1]]-\[Epsilon])/(Abs[z-\[CapitalSigma][[All,1,1]]-\[Epsilon]]^2+Abs[\[CapitalSigma][[All,1,2]]]^2)
-			,{\[Epsilon],-DBethe,DBethe,d\[Epsilon]}];
-		Floc=-\[CapitalSigma][[All,1,2]]*d\[Epsilon]*Total@Table[
-				DoS[\[Epsilon]]*(1./(Abs[z-\[CapitalSigma][[All,1,1]]-\[Epsilon]]^2+Abs[\[CapitalSigma][[All,1,2]]]^2))
-			,{\[Epsilon],-DBethe,DBethe,d\[Epsilon]}];
-		LocalGF=Partition[#,2]&/@({Gloc,Floc,Conjugate@Floc,-Conjugate@Gloc}\[Transpose])
+		EdMode == "Superc",
+		Gloc = d\[Epsilon] * Sum[
+				DoS[\[Epsilon]]*(-z-Conjugate@\[CapitalSigma][[All,1,1]]-\[Epsilon])/(Abs[z-\[CapitalSigma][[All,1,1]]-\[Epsilon]]^2 + Abs[\[CapitalSigma][[All,1,2]]]^2)
+			,{\[Epsilon], -DBethe, DBethe, d\[Epsilon]}];
+		Floc = -\[CapitalSigma][[All,1,2]] * d\[Epsilon] * Sum[
+				DoS[\[Epsilon]] * (1./(Abs[z-\[CapitalSigma][[All,1,1]]-\[Epsilon]]^2 + Abs[\[CapitalSigma][[All,1,2]]]^2))
+			,{\[Epsilon], -DBethe, DBethe, d\[Epsilon]}];
+		LocalGF = Partition[#,2]&/@({Gloc, Floc, Conjugate@Floc, -Conjugate@Gloc}\[Transpose])
 	];
 	LocalGF
 ];
@@ -830,7 +832,7 @@ SpectralFunction[L_Integer, f_Integer, Egs_Real, GsSectorIndex_, GsSectorList_, 
 		Gs = GsSectorList[[gssectorindex]];(*compute the ground state and flatten properly*)
 		GsQns = QnsSectorList[[gssectorindex]];(*quantum numbers of the ground state sector*)
 		SpectralFunction += -(1./Pi)*Tr/@Im@(ImpurityGreenFunction[L, f, Egs, Gs, GsQns, Hsectors, Sectors, SectorDispatch, EdMode, \[Omega]+I*\[Eta]]);
-	,{gssectorindex,Flatten@{GsSectorIndex}}];
+	,{gssectorindex, Flatten@{GsSectorIndex}}];
 	(*normalize the spectral function*)
 	SpectralFunction = SpectralFunction/(d\[Omega]*Total@SpectralFunction);
 	{\[Omega],SpectralFunction}\[Transpose]
@@ -844,48 +846,48 @@ Hybridization[Nbath_Integer, Parameters_, EdMode_String]:=Module[
 	Which[
 		EdMode=="Normal",
 		(* spinor convention: \[CapitalPsi] = ( c_{k,up} , c_{k,dw} , c_{0,up} , c_{0,dw} ) in column *)
-		e=Take[Parameters,{1,Nbath}];
-		V=Take[Parameters,{Nbath+1,2Nbath}];
-		hyb={{0,0},{0,0}};
+		e = Take[Parameters,{1,Nbath}];
+		V = Take[Parameters,{Nbath+1,2Nbath}];
+		hyb = {{0,0},{0,0}};
 		Do[
-			Hbath=DiagonalMatrix[{e[[k]],e[[k]]}];
-			Himp=DiagonalMatrix[{eimp,eimp}];
-			Hhyb=DiagonalMatrix[{V[[k]],V[[k]]}];
-			hyb-=Conjugate[Hhyb] . Inverse[{{#,0},{0,#}}-Hbath] . Hhyb
-		,{k,1,Nbath}],
+			Hbath = DiagonalMatrix[{e[[k]],e[[k]]}];
+			Himp = DiagonalMatrix[{eimp,eimp}];
+			Hhyb = DiagonalMatrix[{V[[k]],V[[k]]}];
+			hyb -= Conjugate[Hhyb] . Inverse[{{#,0},{0,#}}-Hbath] . Hhyb
+		,{k, 1, Nbath}],
 	(* -------------------------------- *)
-		EdMode=="Superc",
+		EdMode == "Superc",
 		(* spinor convention: \[CapitalPsi] = ( c_{k,up} , cdg_{k,dw} , c_{0,up} , cdg_{0,dw} ) in column *)
-		e=Take[Parameters,{1,Nbath}];
-		V=Take[Parameters,{Nbath+1,2Nbath}];
-		\[CapitalDelta]=Take[Parameters,{2Nbath+1,3Nbath}];
-		hyb={{0,0},{0,0}};
+		e = Take[Parameters,{1,Nbath}];
+		V = Take[Parameters,{Nbath+1,2Nbath}];
+		\[CapitalDelta] = Take[Parameters,{2Nbath+1,3Nbath}];
+		hyb = {{0,0},{0,0}};
 		Do[
-			Hbath={{e[[k]],\[CapitalDelta][[k]]},{\[CapitalDelta][[k]],-e[[k]]}};
-			Himp=DiagonalMatrix[{eimp,-eimp}];
-			Hhyb=DiagonalMatrix[{V[[k]],V[[k]]}];
-			hyb-=Conjugate[Hhyb] . Inverse[{{#,0},{0,#}}-Hbath] . Hhyb
-		,{k,1,Nbath}]
+			Hbath = {{e[[k]],\[CapitalDelta][[k]]},{\[CapitalDelta][[k]],-e[[k]]}};
+			Himp = DiagonalMatrix[{eimp,-eimp}];
+			Hhyb = DiagonalMatrix[{V[[k]],V[[k]]}];
+			hyb -= Conjugate[Hhyb] . Inverse[{{#,0},{0,#}}-Hbath] . Hhyb
+		,{k, 1, Nbath}]
 	];
 hyb
 ]&;
 
 (* analytic evaluation of the hybridization function *)
 \[CapitalGamma][Nbath_Integer, Parameters_, EdMode_String, z_]:=Module[
-	{hyb,e,V,\[CapitalDelta]},
+	{hyb, e, V, \[CapitalDelta]},
 	Which[
-		EdMode=="Normal",
-		e=Take[Parameters,{1,Nbath}];
-		V=Take[Parameters,{Nbath+1,2Nbath}];
-		hyb=Total@Table[(V[[k]]^2)/(z-e[[k]]),{k,1,Nbath}],
+		EdMode == "Normal",
+		e = Take[Parameters,{1,Nbath}];
+		V = Take[Parameters,{Nbath+1,2Nbath}];
+		hyb = Total@Table[(V[[k]]^2)/(z-e[[k]]),{k,1,Nbath}],
 	(* ----------------------------------------------- *)	
-		EdMode=="Superc",
-		e=Take[Parameters,{1,Nbath}];
-		V=Take[Parameters,{Nbath+1,2Nbath}];
-		\[CapitalDelta]=Take[Parameters,{2Nbath+1,3Nbath}];
-		hyb=-Total@Table[
+		EdMode == "Superc",
+		e = Take[Parameters,{1,Nbath}];
+		V = Take[Parameters,{Nbath+1,2Nbath}];
+		\[CapitalDelta] = Take[Parameters,{2Nbath+1,3Nbath}];
+		hyb = -Total@Table[
 				(V[[k]]^2)*(z+e[[k]])/((-I*z)^2+e[[k]]^2+\[CapitalDelta][[k]]^2)
-			,{k,1,Nbath}]
+			,{k, 1, Nbath}]
 	];
 	hyb
 ];
@@ -906,13 +908,13 @@ B[Nbath_Integer, Parameters_, z_]:=Module[
 (* Weiss field (inverse non interacting impurity Green function *)
 WeissField[Nbath_Integer, Parameters_, EdMode_String, z_]:=
 	Which[
-		EdMode=="Normal",
+		EdMode == "Normal",
 		Partition[#,2]&/@({
 			z-\[CapitalGamma][Nbath,Parameters,"Normal",z],	ConstantArray[0, Length[z]],
 			ConstantArray[0, Length[z]],	z-\[CapitalGamma][Nbath,Parameters,"Normal",z]
 		}\[Transpose]),
 	(* ---------------------------------------------------- *)
-		EdMode=="Superc",
+		EdMode == "Superc",
 		Partition[#,2]&/@({
 			A[Nbath,Parameters,z],	-Conjugate@B[Nbath,Parameters,z],
 			-B[Nbath,Parameters,z],	-A[Nbath,Parameters,-z]
@@ -932,15 +934,15 @@ NonInteractingGreenFunction[L_,Parameters_,z_]:={
 SelfConsistencyBethe[Nbath_Integer, LocalGF_, LFit_Integer, Mixing_, StartingParameters_, EdMode_String, z_]:=Module[
 	{esymbols,Vsymbols,\[CapitalDelta]symbols,symbols,residue,newparameters,newe,newV,new\[CapitalDelta],lists,e,V,\[CapitalDelta],\[Chi],\[Chi]normal,\[Chi]anomalous,DBethe=1.},
 	Which[
-		EdMode=="Normal",
+		EdMode == "Normal",
 		(* extract e and V from the input list StartingParameters *)
-		e=Take[StartingParameters,{1,Nbath}];
-		V=Take[StartingParameters,{Nbath+1,2Nbath}];
+		e = Take[StartingParameters,{1,Nbath}];
+		V = Take[StartingParameters,{Nbath+1,2Nbath}];
 		(* define lists of symbols {e1,e2,...} and {V1,V2,...} *)
-		esymbols=Table[Symbol["e"<>ToString[i]],{i,1,Nbath}];
-		Vsymbols=Table[Symbol["V"<>ToString[i]],{i,Nbath}];
+		esymbols = Table[Symbol["e"<>ToString[i]], {i, Nbath}];
+		Vsymbols = Table[Symbol["V"<>ToString[i]], {i, Nbath}];
 		(* define a list {e1,e2,...,V1,V2,...} *)
-		symbols=Flatten@{esymbols,Vsymbols};
+		symbols = Flatten@{esymbols, Vsymbols};
 		(*distance function: target function to minimize*)
 		\[Chi][symbols_]:=
 			Total@Take[#,LFit]&@(Abs[
@@ -956,25 +958,25 @@ SelfConsistencyBethe[Nbath_Integer, LocalGF_, LFit_Integer, Mixing_, StartingPar
 				AccuracyGoal->5
 			];
 		(*update the bath*)
-		{newe,newV}={esymbols,Vsymbols}/.newparameters;
-		lists={newe,newV};
-		{newe,newV}=SortBy[lists\[Transpose],First]\[Transpose];
+		{newe,newV} = {esymbols,Vsymbols}/.newparameters;
+		lists = {newe,newV};
+		{newe,newV} = SortBy[lists\[Transpose],First]\[Transpose];
 		(*if required, mix the old and the new parameters*)
-		e=Mixing*e+(1-Mixing)*newe;
-		V=Mixing*V+(1-Mixing)*newV;	
+		e = Mixing*e+(1-Mixing)*newe;
+		V = Mixing*V+(1-Mixing)*newV;	
 		Return[{e,V}],
 	(* -------------------------------------------------- *)
-		EdMode=="Superc",
+		EdMode == "Superc",
 		(* extract e, V and \[CapitalDelta] from the input list StartingParameters *)
-		e=Take[StartingParameters,{1,Nbath}];
-		V=Take[StartingParameters,{Nbath+1,2Nbath}];
-		\[CapitalDelta]=Take[StartingParameters,{2Nbath+1,3Nbath}];
+		e = Take[StartingParameters,{1,Nbath}];
+		V = Take[StartingParameters,{Nbath+1,2Nbath}];
+		\[CapitalDelta] = Take[StartingParameters,{2Nbath+1,3Nbath}];
 		(* define lists of symbols {e2,e3,...}, {V1,V2,...} and {\[CapitalDelta]1,\[CapitalDelta]2,...} *)
-		esymbols=Table[Symbol["e"<>ToString[i]],{i,Nbath}];
-		Vsymbols=Table[Symbol["V"<>ToString[i]],{i,Nbath}];
-		\[CapitalDelta]symbols=Table[Symbol["\[CapitalDelta]"<>ToString[i]],{i,Nbath}];
+		esymbols = Table[Symbol["e"<>ToString[i]],{i,Nbath}];
+		Vsymbols = Table[Symbol["V"<>ToString[i]],{i,Nbath}];
+		\[CapitalDelta]symbols = Table[Symbol["\[CapitalDelta]"<>ToString[i]],{i,Nbath}];
 		(* define a list {e1,e2,...,V1,V2,...,\[CapitalDelta]1,\[CapitalDelta]2,...} *)
-		symbols=Flatten@{esymbols,Vsymbols,\[CapitalDelta]symbols};
+		symbols = Flatten@{esymbols,Vsymbols,\[CapitalDelta]symbols};
 		(* distance function between normal compoents (1,1) *)
 		\[Chi]normal[symbols_]:=
 			Total@Take[#,LFit]&@(Abs[
@@ -989,7 +991,7 @@ SelfConsistencyBethe[Nbath_Integer, LocalGF_, LFit_Integer, Mixing_, StartingPar
 		\[Chi][symbols_]:=
 			(1./2.)*(\[Chi]normal[symbols]+\[Chi]anomalous[symbols]);
 		(*search the global minimum of such function*)
-		{residue,newparameters}=
+		{residue, newparameters}=
 			FindMinimum[
 				\[Chi][symbols],
 				{symbols, StartingParameters}\[Transpose],
@@ -999,12 +1001,94 @@ SelfConsistencyBethe[Nbath_Integer, LocalGF_, LFit_Integer, Mixing_, StartingPar
 			];
 		(*update the bath*)
 		{newe,newV,new\[CapitalDelta]}={esymbols,Vsymbols,\[CapitalDelta]symbols}/.newparameters;
-		lists={newe,newV,new\[CapitalDelta]};
-		{newe,newV,new\[CapitalDelta]}=SortBy[lists\[Transpose],First]\[Transpose];
+		lists = {newe,newV,new\[CapitalDelta]};
+		{newe,newV,new\[CapitalDelta]} = SortBy[lists\[Transpose],First]\[Transpose];
 		(*if required, mix the old and the new parameters*)
-		e=Mixing*e+(1-Mixing)*newe;
-		V=Mixing*V+(1-Mixing)*newV;
-		\[CapitalDelta]=Mixing*\[CapitalDelta]+(1-Mixing)*new\[CapitalDelta];
+		e = Mixing*e+(1-Mixing)*newe;
+		V = Mixing*V+(1-Mixing)*newV;
+		\[CapitalDelta] = Mixing*\[CapitalDelta]+(1-Mixing)*new\[CapitalDelta];
+		
+		Print["Fit residue = ", residue];
+		Return[{e,V,\[CapitalDelta]}]
+	]
+];
+
+(* SELF CONSISTENCY PROCEDURES *)
+SelfConsistency[Nbath_Integer, \[CapitalGamma]new_, LFit_Integer, Mixing_Real, StartingParameters_, EdMode_String, z_]:=Module[
+	{esymbols,Vsymbols,\[CapitalDelta]symbols,symbols,residue,newparameters,newe,newV,new\[CapitalDelta],lists,e,V,\[CapitalDelta],\[Chi],\[Chi]normal,\[Chi]anomalous,DBethe=1.},
+	Which[
+		EdMode == "Normal",
+		(* extract e and V from the input list StartingParameters *)
+		e = Take[StartingParameters,{1,Nbath}];
+		V = Take[StartingParameters,{Nbath+1,2Nbath}];
+		(* define lists of symbols {e1,e2,...} and {V1,V2,...} *)
+		esymbols = Table[Symbol["e"<>ToString[i]], {i, Nbath}];
+		Vsymbols = Table[Symbol["V"<>ToString[i]], {i, Nbath}];
+		(* define a list {e1,e2,...,V1,V2,...} *)
+		symbols = Flatten@{esymbols, Vsymbols};
+		(*distance function: target function to minimize*)
+		\[Chi][symbols_]:=
+			Total@Take[#,LFit]&@(Abs[
+				\[CapitalGamma]new[[All, 1, 1]] - (\[CapitalGamma][Nbath,symbols,"Normal",#]&/@z)
+			]^2);
+		(*search a local minimum of such function*)
+		{residue, newparameters}=
+			FindMinimum[
+				\[Chi][symbols],
+				{symbols, StartingParameters}\[Transpose],
+				Method->"ConjugateGradient",
+				MaxIterations->700,
+				AccuracyGoal->5
+			];
+		(*update the bath*)
+		{newe,newV} = {esymbols,Vsymbols}/.newparameters;
+		lists = {newe,newV};
+		{newe,newV} = SortBy[lists\[Transpose],First]\[Transpose];
+		(*if required, mix the old and the new parameters*)
+		e = Mixing*e+(1-Mixing)*newe;
+		V = Mixing*V+(1-Mixing)*newV;	
+		Return[{e,V}],
+	(* -------------------------------------------------- *)
+		EdMode == "Superc",
+		(* extract e, V and \[CapitalDelta] from the input list StartingParameters *)
+		e = Take[StartingParameters,{1,Nbath}];
+		V = Take[StartingParameters,{Nbath+1,2Nbath}];
+		\[CapitalDelta] = Take[StartingParameters,{2Nbath+1,3Nbath}];
+		(* define lists of symbols {e2,e3,...}, {V1,V2,...} and {\[CapitalDelta]1,\[CapitalDelta]2,...} *)
+		esymbols = Table[Symbol["e"<>ToString[i]],{i,Nbath}];
+		Vsymbols = Table[Symbol["V"<>ToString[i]],{i,Nbath}];
+		\[CapitalDelta]symbols = Table[Symbol["\[CapitalDelta]"<>ToString[i]],{i,Nbath}];
+		(* define a list {e1,e2,...,V1,V2,...,\[CapitalDelta]1,\[CapitalDelta]2,...} *)
+		symbols = Flatten@{esymbols,Vsymbols,\[CapitalDelta]symbols};
+		(* distance function between normal compoents (1,1) *)
+		\[Chi]normal[symbols_]:=
+			Total@Take[#,LFit]&@(Abs[
+				\[CapitalGamma]new[[All, 1, 1]] - (\[CapitalGamma][Nbath,symbols,"Superc",#]&/@z)
+			]^2);
+		(* distance function between anomalous compoents (2,1) *)
+		\[Chi]anomalous[symbols_]:=
+			Total@Take[#,LFit]&@(Abs[
+				\[CapitalGamma]new[[All, 1, 2]] - (B[Nbath,symbols,#]&/@z)
+			]^2);
+		(* target function to minimize (average of the two) *)
+		\[Chi][symbols_] := (\[Chi]normal[symbols] + \[Chi]anomalous[symbols])/2.;
+		(*search the global minimum of such function*)
+		{residue, newparameters}=
+			FindMinimum[
+				\[Chi][symbols],
+				{symbols, StartingParameters}\[Transpose],
+				Method->"ConjugateGradient",
+				MaxIterations->1000,
+				PrecisionGoal->6
+			];
+		(*update the bath*)
+		{newe,newV,new\[CapitalDelta]}={esymbols,Vsymbols,\[CapitalDelta]symbols}/.newparameters;
+		lists = {newe,newV,new\[CapitalDelta]};
+		{newe,newV,new\[CapitalDelta]} = SortBy[lists\[Transpose],First]\[Transpose];
+		(*if required, mix the old and the new parameters*)
+		e = Mixing*e+(1-Mixing)*newe;
+		V = Mixing*V+(1-Mixing)*newV;
+		\[CapitalDelta] = Mixing*\[CapitalDelta]+(1-Mixing)*new\[CapitalDelta];
 		
 		Print["Fit residue = ", residue];
 		Return[{e,V,\[CapitalDelta]}]
@@ -1012,15 +1096,14 @@ SelfConsistencyBethe[Nbath_Integer, LocalGF_, LFit_Integer, Mixing_, StartingPar
 ];
 
 
-
 (*           OBSERVABLES             *)
 (* Quasiparticle weight *)
 \[NonBreakingSpace]Z[\[CapitalSigma]_, FitCutoff_Integer, i\[Omega]_]:=Module[
 	{Selfenergy,data,a,z},
 	Selfenergy = \[CapitalSigma][[All,1,1]];
-	data=Take[#,FitCutoff]&@Transpose@{Im@i\[Omega],Im@Selfenergy};
-	a=Fit[data,{x},x]/x;
-	z=1/(1-a);
+	data = Take[#,FitCutoff]&@Transpose@{Im@i\[Omega],Im@Selfenergy};
+	a = Fit[data,{x},x]/x;
+	z = 1/(1-a);
 	Return[z]
 ];
 
@@ -1032,9 +1115,9 @@ ImpurityDensity[L_Integer, f_Integer, GsSectorIndex_, QnsSectorList_, GsSectorLi
 		gs = Flatten@GsSectorList[[gssectorindex]];(* ground state vector *)
 		qns = QnsSectorList[[gssectorindex]];(* ground state quantum number *)
 		\[Psi] = BuildSector[L,f,qns,EdMode];(* basis of the sector sz *)
-		num=Density[L,f,1]/@\[Psi];(* evaluate number operator of the impurity for all the basis states *)
-		density+=num . (Abs[gs]^2);(* multiply by the weights stored in gs^2 *)
-	,{gssectorindex,Flatten@{GsSectorIndex}}];
+		num = Density[L,f,1]/@\[Psi];(* evaluate number operator of the impurity for all the basis states *)
+		density += num . (Abs[gs]^2);(* multiply by the weights stored in gs^2 *)
+	,{gssectorindex, Flatten@{GsSectorIndex}}];
 	(* divide by the number of degenerate ground states to normalize *)
 	density = density/(Length@Flatten@{GsSectorIndex})
 ];
@@ -1047,9 +1130,9 @@ SquareDensity[L_Integer, f_Integer, GsSectorIndex_, QnsSectorList_, GsSectorList
 		gs = Flatten@GsSectorList[[gssectorindex]];(*ground state vector*)
 		qns = QnsSectorList[[gssectorindex]];(*ground state quantum number*)
 		\[Psi] = BuildSector[L,f,qns,EdMode];(*basis of the sector sz*)
-		num=Density[L,f,1]/@\[Psi];(*evaluate number operator of the impurity for all the basis states*)
-		squaredensity+=(num^2) . (Abs[gs]^2);(*multiply by the weights stored in gs^2*)
-	,{gssectorindex,Flatten@{GsSectorIndex}}];
+		num = Density[L,f,1]/@\[Psi];(*evaluate number operator of the impurity for all the basis states*)
+		squaredensity += (num^2) . (Abs[gs]^2);(*multiply by the weights stored in gs^2*)
+	,{gssectorindex, Flatten@{GsSectorIndex}}];
 	(*divide by the number of degenerate ground states to normalize*)
 	squaredensity = squaredensity/(Length@Flatten@{GsSectorIndex})
 ];
@@ -1063,12 +1146,12 @@ Magnetization[L_Integer, f_Integer, GsSectorIndex_, QnsSectorList_, GsSectorList
 	Do[
 		gs = Flatten@GsSectorList[[gssectorindex]];(*ground state vector*)
 		qns = QnsSectorList[[gssectorindex]];(*ground state quantum number*)
-		\[Psi]=BuildSector[L,f,qns,EdMode];(*basis of the sector sz*)
-		sp=ImpuritySz[L]/@\[Psi];(*evaluate Sz operator of the impurity for all the basis states*)
-		mag+=sp . (Abs[gs]^2);(*multiply by the weights stored in gs^2*)
+		\[Psi] = BuildSector[L,f,qns,EdMode];(*basis of the sector sz*)
+		sp = ImpuritySz[L]/@\[Psi];(*evaluate Sz operator of the impurity for all the basis states*)
+		mag += sp . (Abs[gs]^2);(*multiply by the weights stored in gs^2*)
 	,{gssectorindex,Flatten@{GsSectorIndex}}];
 	(*divide by the number of degenerate ground states to normalize*)
-	mag=mag/(Length@Flatten@{GsSectorIndex})
+	mag = mag/(Length@Flatten@{GsSectorIndex})
 ]
 
 SquareSpinZ[L_Integer, f_Integer, GsSectorIndex_, QnsSectorList_, GsSectorList_, EdMode_String]:=Module[
