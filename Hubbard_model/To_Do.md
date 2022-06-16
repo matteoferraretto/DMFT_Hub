@@ -4,16 +4,20 @@ The purpose of this branch is to implement the general self-consistency conditio
 
 1. At iteration n we compute the Impurity Green function G, the Weiss field W and the self energy Sigma
 2. **Self consistency** requires that the new Impurity Green function matches the old Local Green function.
+
         G(n+1) = G(n)_loc
         G(n+1)^-1 = G(n)_loc^-1
 3. From this we obtain the expression for the new Weiss field W(n+1) == G_0^-1(n+1)
+
         W(n+1) = G(n+1)^-1 + Sigma(n)
         W(n+1) = G(n)_loc^-1 + Sigma(n)
 4. Now we have the new Weiss field, and we need to fit it with the bath parameters. This is simpler using the Hybridization Gamma (W == iw + mu - Gamma)
+
         W(n+1) = iw + mu - Gamma(n+1)
         Gamma(n+1) = iw + mu - W(n+1)
         Gamma(n+1) = iw + mu - G(n)_loc^-1 - Sigma(n)
 
 To sum up, we have to compute all the observables at step n and then evaluate the function
+
         iw + mu - G(n)_loc^-1 - Sigma(n)
 which in turn should be fitted by the equation of the Hybridization function.
