@@ -519,6 +519,11 @@ GetHamiltonian[L_Integer, f_Integer, QnsSectorList_, Sectors_, SectorsDispatch_,
 	{impHblocks,impHlocal}
 ];
 
+(* prints info about the order of Hamiltonian blocks within each sector *)
+HOrderInfo[L_, f_, Norb_] := Do[
+  Print[flag, ",  j=", j, ",  orb=", orb]
+  , {flag, {"Bath", "Hopping", "Superc"}}, {j, 2, L}, {orb, 1, Norb}]
+
 
 Swap[x_,y_]:=Module[{},Return[{y,x}]];
 
