@@ -18,12 +18,14 @@ If EdMode = ''InterorbSuperc'' each element in the list has the form sz_tot wher
 
 DimSector::usage = "DimSector[L, f, Norb, qns, EdMode] returns the theoretical value of the dimension of a sector labeled by the quantum number(s) qns."
 
-(*
-BuildSector::usage = "BuildSector[L, f, qns, EdMode] creates a list of basis of the Fock subpace with given quantum numbers qns. 
-If EdMode = ''Normal'', then qns={n,nup} are the particle number and the spin up particle number. If nup is set to Null, the function returns all the states with n particles and any value of nup.
-If EdMode = ''Superc'', then qns=sz is the total spin-z of the fermions, i.e. nup - ndw.
-The states are created in the integer represenation. L is the total number of sites, f is the number of flavours (only supports f=2 at the moment). "
-*)
+BuildSector::usage = "BuildSector[L, f, Norb, qns, EdMode] creates a list of basis states of the Fock subpace with given quantum numbers qns. 
+If EdMode = ''Normal'', then qns = {n_orb1_spin1, n_orb1_spin2, ..., n_orb2_spin1, n_orb2_spin2, ...}.
+If EdMode = ''InterorbNormal'', then qns = {n_spin1, n_spin2, ...} where n_spin is the total number of particles with a given spin.
+If EdMode = ''Superc'', then qns = {sz_orb1, sz_orb2, ...} are the total spin-z in the given orbital, i.e. sz_orb = n_orb_up - n_orb_dw.
+If EdMode = ''InterorbSuperc'', then qns = sz is the total spin-z.
+The states are created in the integer represenation. L is the total number of sites, f is the number of flavours and Norb is the number of orbitals. 
+The superconductive EdModes only support f=2 at the moment. "
+
 
 Begin["`Private`"];
 
@@ -86,7 +88,6 @@ StartingBath[InitializeBathMode_String, Nbath_Integer, Norb_Integer, EdMode_Stri
 
 
 (*              HILBERT SPACE SECTORS              *)
-
 (* integer version of basis for a single flavour *)
 basis = Compile[{
 	{L, _Integer}, {m, _Integer}
@@ -139,7 +140,7 @@ DimSector[L_, f_, Norb_, qns_, EdMode_String]:=Module[
 		dim =Product[
 			Binomial[Norb*L,qns[[i]]]
 		,{i,1,f}],
-	(* --------------------------------------- *)	
+(* --------------------------------------- *)	
 		EdMode=="Superc",
 		dim=Product[
 			Total@Table[
@@ -155,8 +156,39 @@ DimSector[L_, f_, Norb_, qns_, EdMode_String]:=Module[
 	dim
 ];
 
-
-
+(* build sector, i.e. list of all the Fock states with given quantum number(s) qns *)
+BuildSector[L_,f_,Norb_,qns_,EdMode_]:=Module[
+	{QnsList,states},
+	Which[
+		EdMode=="Normal",
+		states=BASIS[L,f*Norb,qns],
+(* ---------------------------------------------- *)
+		EdMode=="InterorbNormal",
+		QnsList=SectorList[L,f,Norb,"Normal"];
+		QnsList=Select[
+			QnsList,
+			({Sum[#[[2i-1]],{i,1,Norb}],Sum[#[[2i]],{i,1,Norb}]}== qns)&
+		];
+		states=Flatten[BASIS[L,f*Norb,#]&/@QnsList, 1],
+(* ---------------------------------------------- *)
+		EdMode=="Superc",
+		QnsList=SectorList[L,f,Norb,"Normal"];
+		QnsList=Select[
+			QnsList,
+			(Delete[#,Table[{2*i},{i,1,Norb}]]-Delete[#,Table[{2*i-1},{i,1,Norb}]] == qns)&
+		];
+		states = Flatten[BASIS[L,Norb*f,#]&/@QnsList,1],
+(* ---------------------------------------------- *)
+		EdMode=="InterorbSuperc",
+		QnsList = SectorList[L,f,Norb,"Normal"];
+		QnsList = Select[
+			QnsList, 
+	    	(Table[(-1)^(1+j),{j,1,Norb*f}] . #==qns)&
+	    ];
+		states = Flatten[BASIS[L,Norb*f,#]&/@QnsList,1]
+	];
+	states
+];
 
 
 
