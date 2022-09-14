@@ -38,49 +38,49 @@ StartingBath[InitializeBathMode_String, Nbath_Integer, Norb_Integer, EdMode_Stri
 		If[
 			InitializeBathMode=="Default",
 			e=ConstantArray[
-			Table[-(Nbath-1)/2.+k,{k,0,Nbath-1}],
-		Norb];
+				Table[-(Nbath-1)/2.+k,{k,0,Nbath-1}],
+			Norb];
 			V=ConstantArray[
-			Table[1.,{k,1,Nbath}],
-		Norb],	
+				Table[1.,{k,1,Nbath}],
+			Norb],	
 		(*else*)
 			{e,V}=Import[InitializeBathMode,"Table"];
 		];
 		Return[{e,V}],
-	(* ---------------------------------------------- *)
+(* ---------------------------------------------- *)
 		EdMode=="Superc",
 		If[
 			InitializeBathMode=="Default",
 			e=ConstantArray[
-			Table[-(Nbath-1)/2.+k,{k,0,Nbath-1}],
-		Norb];
+				Table[-(Nbath-1)/2.+k,{k,0,Nbath-1}],
+			Norb];
 			V=ConstantArray[
-			Table[1.,{k,1,Nbath}],
-		Norb];
+				Table[1.,{k,1,Nbath}],
+			Norb];
 			\[CapitalDelta]=ConstantArray[
-			Table[1.,{k,1,Nbath}],
-		Norb],
+				Table[1.,{k,1,Nbath}],
+			Norb],
 		(*else*)
 	     {e,V,\[CapitalDelta]}=Import[InitializeBathMode,"Table"];
 		];
-	Return[{e,V,\[CapitalDelta]}],
+		Return[{e,V,\[CapitalDelta]}],
 (* ---------------------------------------------- *)
-	EdMode=="InterorbSuperc",
-	If[
-		InitializeBathMode=="Default",
-		e=ConstantArray[
-			Table[-(Nbath-1)/2.+k,{k,0,Nbath-1}],
-		Norb];
-			   V=ConstantArray[
-			Table[1.,{k,1,Nbath}],
-		Norb];
-			   \[CapitalDelta]=ConstantArray[
-			Table[1.,{k,1,Nbath}],
-		Norb];
-	         \[CapitalXi]=Table[1.,{k,1,Nbath}],
-	(*else*)
-		{e,V,\[CapitalDelta],\[CapitalXi]}=Import[InitializeBathMode,"Table"];
-	];
+		EdMode=="InterorbSuperc",
+		If[
+			InitializeBathMode=="Default",
+			e=ConstantArray[
+				Table[-(Nbath-1)/2.+k,{k,0,Nbath-1}],
+			Norb];
+			V=ConstantArray[
+				Table[1.,{k,1,Nbath}],
+			Norb];
+			\[CapitalDelta]=ConstantArray[
+				Table[1.,{k,1,Nbath}],
+			Norb];
+	        \[CapitalXi]=Table[1.,{k,1,Nbath}],
+		(*else*)
+			{e,V,\[CapitalDelta],\[CapitalXi]}=Import[InitializeBathMode,"Table"];
+		];
 	   Return[{e,V,\[CapitalDelta],\[CapitalXi]}];
 	]
 ];
