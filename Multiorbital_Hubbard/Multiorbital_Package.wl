@@ -157,7 +157,7 @@ DimSector[L_, f_, Norb_, qns_, EdMode_String]:=Module[
 ];
 
 (* build sector, i.e. list of all the Fock states with given quantum number(s) qns *)
-BuildSector[L_,f_,Norb_,qns_,EdMode_]:=Module[
+BuildSector[L_, f_, Norb_, qns_, EdMode_]:=Module[
 	{QnsList,states},
 	Which[
 		EdMode=="Normal",
@@ -191,8 +191,79 @@ BuildSector[L_,f_,Norb_,qns_,EdMode_]:=Module[
 ];
 
 
+(*               MANIPULATION OF STATES                *)
+(* apply cdg_orb_spin to a basis state: return the integer form of the resulting basis state or 0 *)
+cdg[L_, f_, \[Sigma]_, orb_, state_]:=Module[
+	{binarystate, index},
+	index = f*(orb-1)+\[Sigma];(* which of the Norb*f lists within the state you should look at *)
+	binarystate = IntegerDigits[#,2,L]&@state;
+	If[binarystate[[index,1]]==0,
+		binarystate = ReplacePart[binarystate,{index,1}->1];
+		Return[FromDigits[#,2]&/@binarystate],
+	(*else*)
+		Return[0]
+	];
+];
+
+(* apply c_orb_spin to a basis state: return the integer form of the resulting basis state or 0 *)
+c[L_, f_, \[Sigma]_, orb_, state_]:=Module[
+	{binarystate, index},
+	index = f*(orb-1)+\[Sigma];(* which of the Norb*f lists within the state you should look at *)
+	binarystate = IntegerDigits[#,2,L]&@state;
+	If[binarystate[[index,1]]==1,
+		binarystate = ReplacePart[binarystate,{index,1}->0];
+		Return[FromDigits[#,2]&/@binarystate],
+	(*else*)
+		Return[0]
+	];
+];
+
+(* Counts how many fermions there are before state[[\[Sigma],orb,i]] (excluded). If you set i=1,\[Sigma]=1,orb=1 you get 0; if you set i=L+1,\[Sigma]=f,orb=Norb you get the total number of fermions in the state *)
+CountFermions[L_, f_, i_, \[Sigma]_, orb_, state_]:=Module[
+	{index, count},
+	index = f*(orb-1)+\[Sigma];
+	If[index == 1,
+		count = Sum[(IntegerDigits[#,2,L]&@(state[[index]]))[[k]],{k,1,i-1}],
+	(*else*)
+		count = Sum[(IntegerDigits[#,2,L]&@(state[[s]]))[[k]],{s,1,index-1},{k,1,L}]+
+				If[i != 1,
+					Sum[(IntegerDigits[#,2,L]&@(state[[index]]))[[k]],{k,1,i-1}],
+				(*else*)
+				0]
+	];
+	count
+];
+
+(* sign accumulated by moving c_i_orb_\[Sigma] to the correct position when applying c_i_orb_\[Sigma]|state> or cdg_i_orb_\[Sigma]|state> *)
+CSign[L_, f_, i_, \[Sigma]_, orb_, state_]:=(-1)^CountFermions[L,f,i,\[Sigma],orb,state];
+(* sign accumulated by moving c_i1_orb1_\[Sigma]1 and c_i2_orb2_\[Sigma]2 to the correct positions when applying c_i1_orb1_\[Sigma]1 c_i2_orb2_\[Sigma]2|state> or similar pairs of operators *)
+CCSign[L_, f_, i1_, \[Sigma]1_, orb1_, i2_, \[Sigma]2_, orb2_, state_]:=(-1)^(CountFermions[L,f,i2,\[Sigma]2,orb2,state]-CountFermions[L,f,i1,\[Sigma]1,orb1,state]);
 
 
+
+(*               HOPPING FUNCTIONS             *)
+(* gives True if hopping from (j, \[Sigma]2, orb2) to (i,\[Sigma]1,orb1) is possible, False otherwise *)
+HopQ = Compile[{
+	{L,_Integer}, {f,_Integer}, {i,_Integer}, {j,_Integer}, {\[Sigma]1,_Integer}, {\[Sigma]2,_Integer}, {orb1,_Integer}, {orb2,_Integer}, {state,_Integer,1}
+	},
+	If[(IntegerDigits[#,2,L]&@state[[f*(orb2-1)+\[Sigma]2]])[[j]]==1 && (IntegerDigits[#,2,L]&@state[[f*(orb1-1)+\[Sigma]1]])[[i]]==0,
+		True,
+	(* else *)
+		False
+	], 
+	RuntimeAttributes->{Listable}, Parallelization->True
+];
+(* select states for which hopping (j, \[Sigma]1, orb1) \[Rule] (i, \[Sigma]2, orb2) is possible *)
+HopSelect = Compile[{
+	{L,_Integer}, {f,_Integer}, {i,_Integer}, {j,_Integer}, {\[Sigma]1,_Integer}, {\[Sigma]2,_Integer}, {orb1,_Integer}, {orb2,_Integer}, {stateList,_Integer,2}
+	},
+	Select[stateList, HopQ[L,f,i,j,\[Sigma]1,\[Sigma]2,orb1,orb2,#]&],
+	RuntimeAttributes->{Listable}, Parallelization->True, CompilationTarget->"C"
+];
+(* put 1 in position (i, \[Sigma]1, orb1) and 0 in position (j, \[Sigma]2, orb2) *)
+CdgC[f_, i_, j_, \[Sigma]1_, \[Sigma]2_, orb1_, orb2_]:=ReplacePart[#,{{f*(orb1-1)+\[Sigma]1,i}->1,{f*(orb2-1)+\[Sigma]2,j}->0}]&;
+(* hop from (j, \[Sigma]2, orb2) to (i, \[Sigma]1, orb1) *)
+Hop[L_, f_, i_, j_, \[Sigma]1_, \[Sigma]2_, orb1_, orb2_, state_]:=FromDigits[#,2]&/@(CdgC[f,i,j,\[Sigma]1,\[Sigma]2,orb1,orb2]/@(IntegerDigits[state,2,L]));
 
 
 End[];
