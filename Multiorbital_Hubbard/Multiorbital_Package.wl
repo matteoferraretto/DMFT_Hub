@@ -271,11 +271,8 @@ Hop[L_, f_, i_, j_, \[Sigma]1_, \[Sigma]2_, orb1_, orb2_, state_] := FromDigits[
 n[L_, f_, Norb_, i_, \[Sigma]_, orb_] := (IntegerDigits[#,2,L]&@#[[f*(orb-1)+\[Sigma]]])[[i]]&
 
 
-
 (*           PAIR CREATION / ANNIHILATION FUNCTIONS          *)
-(*gives True if it is possible to create a pair on site i, False otherwise*)
-PairCreationQ[L_Integer, i_Integer] := If[(IntegerDigits[#,2,L]&@#[[1]])[[i]]==0&&(IntegerDigits[#,2,L]&@#[[2]])[[i]]==0,True,False]&;
-(* multiorbital version *)
+(* gives True if it is possible to create a pair (i,orb1,\[Sigma]1) and (j,orb2,\[Sigma]2) and False otherwise *)
 PairCreationQ = Compile[{
 	{L,_Integer}, {f,_Integer}, {Norb,_Integer}, {i,_Integer}, {j,_Integer}, {\[Sigma]1,_Integer}, {\[Sigma]2,_Integer}, {orb1,_Integer}, {orb2,_Integer}, {state,_Integer,1}
 	},
@@ -286,9 +283,7 @@ PairCreationQ = Compile[{
 		False
 	]
 ];
-(*selects states for which hopping j\[Rule]i in flavor \[Sigma] is possible*)
-PairCreationSelect[L_Integer, i_Integer] := Select[#,PairCreationQ[L,i]]&;
-(* multiorbital version *)
+(* selects states for which pair creation (i,orb1,\[Sigma]1), (j,orb2,\[Sigma]2) is possible*)
 PairCreationSelect = Compile[{
 	{L,_Integer}, {f,_Integer}, {Norb,_Integer}, {i,_Integer}, {j,_Integer}, {\[Sigma]1,_Integer}, {\[Sigma]2,_Integer}, {orb1,_Integer}, {orb2,_Integer}, {stateList,_Integer,2}
 	},
@@ -297,8 +292,8 @@ PairCreationSelect = Compile[{
 ];
 (* put 1 in position i of a list *)
 Cdg[i_Integer] := ReplacePart[#,{i->1}]&;
-(* create a pair of particles with spin up and down in site i and return the integer version of the states. *)
-CreatePair[L_, f_, i_, j_, \[Sigma]1_, \[Sigma]2_, orb1_, orb2_]:=ReplacePart[#,{
+(* create a pair of particles (i,orb1,\[Sigma]1) (j,orb2,\[Sigma]2) and return the integer version of the states. *)
+CreatePair[L_, f_, i_, j_, \[Sigma]1_, \[Sigma]2_, orb1_, orb2_] := ReplacePart[#,{
 	f*(orb1-1)+\[Sigma]1->FromDigits[#,2]&@Cdg[i]@IntegerDigits[#,2,L]&@#[[f*(orb1-1)+\[Sigma]1]],
 	f*(orb2-1)+\[Sigma]2->FromDigits[#,2]&@Cdg[i]@IntegerDigits[#,2,L]&@#[[f*(orb2-1)+\[Sigma]2]]
 	}]&;
