@@ -253,6 +253,7 @@ HopQ = Compile[{
 	], 
 	RuntimeAttributes->{Listable}, Parallelization->True
 ];
+
 (* select states for which hopping (j, \[Sigma]1, orb1) \[Rule] (i, \[Sigma]2, orb2) is possible *)
 HopSelect = Compile[{
 	{L,_Integer}, {f,_Integer}, {i,_Integer}, {j,_Integer}, {\[Sigma]1,_Integer}, {\[Sigma]2,_Integer}, {orb1,_Integer}, {orb2,_Integer}, {stateList,_Integer,2}
@@ -260,10 +261,47 @@ HopSelect = Compile[{
 	Select[stateList, HopQ[L,f,i,j,\[Sigma]1,\[Sigma]2,orb1,orb2,#]&],
 	RuntimeAttributes->{Listable}, Parallelization->True, CompilationTarget->"C"
 ];
+
 (* put 1 in position (i, \[Sigma]1, orb1) and 0 in position (j, \[Sigma]2, orb2) *)
-CdgC[f_, i_, j_, \[Sigma]1_, \[Sigma]2_, orb1_, orb2_]:=ReplacePart[#,{{f*(orb1-1)+\[Sigma]1,i}->1,{f*(orb2-1)+\[Sigma]2,j}->0}]&;
+CdgC[f_, i_, j_, \[Sigma]1_, \[Sigma]2_, orb1_, orb2_] := ReplacePart[#,{{f*(orb1-1)+\[Sigma]1,i}->1,{f*(orb2-1)+\[Sigma]2,j}->0}]&;
 (* hop from (j, \[Sigma]2, orb2) to (i, \[Sigma]1, orb1) *)
-Hop[L_, f_, i_, j_, \[Sigma]1_, \[Sigma]2_, orb1_, orb2_, state_]:=FromDigits[#,2]&/@(CdgC[f,i,j,\[Sigma]1,\[Sigma]2,orb1,orb2]/@(IntegerDigits[state,2,L]));
+Hop[L_, f_, i_, j_, \[Sigma]1_, \[Sigma]2_, orb1_, orb2_, state_] := FromDigits[#,2]&/@(CdgC[f,i,j,\[Sigma]1,\[Sigma]2,orb1,orb2]/@(IntegerDigits[state,2,L]));
+
+(* number of particles on site i with spin \[Sigma] in orbital orb *)
+n[L_, f_, Norb_, i_, \[Sigma]_, orb_] := (IntegerDigits[#,2,L]&@#[[f*(orb-1)+\[Sigma]]])[[i]]&
+
+
+
+(*           PAIR CREATION / ANNIHILATION FUNCTIONS          *)
+(*gives True if it is possible to create a pair on site i, False otherwise*)
+PairCreationQ[L_Integer, i_Integer] := If[(IntegerDigits[#,2,L]&@#[[1]])[[i]]==0&&(IntegerDigits[#,2,L]&@#[[2]])[[i]]==0,True,False]&;
+(* multiorbital version *)
+PairCreationQ = Compile[{
+	{L,_Integer}, {f,_Integer}, {Norb,_Integer}, {i,_Integer}, {j,_Integer}, {\[Sigma]1,_Integer}, {\[Sigma]2,_Integer}, {orb1,_Integer}, {orb2,_Integer}, {state,_Integer,1}
+	},
+	If[
+		(IntegerDigits[#,2,L]&@state[[f*(orb1-1)+\[Sigma]1]])[[i]]==0&&(IntegerDigits[#,2,L]&@state[[f*(orb2-1)+\[Sigma]2]])[[j]]==0,
+		True,
+	(*else*)
+		False
+	]
+];
+(*selects states for which hopping j\[Rule]i in flavor \[Sigma] is possible*)
+PairCreationSelect[L_Integer, i_Integer] := Select[#,PairCreationQ[L,i]]&;
+(* multiorbital version *)
+PairCreationSelect = Compile[{
+	{L,_Integer}, {f,_Integer}, {Norb,_Integer}, {i,_Integer}, {j,_Integer}, {\[Sigma]1,_Integer}, {\[Sigma]2,_Integer}, {orb1,_Integer}, {orb2,_Integer}, {stateList,_Integer,2}
+	},
+	Select[stateList,PairCreationQ[L,f,Norb,i,j,\[Sigma]1,\[Sigma]2,orb1,orb2,#]&],
+	RuntimeAttributes->{Listable}, Parallelization->True, CompilationTarget->"C"
+];
+(* put 1 in position i of a list *)
+Cdg[i_Integer] := ReplacePart[#,{i->1}]&;
+(* create a pair of particles with spin up and down in site i and return the integer version of the states. *)
+CreatePair[L_, f_, i_, j_, \[Sigma]1_, \[Sigma]2_, orb1_, orb2_]:=ReplacePart[#,{
+	f*(orb1-1)+\[Sigma]1->FromDigits[#,2]&@Cdg[i]@IntegerDigits[#,2,L]&@#[[f*(orb1-1)+\[Sigma]1]],
+	f*(orb2-1)+\[Sigma]2->FromDigits[#,2]&@Cdg[i]@IntegerDigits[#,2,L]&@#[[f*(orb2-1)+\[Sigma]2]]
+	}]&;
 
 
 End[];
