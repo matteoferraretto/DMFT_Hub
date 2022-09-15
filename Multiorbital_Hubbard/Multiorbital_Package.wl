@@ -26,6 +26,8 @@ If EdMode = ''InterorbSuperc'', then qns = sz is the total spin-z.
 The states are created in the integer represenation. L is the total number of sites, f is the number of flavours and Norb is the number of orbitals. 
 The superconductive EdModes only support f=2 at the moment. "
 
+DrawState::usage = "DrawState[L, f, Norb, j, \[Sigma], orb] draws a graphic representation of a Fock state remarking the position (j, \[Sigma], orb). Each box can be filled either with 0 (no particles in that slot) or 1 (a particle in that slot). "
+
 
 Begin["`Private`"];
 
@@ -188,6 +190,23 @@ BuildSector[L_, f_, Norb_, qns_, EdMode_]:=Module[
 		states = Flatten[BASIS[L,Norb*f,#]&/@QnsList,1]
 	];
 	states
+];
+
+(* Draw a picture of a state to help the user *)
+DrawState[L_,f_,Norb_,j_,\[Sigma]_,orb_]:=Module[
+	{impuritycolor, color},
+	impuritycolor[i_]:=If[i==1,Blue,Black];
+	color[i_,index_]:=If[i==j && index==f*(orb-1)+\[Sigma], Red, Black];
+	Print[Style["Architecture of a state",16]];
+	Print[Style["Red:",Red]," (site j, spin \[Sigma], orbital orb)"];
+	Print[Style["Blue edge:",Blue]," impurity"];
+	Table[
+		Graphics[
+			Table[
+				{EdgeForm[{Thick,impuritycolor[i]}],color[i,index],Opacity[.3],Rectangle[{1.1*i,0}]},{i,L}
+			]
+		],
+	{index,f*Norb}]
 ];
 
 
