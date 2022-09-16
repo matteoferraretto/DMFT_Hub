@@ -217,29 +217,27 @@ DrawState[L_,f_,Norb_]:=Module[{},
 
 (*               MANIPULATION OF STATES                *)
 (* apply cdg_orb_spin to a basis state: return the integer form of the resulting basis state or 0 *)
-cdg[L_, f_, \[Sigma]_, orb_, state_]:=Module[
-	{binarystate, index},
-	index = f*(orb-1)+\[Sigma];(* which of the Norb*f lists within the state you should look at *)
-	binarystate = IntegerDigits[#,2,L]&@state;
-	If[binarystate[[index,1]]==0,
-		binarystate = ReplacePart[binarystate,{index,1}->1];
-		Return[FromDigits[#,2]&/@binarystate],
+cdg[L_, f_, \[Sigma]_, orb_, state_]:=
+	If[
+		BitGet[state[[f*(orb-1)+\[Sigma]]],L-1] == 1,
+		0,
 	(*else*)
-		Return[0]
+		ReplacePart[
+			state,
+			f*(orb-1)+\[Sigma]->BitSet[state[[f*(orb-1)+\[Sigma]]],L-1]
+		]
 	];
-];
 
 (* apply c_orb_spin to a basis state: return the integer form of the resulting basis state or 0 *)
-c[L_, f_, \[Sigma]_, orb_, state_]:=Module[
-	{binarystate, index},
-	index = f*(orb-1)+\[Sigma];(* which of the Norb*f lists within the state you should look at *)
-	binarystate = IntegerDigits[#,2,L]&@state;
-	If[binarystate[[index,1]]==1,
-		binarystate = ReplacePart[binarystate,{index,1}->0];
-		Return[FromDigits[#,2]&/@binarystate],
+c[L_,f_,\[Sigma]_,orb_,state_]:=
+	If[
+		BitGet[state[[f*(orb-1)+\[Sigma]]],L-1] == 0,
+		0,
 	(*else*)
-		Return[0]
-	];
+		ReplacePart[
+			state,
+			f*(orb-1)+\[Sigma]->BitClear[state[[f*(orb-1)+\[Sigma]]],L-1]
+		]
 ];
 
 (* Counts how many fermions there are before state[[\[Sigma],orb,i]] (excluded). If you set i=1,\[Sigma]=1,orb=1 you get 0; if you set i=L+1,\[Sigma]=f,orb=Norb you get the total number of fermions in the state *)
