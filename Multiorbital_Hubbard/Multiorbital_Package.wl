@@ -216,29 +216,25 @@ DrawState[L_,f_,Norb_]:=Module[{},
 
 
 (*               MANIPULATION OF STATES                *)
-(* apply cdg_orb_spin to a basis state: return the integer form of the resulting basis state or 0 *)
-cdg[L_, f_, \[Sigma]_, orb_, state_]:=
-	If[
-		BitGet[state[[f*(orb-1)+\[Sigma]]],L-1] == 1,
-		0,
-	(*else*)
-		ReplacePart[
-			state,
-			f*(orb-1)+\[Sigma]->BitSet[state[[f*(orb-1)+\[Sigma]]],L-1]
-		]
-	];
+(* apply cdg_orb_spin in the impurity site to a basis state: return the integer form of the resulting basis state or 0 *)
+cdg = Compile[{
+	{L,_Integer}, {f,_Integer}, {\[Sigma],_Integer}, {orb,_Integer}, {state,_Integer,1}
+	},
+	MapAt[
+		BitOr[#, 2^(L-1)]&,
+		state,f
+		*(orb-1)+\[Sigma]
+	], CompilationTarget->"C"];
 
-(* apply c_orb_spin to a basis state: return the integer form of the resulting basis state or 0 *)
-c[L_,f_,\[Sigma]_,orb_,state_]:=
-	If[
-		BitGet[state[[f*(orb-1)+\[Sigma]]],L-1] == 0,
-		0,
-	(*else*)
-		ReplacePart[
-			state,
-			f*(orb-1)+\[Sigma]->BitClear[state[[f*(orb-1)+\[Sigma]]],L-1]
-		]
-];
+(* apply c_orb_spin in the impurity site to a basis state: return the integer form of the resulting basis state or 0 *)
+c = Compile[{
+	{L,_Integer}, {f,_Integer}, {\[Sigma],_Integer}, {orb,_Integer}, {state,_Integer,1}
+	},
+	MapAt[
+		BitAnd[#, BitNot[-2^(L-1)]]&,
+		state,
+		f*(orb-1)+\[Sigma]
+	], CompilationTarget->"C"];
 
 (* Counts how many fermions there are before state[[\[Sigma],orb,i]] (excluded). If you set i=1,\[Sigma]=1,orb=1 you get 0; if you set i=L+1,\[Sigma]=f,orb=Norb you get the total number of fermions in the state *)
 CountFermions[L_,f_,i_,\[Sigma]_,orb_,state_]:=
