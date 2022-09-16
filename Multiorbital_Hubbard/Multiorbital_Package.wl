@@ -241,20 +241,11 @@ c[L_,f_,\[Sigma]_,orb_,state_]:=
 ];
 
 (* Counts how many fermions there are before state[[\[Sigma],orb,i]] (excluded). If you set i=1,\[Sigma]=1,orb=1 you get 0; if you set i=L+1,\[Sigma]=f,orb=Norb you get the total number of fermions in the state *)
-CountFermions[L_, f_, i_, \[Sigma]_, orb_, state_]:=Module[
-	{index, count},
-	index = f*(orb-1)+\[Sigma];
-	If[index == 1,
-		count = Sum[(IntegerDigits[#,2,L]&@(state[[index]]))[[k]],{k,1,i-1}],
-	(*else*)
-		count = Sum[(IntegerDigits[#,2,L]&@(state[[s]]))[[k]],{s,1,index-1},{k,1,L}]+
-				If[i != 1,
-					Sum[(IntegerDigits[#,2,L]&@(state[[index]]))[[k]],{k,1,i-1}],
-				(*else*)
-				0]
+CountFermions[L_,f_,i_,\[Sigma]_,orb_,state_]:=
+	Total@Take[ (* sum *)
+		Flatten[IntegerDigits[#,2,L]&/@state] (* flattened version of the binary representation of the state *)
+		,L*(f*(orb-1)+\[Sigma]-1)+(i-1) (* sum up to this index in the flattened version of the state *)
 	];
-	count
-];
 
 (* sign accumulated by moving c_i_orb_\[Sigma] to the correct position when applying c_i_orb_\[Sigma]|state> or cdg_i_orb_\[Sigma]|state> *)
 CSign[L_, f_, i_, \[Sigma]_, orb_, state_]:=(-1)^CountFermions[L,f,i,\[Sigma],orb,state];
