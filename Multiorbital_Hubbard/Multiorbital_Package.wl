@@ -242,7 +242,7 @@ CountFermions[L_,f_,i_,\[Sigma]_,orb_,state_]:=
 		Flatten[IntegerDigits[#,2,L]&/@state] (* flattened version of the binary representation of the state *)
 		,L*(f*(orb-1)+\[Sigma]-1)+(i-1) (* sum up to this index in the flattened version of the state *)
 	];
-(* Counts how many fermions *)
+(* Counts how many fermions there are between state[[\[Sigma]1,orb1,i]] (included) and state[[\[Sigma]2,orb2,j]] (excluded) *)
 CountFermions[L_,f_,i_,j_,\[Sigma]1_,\[Sigma]2_,orb1_,orb2_,state_]:=
 	Total@Take[ (* sum *)
 		Flatten[IntegerDigits[#,2,L]&/@state] (* flattened version of the binary representation of the state *)
@@ -304,6 +304,7 @@ PairCreationSelect = Compile[{
 	Select[stateList,PairCreationQ[L,f,Norb,i,j,\[Sigma]1,\[Sigma]2,orb1,orb2,#]&],
 	RuntimeAttributes->{Listable}, Parallelization->True, CompilationTarget->"C"
 ];
+(*
 (* put 1 in position i of a list *)
 Cdg[i_Integer] := ReplacePart[#,{i->1}]&;
 (* create a pair of particles (i,orb1,\[Sigma]1) (j,orb2,\[Sigma]2) and return the integer version of the states. *)
@@ -311,6 +312,21 @@ CreatePair[L_, f_, i_, j_, \[Sigma]1_, \[Sigma]2_, orb1_, orb2_] := ReplacePart[
 	f*(orb1-1)+\[Sigma]1->FromDigits[#,2]&@Cdg[i]@IntegerDigits[#,2,L]&@#[[f*(orb1-1)+\[Sigma]1]],
 	f*(orb2-1)+\[Sigma]2->FromDigits[#,2]&@Cdg[i]@IntegerDigits[#,2,L]&@#[[f*(orb2-1)+\[Sigma]2]]
 	}]&;
+*)
+CreatePair = Compile[{
+	{L,_Integer}, {f,_Integer}, {i,_Integer}, {j,_Integer}, {\[Sigma]1,_Integer}, {\[Sigma]2,_Integer}, {orb1,_Integer}, {orb2,_Integer}, {state,_Integer,1}
+	},
+	MapAt[
+		BitOr[#,2^(L-j)]&,
+		MapAt[
+			BitOr[#,2^(L-i)]&,
+			state,
+			f*(orb1-1)+\[Sigma]1
+		],
+		f*(orb2-1)+\[Sigma]2
+	],
+	CompilationTarget->"C"
+];
 
 
 End[];
