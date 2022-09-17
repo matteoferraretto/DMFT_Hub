@@ -222,8 +222,8 @@ cdg = Compile[{
 	},
 	MapAt[
 		BitOr[#, 2^(L-1)]&,
-		state,f
-		*(orb-1)+\[Sigma]
+		state,
+		f*(orb-1)+\[Sigma]
 	], CompilationTarget->"C"];
 
 (* apply c_orb_spin in the impurity site to a basis state: return the integer form of the resulting basis state or 0 *)
@@ -242,12 +242,17 @@ CountFermions[L_,f_,i_,\[Sigma]_,orb_,state_]:=
 		Flatten[IntegerDigits[#,2,L]&/@state] (* flattened version of the binary representation of the state *)
 		,L*(f*(orb-1)+\[Sigma]-1)+(i-1) (* sum up to this index in the flattened version of the state *)
 	];
+(* Counts how many fermions *)
+CountFermions[L_,f_,i_,j_,\[Sigma]1_,\[Sigma]2_,orb1_,orb2_,state_]:=
+	Total@Take[ (* sum *)
+		Flatten[IntegerDigits[#,2,L]&/@state] (* flattened version of the binary representation of the state *)
+		,{L*(f*(orb1-1)+\[Sigma]1-1)+i, L*(f*(orb2-1)+\[Sigma]2-1)+(j-1)} (* sum up to this index in the flattened version of the state *)
+	];
 
 (* sign accumulated by moving c_i_orb_\[Sigma] to the correct position when applying c_i_orb_\[Sigma]|state> or cdg_i_orb_\[Sigma]|state> *)
 CSign[L_, f_, i_, \[Sigma]_, orb_, state_]:=(-1)^CountFermions[L,f,i,\[Sigma],orb,state];
 (* sign accumulated by moving c_i1_orb1_\[Sigma]1 and c_i2_orb2_\[Sigma]2 to the correct positions when applying c_i1_orb1_\[Sigma]1 c_i2_orb2_\[Sigma]2|state> or similar pairs of operators *)
-CCSign[L_, f_, i1_, \[Sigma]1_, orb1_, i2_, \[Sigma]2_, orb2_, state_]:=(-1)^(CountFermions[L,f,i2,\[Sigma]2,orb2,state]-CountFermions[L,f,i1,\[Sigma]1,orb1,state]);
-
+CCSign[L_, f_, i_, j_, \[Sigma]1_, \[Sigma]2_, orb1_, orb2_, state_] := (-1)^CountFermions[L, f, i, j, \[Sigma]1, \[Sigma]2, orb1, orb2, state];
 
 
 (*               HOPPING FUNCTIONS             *)
