@@ -121,7 +121,7 @@ SectorList[L_,f_,Norb_,EdMode_]:=Module[
 		QnsSectorList=Flatten[
 		Outer[{##}&,##]&@@ConstantArray[
 			Range[-L,L]
-		,Norb],Max[1,Norb-1]],
+		,Norb], Min[1,Norb-1]],
 (* --------------------------------------- *)
 		EdMode == "InterorbSuperc",
 		QnsSectorList = Range[-Norb*L,Norb*L];
