@@ -2,6 +2,7 @@
 
 BeginPackage["DMFT`"]
 
+
 StartingBath::usage = "StartingBath[InitializeBathMode, Nbath, Norb, EdMode] returns a list containing the bath parameters to start the DMFT loop.
 If EdMode = ''Normal'' then the output has the form {e,V}, where e and V are lists of Norb x Nbath elements, representing the bath energies and the bath-impurity hybridizations.
 If EdMode = ''Superc'' then the output has the form {e,V,\[CapitalDelta]}, where e and V are defined as above, and \[CapitalDelta] is the Norb x Nbath dimensional list of pairs creation (annihilation) amplitudes.
@@ -28,7 +29,13 @@ The superconductive EdModes only support f=2 at the moment. "
 
 DrawState::usage = "DrawState[L, f, Norb] draws a graphic representation of a Fock state that can be manipulated. Each box can be filled either with 0 (no particles in that slot) or 1 (a particle in that slot). "
 
+
+
 n::usage = "n[L, f, Norb, i, \[Sigma], orb]"
+
+
+(* Hamiltonian defining functions *)
+ImpHLocalNormal::usage = "ImpHLocalNormal[L, f, Norb, Sectors]"
 
 
 Begin["`Private`"];
@@ -440,7 +447,7 @@ ImpHLocalNormal[L_,f_,Norb_,Sectors_] := Module[
 					If[orbA != orbB,
 						n[L,f,Norb,1,1,orbA,#]*n[L,f,Norb,1,2,orbB,#],
 					(*else*)
-						0];
+						0]
 				,{orbA,1,Norb},{orbB,1,Norb}]&/@\[Psi];
 				Hblock = SparseArray@DiagonalMatrix[num];
 				AppendTo[Hsector,Hblock];,
