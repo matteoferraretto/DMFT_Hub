@@ -354,6 +354,30 @@ PairHoppingSelect = Compile[{
 	RuntimeAttributes->{Listable}, Parallelization->True, CompilationTarget->"C"
 ];
 
+(* returns the integer form of the state obtained by pair hopping *)
+PairHopping = Compile[{
+	{L,_Integer}, {f,_Integer}, {i,_Integer}, {orb1,_Integer}, {orb2,_Integer}, {state,_Integer,1}
+	},
+	MapAt[
+		BitOr[#,2^(L-i)]&,
+		MapAt[
+			BitOr[#,2^(L-i)]&,
+			MapAt[
+				BitAnd[#, BitNot[-2^(L-i)]]&,
+				MapAt[
+					BitAnd[#, BitNot[-2^(L-i)]]&,
+					state,
+					f*(orb2-1)+2
+				],
+				f*(orb2-1)+1
+			],
+			f*(orb1-1)+1
+		],
+		f*(orb1-1)+2
+	],
+	CompilationTarget->"C"
+];
+
 
 (*          BUILD THE HAMILTONIAN           *)
 (* Non-local Hamiltonian blocks for EdMode="Normal" *)
