@@ -389,6 +389,54 @@ PairHopping = Compile[{
 ];
 
 
+(* gives True if spin exchange on site i is possible, False otherwise: spin exchange = cdg_orb1_up c_orb1_dw cdg_orb2_dw c_orb2_up *)
+SpinExchangeQ = Compile[{
+	{L,_Integer}, {f,_Integer}, {i,_Integer}, {orb1,_Integer}, {orb2,_Integer}, {state,_Integer,1}
+	},
+	If[
+	(IntegerDigits[#,2,L]&@state[[f*(orb2-1)+1]])[[i]] == 1 && 
+	(IntegerDigits[#,2,L]&@state[[f*(orb1-1)+2]])[[i]] == 1 &&
+	(IntegerDigits[#,2,L]&@state[[f*(orb2-1)+2]])[[i]] == 0 && 
+	(IntegerDigits[#,2,L]&@state[[f*(orb1-1)+1]])[[i]] == 0,
+		True,
+	(* else *)
+		False
+	], 
+	RuntimeAttributes->{Listable}, Parallelization->True
+];
+
+(* select states for which spin exchange on site i is possible: spin exchange = cdg_orb1_up c_orb1_dw cdg_orb2_dw c_orb2_up *)
+SpinExchangeSelect = Compile[{
+	{L,_Integer}, {f,_Integer}, {i,_Integer}, {orb1,_Integer}, {orb2,_Integer}, {stateList,_Integer,2}
+	},
+	Select[stateList, SpinExchangeQ[L,f,i,orb1,orb2,#]&],
+	RuntimeAttributes->{Listable}, Parallelization->True, CompilationTarget->"C"
+];
+
+(* apply spin exchange operator to a given state *)
+SpinExchange = Compile[{
+	{L,_Integer}, {f,_Integer}, {i,_Integer}, {orb1,_Integer}, {orb2,_Integer}, {state,_Integer,1}},
+	MapAt[
+		BitOr[#,2^(L-i)]&,
+		MapAt[
+			BitOr[#,2^(L-i)]&,
+			MapAt[
+				BitAnd[#, BitNot[-2^(L-i)]]&,
+				MapAt[
+					BitAnd[#, BitNot[-2^(L-i)]]&,
+					state,
+					f*(orb2-1)+1
+				],
+				f*(orb1-1)+2
+			],
+			f*(orb1-1)+1
+		],
+		f*(orb2-1)+2
+	],
+	CompilationTarget->"C"
+];
+
+
 (*          BUILD THE HAMILTONIAN           *)
 (* Non-local Hamiltonian blocks for EdMode="Normal" *)
 ImpHBlocksNormal[L_, f_, Norb_, Sectors_] := Module[
