@@ -31,7 +31,7 @@ DrawState::usage = "DrawState[L, f, Norb] draws a graphic representation of a Fo
 
 
 
-n::usage = "n[L, f, Norb, i, \[Sigma], orb]"
+n::usage = "n[L, f, Norb, i, \[Sigma], orb, state]"
 
 
 (* Hamiltonian defining functions *)
@@ -291,7 +291,7 @@ CdgC[f_, i_, j_, \[Sigma]1_, \[Sigma]2_, orb1_, orb2_] := ReplacePart[#,{{f*(orb
 Hop[L_, f_, i_, j_, \[Sigma]1_, \[Sigma]2_, orb1_, orb2_, state_] := FromDigits[#,2]&/@(CdgC[f,i,j,\[Sigma]1,\[Sigma]2,orb1,orb2]/@(IntegerDigits[state,2,L]));
 
 (* number of particles on site i with spin \[Sigma] in orbital orb *)
-n[L_, f_, Norb_, i_, \[Sigma]_, orb_,state_] := (IntegerDigits[#,2,L]&@state[[f*(orb-1)+\[Sigma]]])[[i]];
+n[L_, f_, Norb_, i_, \[Sigma]_, orb_, state_] := (IntegerDigits[#,2,L]&@state[[f*(orb-1)+\[Sigma]]])[[i]];
 
 
 (*           PAIR CREATION / ANNIHILATION FUNCTIONS          *)
@@ -331,6 +331,28 @@ CreatePair = Compile[{
 	CompilationTarget->"C"
 ];
 
+(* gives True if it is possible make a pair hopping from (i,orb2) to (i,orb1), False otherwise  *)
+PairHoppingQ = Compile[{
+	{L,_Integer}, {f,_Integer}, {i,_Integer},{orb1,_Integer}, {orb2,_Integer}, {state,_Integer,1}
+	},
+	If[
+	(IntegerDigits[#,2,L]&@state[[f*(orb1-1)+1]])[[i]] == 0 &&
+	(IntegerDigits[#,2,L]&@state[[f*(orb1-1)+2]])[[i]] == 0 &&
+	(IntegerDigits[#,2,L]&@state[[f*(orb2-1)+1]])[[i]] == 1 &&
+	(IntegerDigits[#,2,L]&@state[[f*(orb2-1)+2]])[[i]] == 1,
+		True,
+	(*else*)
+		False
+	]
+];
+
+(* selects states for which pair hopping from (i,orb2) to (i,orb1) is possible*)
+PairHoppingSelect = Compile[{
+	{L,_Integer}, {f,_Integer}, {i,_Integer}, {orb1,_Integer}, {orb2,_Integer}, {stateList,_Integer,2}
+	},
+	Select[stateList, PairHoppingQ[L,f,i,orb1,orb2,#]&],
+	RuntimeAttributes->{Listable}, Parallelization->True, CompilationTarget->"C"
+];
 
 
 (*          BUILD THE HAMILTONIAN           *)
@@ -426,7 +448,7 @@ ImpHBlocks[L_, f_, Norb_, Sectors_, EdMode_] := Which[
 
 (* Local Hamiltonian blocks for EdMode="Normal" *)
 ImpHLocalNormal[L_,f_,Norb_,Sectors_] := Module[
-	{H,Hsector,Hblock,num,dim},
+	{H,Hsector,Hblock,num,dim,Nimp=1},
 	H = {};
 	Do[
 		Hsector = {};
@@ -437,7 +459,9 @@ ImpHLocalNormal[L_,f_,Norb_,Sectors_] := Module[
 			Which[
 				flag == "Hubbard",
 				Do[
-					num = (n[L,f,Norb,1,1,orb,#]*n[L,f,Norb,1,2,orb,#])&/@\[Psi];
+					num = Sum[
+						n[L,f,Norb,j,1,orb,#]*n[L,f,Norb,j,2,orb,#]
+					,{j,1,Nimp}]&/@\[Psi];
 					Hblock = SparseArray@DiagonalMatrix[num];
 					AppendTo[Hsector,Hblock];
 				,{orb,1,Norb}],
@@ -445,24 +469,24 @@ ImpHLocalNormal[L_,f_,Norb_,Sectors_] := Module[
 				flag == "Interorb_Hubbard_Opposite_Spin",
 				num = Sum[
 					If[orbA != orbB,
-						n[L,f,Norb,1,1,orbA,#]*n[L,f,Norb,1,2,orbB,#],
+						n[L,f,Norb,j,1,orbA,#]*n[L,f,Norb,j,2,orbB,#],
 					(*else*)
 						0]
-				,{orbA,1,Norb},{orbB,1,Norb}]&/@\[Psi];
+				,{orbA,1,Norb}, {orbB,1,Norb}, {j,1,Nimp}]&/@\[Psi];
 				Hblock = SparseArray@DiagonalMatrix[num];
 				AppendTo[Hsector,Hblock];,
 			(* ---------------------------------- *)
 				flag == "Interorb_Hubbard_Same_Spin",
 				num = Sum[
-					n[L,f,Norb,1,\[Sigma],1,#]*n[L,f,Norb,1,\[Sigma],2,#]
-				,{\[Sigma],1,f}]&/@\[Psi];
+					n[L,f,Norb,j,\[Sigma],1,#]*n[L,f,Norb,j,\[Sigma],2,#]
+				,{\[Sigma],1,f}, {j,1,Nimp}]&/@\[Psi];
 				Hblock = SparseArray@DiagonalMatrix[num];
 				AppendTo[Hsector,Hblock];,
 			(* ---------------------------------- *)
 				flag == "Energy_Shift",
 				num = Sum[
-					n[L,f,Norb,1,\[Sigma],orb,#]
-				,{\[Sigma],1,f}, {orb,1,Norb}]&/@\[Psi];
+					n[L,f,Norb,j,\[Sigma],orb,#]
+				,{\[Sigma],1,f}, {orb,1,Norb}, {j,1,Nimp}]&/@\[Psi];
 				Hblock = SparseArray@DiagonalMatrix[num];
 				AppendTo[Hsector,Hblock];
 			];
