@@ -285,10 +285,20 @@ HopSelect = Compile[{
 	RuntimeAttributes->{Listable}, Parallelization->True, CompilationTarget->"C"
 ];
 
-(* put 1 in position (i, \[Sigma]1, orb1) and 0 in position (j, \[Sigma]2, orb2) *)
-CdgC[f_, i_, j_, \[Sigma]1_, \[Sigma]2_, orb1_, orb2_] := ReplacePart[#,{{f*(orb1-1)+\[Sigma]1,i}->1,{f*(orb2-1)+\[Sigma]2,j}->0}]&;
-(* hop from (j, \[Sigma]2, orb2) to (i, \[Sigma]1, orb1) *)
-Hop[L_, f_, i_, j_, \[Sigma]1_, \[Sigma]2_, orb1_, orb2_, state_] := FromDigits[#,2]&/@(CdgC[f,i,j,\[Sigma]1,\[Sigma]2,orb1,orb2]/@(IntegerDigits[state,2,L]));
+(* apply hopping operator to a given state *)
+Hop = Compile[{
+	{L,_Integer}, {f,_Integer}, {i,_Integer}, {j,_Integer}, {\[Sigma]1,_Integer}, {\[Sigma]2,_Integer}, {orb1,_Integer}, {orb2,_Integer}, {state,_Integer,1}},
+	MapAt[
+		BitOr[#,2^(L-i)]&,
+		MapAt[
+			BitAnd[#, BitNot[-2^(L-j)]]&,
+			state,
+			f*(orb1-1)+\[Sigma]1
+		],
+		f*(orb2-1)+\[Sigma]2
+	],
+	CompilationTarget->"C"
+];
 
 (* number of particles on site i with spin \[Sigma] in orbital orb *)
 n[L_, f_, Norb_, i_, \[Sigma]_, orb_, state_] := (IntegerDigits[#,2,L]&@state[[f*(orb-1)+\[Sigma]]])[[i]];
