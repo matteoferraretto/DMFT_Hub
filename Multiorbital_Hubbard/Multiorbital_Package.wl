@@ -35,7 +35,8 @@ n::usage = "n[L, f, Norb, i, \[Sigma], orb, state]"
 
 
 (* Hamiltonian defining functions *)
-ImpHLocalNormal::usage = "ImpHLocalNormal[L, f, Norb, Sectors]"
+ImpHLocalDecoupled::usage = "ImpHLocalDecoupled[L, f, Norb, Sectors]"
+ImpHLocalInterorb::usage = "ImpHLocalInterorb[L, f, Norb, Sectors]"
 
 
 Begin["`Private`"];
@@ -256,13 +257,6 @@ CountFermions = Compile[{
 	CompilationTarget->"C"
 ];
 
-(* Counts how many fermions there are between state[[\[Sigma]1,orb1,i]] (included) and state[[\[Sigma]2,orb2,j]] (excluded) *)
-CountFermions[L_,f_,i_,j_,\[Sigma]1_,\[Sigma]2_,orb1_,orb2_,state_]:=
-	Total@Take[ (* sum *)
-		Flatten[IntegerDigits[#,2,L]&/@state] (* flattened version of the binary representation of the state *)
-		,{L*(f*(orb1-1)+\[Sigma]1-1)+i, L*(f*(orb2-1)+\[Sigma]2-1)+(j-1)} (* sum up to this index in the flattened version of the state *)
-	];
-
 (* sign accumulated by moving c_i_orb_\[Sigma] to the correct position when applying c_i_orb_\[Sigma]|state> or cdg_i_orb_\[Sigma]|state> *)
 CSign = Compile[{
 	{L,_Integer},{f,_Integer},{i,_Integer},{\[Sigma],_Integer},{orb,_Integer},{state,_Integer,1}
@@ -330,7 +324,7 @@ n[L_, f_, Norb_, i_, \[Sigma]_, orb_, state_] := (IntegerDigits[#,2,L]&@state[[f
 
 (*           PAIR CREATION / ANNIHILATION FUNCTIONS          *)
 (* gives True if it is possible to create a pair (i,orb1,\[Sigma]1) and (j,orb2,\[Sigma]2) and False otherwise *)
-PairCreationQ = Compile[{
+CreatePairQ = Compile[{
 	{L,_Integer}, {f,_Integer}, {i,_Integer}, {j,_Integer}, {\[Sigma]1,_Integer}, {\[Sigma]2,_Integer}, {orb1,_Integer}, {orb2,_Integer}, {state,_Integer,1}
 	},
 	If[
@@ -342,10 +336,10 @@ PairCreationQ = Compile[{
 ];
 
 (* selects states for which pair creation (i,orb1,\[Sigma]1), (j,orb2,\[Sigma]2) is possible*)
-PairCreationSelect = Compile[{
+CreatePairSelect = Compile[{
 	{L,_Integer}, {f,_Integer}, {i,_Integer}, {j,_Integer}, {\[Sigma]1,_Integer}, {\[Sigma]2,_Integer}, {orb1,_Integer}, {orb2,_Integer}, {stateList,_Integer,2}
 	},
-	Select[stateList, PairCreationQ[L,f,i,j,\[Sigma]1,\[Sigma]2,orb1,orb2,#]&],
+	Select[stateList, CreatePairQ[L,f,i,j,\[Sigma]1,\[Sigma]2,orb1,orb2,#]&],
 	RuntimeAttributes->{Listable}, Parallelization->True, CompilationTarget->"C"
 ];
 
@@ -365,7 +359,9 @@ CreatePair = Compile[{
 	CompilationTarget->"C"
 ];
 
-(* gives True if it is possible make a pair hopping from (i,orb2) to (i,orb1), False otherwise  *)
+
+(*          PAIR HOPPING FUNCTIONS         *)
+(* gives True if it is possible to make a pair hopping from (i,orb2) to (i,orb1), False otherwise  *)
 PairHoppingQ = Compile[{
 	{L,_Integer}, {f,_Integer}, {i,_Integer},{orb1,_Integer}, {orb2,_Integer}, {state,_Integer,1}
 	},
@@ -413,6 +409,7 @@ PairHopping = Compile[{
 ];
 
 
+(*           SPIN EXCHANGE FUNCTIONS         *)
 (* gives True if spin exchange on site i is possible, False otherwise: spin exchange = cdg_orb1_up c_orb1_dw cdg_orb2_dw c_orb2_up *)
 SpinExchangeQ = Compile[{
 	{L,_Integer}, {f,_Integer}, {i,_Integer}, {orb1,_Integer}, {orb2,_Integer}, {state,_Integer,1}
@@ -487,12 +484,12 @@ ImpHBlocksNormal[L_, f_, Norb_, Sectors_] := Module[
 					If[Length[\[Psi]1] == 0, Continue[];];
 					\[Chi] = Hop[L,f,1,j,\[Sigma],\[Sigma],orb,orb,#]&/@(\[Psi]1);
 					rows=\[Chi]/.dispatch;(**)cols=\[Psi]1/.dispatch;(**)pos={rows,cols}\[Transpose];
-					\[CapitalSigma] = (CCSign[L,f,1,j,\[Sigma],\[Sigma],orb,orb,#]&/@\[Psi]1);
+					\[CapitalSigma] = (CCSign[L,f,{1,j},{\[Sigma],\[Sigma]},{orb,orb},#]&/@\[Psi]1);
 					Hblock += SparseArray[pos->\[CapitalSigma],{dim,dim}];
 				,{\[Sigma],1,f}];
-			Hblock = Hblock + Hblock\[ConjugateTranspose];
-			AppendTo[Hsector,Hblock]
-		];
+				Hblock = Hblock + Hblock\[ConjugateTranspose];
+				AppendTo[Hsector,Hblock]
+			];
 		,{flag,{"Bath","Hopping"}},{orb,1,Norb},{j,2,L}];
 		AppendTo[H,Hsector];
 	,{\[Psi],Sectors}];
@@ -524,17 +521,18 @@ ImpHBlocksSuperc[L_, f_, Norb_, Sectors_] := Module[
 					If[Length[\[Psi]1]==0,Continue[];];
 					\[Chi] = Hop[L,f,1,j,\[Sigma],\[Sigma],orb,orb,#]&/@(\[Psi]1);
 					rows = \[Chi]/.dispatch;(* *)cols=\[Psi]1/.dispatch;(* *)pos={rows,cols}\[Transpose];
-					\[CapitalSigma] = (CCSign[L,f,1,j,\[Sigma],\[Sigma],orb,orb,#]&/@\[Psi]1);
+					\[CapitalSigma] = (CCSign[L,f,{1,j},{\[Sigma],\[Sigma]},{orb,orb},#]&/@\[Psi]1);
 					Hblock += SparseArray[pos->\[CapitalSigma],{dim,dim}];
 				,{\[Sigma],1,f}];
 				Hblock = Hblock+Hblock\[ConjugateTranspose];
 				AppendTo[Hsector, Hblock],
 			(* --------------------------------------------------------------- *)
 				flag == "Superc",
-				\[Psi]1 = PairCreationSelect[L,f,j,j,1,2,orb,orb,#]&@\[Psi];
+				\[Psi]1 = CreatePairSelect[L,f,j,j,1,2,orb,orb,#]&@\[Psi];
+				If[Length[\[Psi]1] == 0, Continue[];];
 				\[Chi] = CreatePair[L,f,j,j,1,2,orb,orb,#]&/@\[Psi]1;
 				rows=\[Chi]/.dispatch;(* *)cols=\[Psi]1/.dispatch;(* *)pos={rows,cols}\[Transpose];
-				\[CapitalSigma] = (CCSign[L,f,j,j,1,2,orb,orb,#]&/@\[Psi]1);
+				\[CapitalSigma] = (CCSign[L,f,{j,j},{1,2},{orb,orb},#]&/@\[Psi]1);
 				Hblock += SparseArray[pos->\[CapitalSigma],{dim,dim}];
 				Hblock = Hblock+Hblock\[ConjugateTranspose];
 				AppendTo[Hsector,Hblock];
@@ -552,13 +550,13 @@ ImpHBlocks[L_, f_, Norb_, Sectors_, EdMode_] := Which[
 ];
 
 
-(* Local Hamiltonian blocks for EdMode="Normal" *)
-ImpHLocalNormal[L_,f_,Norb_,Sectors_] := Module[
+(* Local Hamiltonian blocks for EdMode="Normal" or "Superc", i.e. orbitals are decoupled *)
+ImpHLocalDecoupled[L_, f_, Norb_, Sectors_] := Module[
 	{H,Hsector,Hblock,num,dim,Nimp=1},
 	H = {};
 	Do[
 		Hsector = {};
-		dim = Length[Sectors];
+		dim = Length[\[Psi]];
 		Hsector = {};
 		Do[
 			Hblock = SparseArray[{},{dim,dim}];
@@ -600,6 +598,92 @@ ImpHLocalNormal[L_,f_,Norb_,Sectors_] := Module[
 		AppendTo[H,Hsector];
 	,{\[Psi],Sectors}];
 	H
+];
+
+(* Local Hamiltonian blocks for EdMode="InterorbNormal" or "InterorbSuperc", i.e. orbitals are coupled *)
+ImpHLocalInterorb[L_,f_,Norb_,Sectors_] := Module[
+	{H,Hsector,Hblock,rules,dispatch,num,dim,\[Psi]1,\[Chi],rows,cols,pos,\[CapitalSigma],Nimp=1},
+	H = {};
+	Do[
+		Hsector = {};
+		dim = Length[\[Psi]];
+		Hsector = {};
+		rules = Flatten[MapIndexed[{#1->#2[[1]]}&,\[Psi]],1];
+		dispatch = Dispatch[rules];
+		Do[
+			Hblock = SparseArray[{},{dim,dim}];
+			Which[
+				flag == "Hubbard",
+				Do[
+					num = Sum[
+						n[L,f,Norb,j,1,orb,#]*n[L,f,Norb,j,2,orb,#]
+					,{j,1,Nimp}]&/@\[Psi];
+					Hblock = SparseArray@DiagonalMatrix[num];
+					AppendTo[Hsector,Hblock];
+				,{orb,1,Norb}],
+			(* ---------------------------------- *)
+				flag == "Interorb_Hubbard_Opposite_Spin",
+				num = Sum[
+					If[orbA != orbB,
+						n[L,f,Norb,j,1,orbA,#]*n[L,f,Norb,j,2,orbB,#],
+					(*else*)
+						0]
+				,{orbA,1,Norb}, {orbB,1,Norb}, {j,1,Nimp}]&/@\[Psi];
+				Hblock = SparseArray@DiagonalMatrix[num];
+				AppendTo[Hsector,Hblock];,
+			(* ---------------------------------- *)
+				flag == "Interorb_Hubbard_Same_Spin",
+				num = Sum[
+					n[L,f,Norb,j,\[Sigma],1,#]*n[L,f,Norb,j,\[Sigma],2,#]
+				,{\[Sigma],1,f}, {j,1,Nimp}]&/@\[Psi];
+				Hblock = SparseArray@DiagonalMatrix[num];
+				AppendTo[Hsector,Hblock];,
+			(* ---------------------------------- *)
+				flag == "Pair_Hopping",
+				Do[
+					If[orb2 > orb1,
+						\[Psi]1 = PairHoppingSelect[L, f, 1, orb1, orb2, #]&@\[Psi];
+						If[Length[\[Psi]1] == 0, Continue[];];
+						\[Chi] = PairHopping[L, f, 1, orb1, orb2, #]&/@\[Psi]1;
+						rows=\[Chi]/.dispatch;(* *)cols=\[Psi]1/.dispatch;(* *)pos={rows,cols}\[Transpose];
+						\[CapitalSigma]=CCSign[L, f, {j,j,j,j}, {1,2,1,2}, {orb1,orb1,orb2,orb2}, #]&/@\[Psi]1;
+						Hblock += SparseArray[pos->\[CapitalSigma],{dim,dim}];
+					];
+				,{orb1,1,Norb}, {orb2,1,Norb}, {j,1,Nimp}];
+				Hblock = Hblock + Hblock\[ConjugateTranspose];
+				AppendTo[Hsector,Hblock];,
+			(* ----------------------------------- *)
+				flag == "Spin_Exchange",
+				Do[
+					If[orb2 > orb1,
+						\[Psi]1 = SpinExchangeSelect[L, f, 1, orb1, orb2, #]&@\[Psi];
+						If[Length[\[Psi]1] == 0, Continue[];];
+						\[Chi] = SpinExchange[L, f, 1, orb1, orb2, #]&/@\[Psi]1;
+						rows = \[Chi]/.dispatch;(* *)cols = \[Psi]1/.dispatch;(* *)pos = {rows,cols}\[Transpose];
+						\[CapitalSigma] = CCSign[L, f, {j,j,j,j}, {1,2,1,2}, {orb1,orb1,orb2,orb2}, #]&/@\[Psi]1;
+						Hblock += SparseArray[pos->\[CapitalSigma],{dim,dim}];
+					];
+				,{orb1,1,Norb}, {orb2,1,Norb}, {j,1,Nimp}];
+				Hblock = Hblock + Hblock\[ConjugateTranspose];
+				AppendTo[Hsector,Hblock];,
+			(* ---------------------------------- *)
+				flag == "Energy_Shift",
+				num = Sum[
+					n[L,f,Norb,j,\[Sigma],orb,#]
+				,{\[Sigma],1,f}, {orb,1,Norb}, {j,1,Nimp}]&/@\[Psi];
+				Hblock = SparseArray@DiagonalMatrix[num];
+				AppendTo[Hsector,Hblock];
+			];
+		,{flag,{"Hubbard","Interorb_Hubbard_Opposite_Spin","Interorb_Hubbard_Same_Spin","Pair_Hopping","Spin_Exchange","Energy_Shift"}}];
+		AppendTo[H,Hsector];
+	,{\[Psi],Sectors}];
+	H
+];
+
+(* choose which case *)
+ImpHLocal[L_, f_, Norb_, Sectors_, EdMode_] := Which[
+	EdMode == "Normal" || EdMode == "Superc",	ImpHLocalDecoupled[L, f, Norb, Sectors],
+	EdMode == "InterorbNormal" || "InterorbSuperc",	ImpHLocalInterorb[L, f, Norb, Sectors]
 ];
 
 
