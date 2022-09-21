@@ -246,11 +246,16 @@ c = Compile[{
 	], CompilationTarget->"C"];
 
 (* Counts how many fermions there are before state[[\[Sigma],orb,i]] (excluded). If you set i=1,\[Sigma]=1,orb=1 you get 0; if you set i=L+1,\[Sigma]=f,orb=Norb you get the total number of fermions in the state *)
-CountFermions[L_,f_,i_,\[Sigma]_,orb_,state_]:=
+CountFermions = Compile[{
+	{L,_Integer},{f,_Integer},{i,_Integer},{\[Sigma],_Integer},{orb,_Integer},{state,_Integer,1}
+	},
 	Total@Take[ (* sum *)
 		Flatten[IntegerDigits[#,2,L]&/@state] (* flattened version of the binary representation of the state *)
 		,L*(f*(orb-1)+\[Sigma]-1)+(i-1) (* sum up to this index in the flattened version of the state *)
-	];
+	],
+	CompilationTarget->"C"
+];
+
 (* Counts how many fermions there are between state[[\[Sigma]1,orb1,i]] (included) and state[[\[Sigma]2,orb2,j]] (excluded) *)
 CountFermions[L_,f_,i_,j_,\[Sigma]1_,\[Sigma]2_,orb1_,orb2_,state_]:=
 	Total@Take[ (* sum *)
@@ -259,9 +264,28 @@ CountFermions[L_,f_,i_,j_,\[Sigma]1_,\[Sigma]2_,orb1_,orb2_,state_]:=
 	];
 
 (* sign accumulated by moving c_i_orb_\[Sigma] to the correct position when applying c_i_orb_\[Sigma]|state> or cdg_i_orb_\[Sigma]|state> *)
-CSign[L_, f_, i_, \[Sigma]_, orb_, state_]:=(-1)^CountFermions[L,f,i,\[Sigma],orb,state];
-(* sign accumulated by moving c_i1_orb1_\[Sigma]1 and c_i2_orb2_\[Sigma]2 to the correct positions when applying c_i1_orb1_\[Sigma]1 c_i2_orb2_\[Sigma]2|state> or similar pairs of operators *)
-CCSign[L_, f_, i_, j_, \[Sigma]1_, \[Sigma]2_, orb1_, orb2_, state_] := (-1)^CountFermions[L, f, i, j, \[Sigma]1, \[Sigma]2, orb1, orb2, state];
+CSign = Compile[{
+	{L,_Integer},{f,_Integer},{i,_Integer},{\[Sigma],_Integer},{orb,_Integer},{state,_Integer,1}
+	},
+	(-1)^CountFermions[L,f,i,\[Sigma],orb,state],
+	CompilationTarget->"C"
+];
+
+(* sign accumulated by moving c_i1_orb1_\[Sigma]1, c_i2_orb2_\[Sigma]2, c_i3_orb3_\[Sigma]3, ... to the correct positions when applying c_i1_orb1_\[Sigma]1 c_i2_orb2_\[Sigma]2 ...|state> or similar operators *)
+CCSign = Compile[{
+	{L,_Integer},{f,_Integer},{iList,_Integer,1},{\[Sigma]List,_Integer,1},{orbList,_Integer,1},{state,_Integer,1}
+	},
+	With[{
+		binarystate = Flatten[IntegerDigits[#,2,L]&/@state],
+		indexes = L*(f*(orbList-1)+\[Sigma]List-1)+(iList-1)
+	},
+	(-1)^Total[
+		Total@Take[binarystate, #]&/@indexes
+	]
+	], CompilationTarget->"C"
+];
+
+CCCCSign = CCSign;
 
 
 (*               HOPPING FUNCTIONS             *)
