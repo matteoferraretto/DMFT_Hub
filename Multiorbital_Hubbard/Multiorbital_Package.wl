@@ -46,52 +46,52 @@ Begin["`Private`"];
 StartingBath[InitializeBathMode_String, Nbath_Integer, Norb_Integer, EdMode_String]:=Module[
 	{e,V,\[CapitalDelta],\[CapitalXi]},
 	Which[
-		EdMode=="Normal" || EdMode=="InterorbNormal",
+		EdMode == "Normal" || EdMode == "InterorbNormal",
 		If[
-			InitializeBathMode=="Default",
-			e=ConstantArray[
+			InitializeBathMode == "Default",
+			e = ConstantArray[
 				Table[-(Nbath-1)/2.+k,{k,0,Nbath-1}],
 			Norb];
-			V=ConstantArray[
+			V = ConstantArray[
 				Table[1.,{k,1,Nbath}],
 			Norb],	
 		(*else*)
-			{e,V}=Import[InitializeBathMode,"Table"];
+			{e,V} = Import[InitializeBathMode,"Table"];
 		];
 		Return[{e,V}],
 (* ---------------------------------------------- *)
-		EdMode=="Superc",
+		EdMode == "Superc",
 		If[
-			InitializeBathMode=="Default",
-			e=ConstantArray[
+			InitializeBathMode == "Default",
+			e = ConstantArray[
 				Table[-(Nbath-1)/2.+k,{k,0,Nbath-1}],
 			Norb];
-			V=ConstantArray[
+			V = ConstantArray[
 				Table[1.,{k,1,Nbath}],
 			Norb];
-			\[CapitalDelta]=ConstantArray[
+			\[CapitalDelta] = ConstantArray[
 				Table[1.,{k,1,Nbath}],
 			Norb],
 		(*else*)
-	     {e,V,\[CapitalDelta]}=Import[InitializeBathMode,"Table"];
+	     {e,V,\[CapitalDelta]} = Import[InitializeBathMode,"Table"];
 		];
 		Return[{e,V,\[CapitalDelta]}],
 (* ---------------------------------------------- *)
-		EdMode=="InterorbSuperc",
+		EdMode == "InterorbSuperc",
 		If[
 			InitializeBathMode=="Default",
-			e=ConstantArray[
+			e = ConstantArray[
 				Table[-(Nbath-1)/2.+k,{k,0,Nbath-1}],
 			Norb];
-			V=ConstantArray[
+			V = ConstantArray[
 				Table[1.,{k,1,Nbath}],
 			Norb];
-			\[CapitalDelta]=ConstantArray[
+			\[CapitalDelta] = ConstantArray[
 				Table[1.,{k,1,Nbath}],
 			Norb];
-	        \[CapitalXi]=Table[1.,{k,1,Nbath}],
+	        \[CapitalXi] = Table[1.,{k,1,Nbath}],
 		(*else*)
-			{e,V,\[CapitalDelta],\[CapitalXi]}=Import[InitializeBathMode,"Table"];
+			{e,V,\[CapitalDelta],\[CapitalXi]} = Import[InitializeBathMode,"Table"];
 		];
 	   Return[{e,V,\[CapitalDelta],\[CapitalXi]}];
 	]
@@ -228,27 +228,27 @@ DrawState[L_,f_,Norb_]:=Module[{},
 (*               MANIPULATION OF STATES                *)
 (* apply cdg_orb_spin in the impurity site to a basis state: return the integer form of the resulting basis state or 0 *)
 cdg = Compile[{
-	{L,_Integer}, {f,_Integer}, {\[Sigma],_Integer}, {orb,_Integer}, {state,_Integer,1}
+	{L,_Integer}, {f,_Integer}, {i,_Integer}, {\[Sigma],_Integer}, {orb,_Integer}, {state,_Integer,1}
 	},
 	MapAt[
-		BitOr[#, 2^(L-1)]&,
+		BitSet[#, L-i]&,
 		state,
 		f*(orb-1)+\[Sigma]
 	], CompilationTarget->"C"];
 
 (* apply c_orb_spin in the impurity site to a basis state: return the integer form of the resulting basis state or 0 *)
 c = Compile[{
-	{L,_Integer}, {f,_Integer}, {\[Sigma],_Integer}, {orb,_Integer}, {state,_Integer,1}
+	{L,_Integer}, {f,_Integer}, {i,_Integer}, {\[Sigma],_Integer}, {orb,_Integer}, {state,_Integer,1}
 	},
 	MapAt[
-		BitAnd[#, BitNot[-2^(L-1)]]&,
+		BitClear[#, L-i]&,
 		state,
 		f*(orb-1)+\[Sigma]
 	], CompilationTarget->"C"];
 
 (* Counts how many fermions there are before state[[\[Sigma],orb,i]] (excluded). If you set i=1,\[Sigma]=1,orb=1 you get 0; if you set i=L+1,\[Sigma]=f,orb=Norb you get the total number of fermions in the state *)
 CountFermions = Compile[{
-	{L,_Integer},{f,_Integer},{i,_Integer},{\[Sigma],_Integer},{orb,_Integer},{state,_Integer,1}
+	{L,_Integer}, {f,_Integer}, {i,_Integer}, {\[Sigma],_Integer}, {orb,_Integer}, {state,_Integer,1}
 	},
 	Total@Take[ (* sum *)
 		Flatten[IntegerDigits[#,2,L]&/@state] (* flattened version of the binary representation of the state *)
