@@ -16,7 +16,7 @@ HopQ = Compile[{
 	RuntimeAttributes->{Listable}, Parallelization->True
 ];
 
-(* select states for which hopping (j, \[Sigma]1, orb1) \[Rule] (i, \[Sigma]2, orb2) is possible *)
+(* select states for which hopping (j, \[Sigma]2, orb2) \[Rule] (i, \[Sigma]1, orb1) is possible *)
 HopSelect = Compile[{
 	{L,_Integer}, {f,_Integer}, {i,_Integer}, {j,_Integer}, {\[Sigma]1,_Integer}, {\[Sigma]2,_Integer}, {orb1,_Integer}, {orb2,_Integer}, {stateList,_Integer,2}
 	},
@@ -28,13 +28,13 @@ HopSelect = Compile[{
 Hop = Compile[{
 	{L,_Integer}, {f,_Integer}, {i,_Integer}, {j,_Integer}, {\[Sigma]1,_Integer}, {\[Sigma]2,_Integer}, {orb1,_Integer}, {orb2,_Integer}, {state,_Integer,1}},
 	MapAt[
-		BitOr[#,2^(L-i)]&,
+		BitSet[#, L-i]&,
 		MapAt[
-			BitAnd[#, BitNot[-2^(L-j)]]&,
+			BitClear[#, L-j]&,
 			state,
-			f*(orb1-1)+\[Sigma]1
+			f*(orb2-1)+\[Sigma]2
 		],
-		f*(orb2-1)+\[Sigma]2
+		f*(orb1-1)+\[Sigma]1
 	],
 	CompilationTarget->"C"
 ];
@@ -46,7 +46,7 @@ Hop = Compile[{
 
 
 L=2; f=2; Norb=2;
-i=2; j=1; \[Sigma]=2; orb=2;
+i=1; j=2; \[Sigma]=2; orb=2;
 
 (* define two states *)
 \[Psi]={1,1,2,2};
@@ -63,12 +63,11 @@ HopQ[L,f,i,j,\[Sigma],\[Sigma],orb,orb,#]&@\[Xi]
 HopSelect[L,f,i,j,\[Sigma],\[Sigma],orb,orb,#]&@{\[Psi],\[Xi]}
 
 (* apply hopping operator to the state *)
-IntegerDigits[#,2,L]&@\[Psi]
-IntegerDigits[#,2,L]&@(Hop[L,f,i,j,\[Sigma],\[Sigma],orb,orb,\[Psi]])
+IntegerDigits[#,2,L]&@\[Xi]
+IntegerDigits[#,2,L]&@(Hop[L,f,i,j,\[Sigma],\[Sigma],orb,orb,\[Xi]])
 
 
 (* ::Subtitle:: *)
-(**)
 (*Performance*)
 
 
@@ -82,7 +81,6 @@ AbsoluteTiming[
 
 
 (* ::Subtitle:: *)
-(**)
 (*Alternative formulations*)
 
 

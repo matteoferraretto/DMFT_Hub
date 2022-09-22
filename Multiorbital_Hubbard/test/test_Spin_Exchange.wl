@@ -4,7 +4,7 @@
 (*Official functions*)
 
 
-(* gives True if hopping from (j, \[Sigma]2, orb2) to (i,\[Sigma]1,orb1) is possible, False otherwise *)
+(* gives True if spin exchange on site i is possible, False otherwise: spin exchange = cdg_orb1_up c_orb1_dw cdg_orb2_dw c_orb2_up *)
 SpinExchangeQ = Compile[{
 	{L,_Integer}, {f,_Integer}, {i,_Integer}, {orb1,_Integer}, {orb2,_Integer}, {state,_Integer,1}
 	},
@@ -20,7 +20,7 @@ SpinExchangeQ = Compile[{
 	RuntimeAttributes->{Listable}, Parallelization->True
 ];
 
-(* select states for which hopping (j, \[Sigma]1, orb1) \[Rule] (i, \[Sigma]2, orb2) is possible *)
+(* select states for which spin exchange on site i is possible: spin exchange = cdg_orb1_up c_orb1_dw cdg_orb2_dw c_orb2_up *)
 SpinExchangeSelect = Compile[{
 	{L,_Integer}, {f,_Integer}, {i,_Integer}, {orb1,_Integer}, {orb2,_Integer}, {stateList,_Integer,2}
 	},
@@ -28,17 +28,17 @@ SpinExchangeSelect = Compile[{
 	RuntimeAttributes->{Listable}, Parallelization->True, CompilationTarget->"C"
 ];
 
-(* apply hopping operator to a given state *)
+(* apply spin exchange operator to a given state *)
 SpinExchange = Compile[{
 	{L,_Integer}, {f,_Integer}, {i,_Integer}, {orb1,_Integer}, {orb2,_Integer}, {state,_Integer,1}},
 	MapAt[
-		BitOr[#,2^(L-i)]&,
+		BitSet[#, L-i]&,
 		MapAt[
-			BitOr[#,2^(L-i)]&,
+			BitSet[#, L-i]&,
 			MapAt[
-				BitAnd[#, BitNot[-2^(L-i)]]&,
+				BitClear[#, L-i]&,
 				MapAt[
-					BitAnd[#, BitNot[-2^(L-i)]]&,
+					BitClear[#, L-i]&,
 					state,
 					f*(orb2-1)+1
 				],
@@ -100,7 +100,7 @@ cdg = Compile[{
 	{L,_Integer}, {f,_Integer}, {j,_Integer}, {\[Sigma],_Integer}, {orb,_Integer}, {state,_Integer,1}
 	},
 	MapAt[
-		BitOr[#, 2^(L-j)]&,
+		BitSet[#, L-j]&,
 		state,
 		f*(orb-1)+\[Sigma]
 	], CompilationTarget->"C"];
@@ -110,24 +110,34 @@ c = Compile[{
 	{L,_Integer}, {f,_Integer}, {j,_Integer}, {\[Sigma],_Integer}, {orb,_Integer}, {state,_Integer,1}
 	},
 	MapAt[
-		BitAnd[#, BitNot[-2^(L-j)]]&,
+		BitClear[#, L-j]&,
 		state,
 		f*(orb-1)+\[Sigma]
 	], CompilationTarget->"C"];
 
 SpinExchangeAlternative = Compile[{
-	{L,_Integer}, {f,_Integer}, {i,_Integer}, {orb1,_Integer}, {orb2,_Integer}, {state,_Integer,1}},
-	cdg[L,f,i,1,orb1,#]&@c[L,f,i,2,orb1,#]&@cdg[L,f,i,2,orb2,#]&@c[L,f,i,1,orb2,#]&@state
-	, CompilationTarget->"C"];
+	{L,_Integer}, {f,_Integer}, {i,_Integer}, {orb1,_Integer}, {orb2,_Integer}, {state,_Integer,1}
+	},
+	cdg[L,f,i,1,orb1,
+		c[L,f,i,2,orb1,
+			cdg[L,f,i,2,orb2,
+				c[L,f,i,1,orb2,state]
+			]
+		]
+	], 
+	CompilationTarget->"C"]
 
 \[Psi]={1,2,2,1};
 IntegerDigits[#,2,L]&@\[Psi]
+
+cdg[L,f,1,1,1,#]&@\[Psi]
+(*
 IntegerDigits[#,2,L]&@SpinExchangeAlternative[L,f,i,1,2,\[Psi]]
 
 AbsoluteTiming[
 	SpinExchangeAlternative[L,f,i,1,2,#]&/@ConstantArray[\[Psi],300000];
 ]
-
+*)
 
 
 

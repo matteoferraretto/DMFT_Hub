@@ -10,9 +10,9 @@ PairHoppingQ = Compile[{
 	},
 	If[
 		(IntegerDigits[#,2,L]&@state[[f*(orb1-1)+1]])[[i]]==0&&
-	(IntegerDigits[#,2,L]&@state[[f*(orb1-1)+2]])[[i]]==0&&
-	(IntegerDigits[#,2,L]&@state[[f*(orb2-1)+1]])[[i]]==1&&
-	(IntegerDigits[#,2,L]&@state[[f*(orb2-1)+2]])[[i]]==1,
+		(IntegerDigits[#,2,L]&@state[[f*(orb1-1)+2]])[[i]]==0&&
+		(IntegerDigits[#,2,L]&@state[[f*(orb2-1)+1]])[[i]]==1&&
+		(IntegerDigits[#,2,L]&@state[[f*(orb2-1)+2]])[[i]]==1,
 		True,
 	(*else*)
 		False
@@ -32,13 +32,13 @@ PairHopping = Compile[{
 	{L,_Integer}, {f,_Integer}, {i,_Integer}, {orb1,_Integer}, {orb2,_Integer}, {state,_Integer,1}
 	},
 	MapAt[
-		BitOr[#,2^(L-i)]&,
+		BitSet[#, L-i]&,
 		MapAt[
-			BitOr[#,2^(L-i)]&,
+			BitSet[#, L-i]&,
 			MapAt[
-				BitAnd[#, BitNot[-2^(L-i)]]&,
+				BitClear[#, L-i]&,
 				MapAt[
-					BitAnd[#, BitNot[-2^(L-i)]]&,
+					BitClear[#, L-i]&,
 					state,
 					f*(orb2-1)+2
 				],
@@ -77,7 +77,6 @@ IntegerDigits[#,2,L]&@PairHopping[L,f,1,2,1,\[Psi]]
 
 
 (* ::Subtitle:: *)
-(**)
 (*Performance*)
 
 
@@ -91,7 +90,6 @@ AbsoluteTiming[
 
 
 (* ::Subtitle:: *)
-(**)
 (*Alternative formulations*)
 
 
