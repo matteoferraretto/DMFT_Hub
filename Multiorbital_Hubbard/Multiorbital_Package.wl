@@ -29,16 +29,14 @@ The superconductive EdModes only support f=2 at the moment. "
 
 DrawState::usage = "DrawState[L, f, Norb] draws a graphic representation of a Fock state that can be manipulated. Each box can be filled either with 0 (no particles in that slot) or 1 (a particle in that slot). "
 
-HopSelect::usage = "..."
-Hop::usage = "..."
-
 
 n::usage = "n[L, f, Norb, i, \[Sigma], orb, state]"
 
 
 (* Hamiltonian defining functions *)
-HLocal::usage = "HLocal[L, f, Norb, Sectors, EdMode] "
 HNonlocal::usage = "HNonlocal[L, f, Norb, Sectors, EdMode]"
+
+HLocal::usage = "HLocal[L, f, Norb, Sectors, EdMode] "
 
 
 Begin["`Private`"];
@@ -350,9 +348,9 @@ CreatePair = Compile[{
 	{L,_Integer}, {f,_Integer}, {i,_Integer}, {j,_Integer}, {\[Sigma]1,_Integer}, {\[Sigma]2,_Integer}, {orb1,_Integer}, {orb2,_Integer}, {state,_Integer,1}
 	},
 	MapAt[
-		BitOr[#,2^(L-j)]&,
+		BitSet[#, L-j]&,
 		MapAt[
-			BitOr[#,2^(L-i)]&,
+			BitSet[#, L-i]&,
 			state,
 			f*(orb1-1)+\[Sigma]1
 		],
@@ -461,46 +459,7 @@ SpinExchange = Compile[{
 
 
 (*          BUILD THE HAMILTONIAN           *)
-(* Non-local Hamiltonian blocks for EdMode="Normal" *)
-(*
-HNonlocal[L_, f_, Norb_, Sectors_] := Module[
-	{\[Psi]1,\[Chi],H,Hblock,Hsector,dim,rules,dispatch,cols,rows,pos,\[CapitalSigma],num},
-	H={};
-	Do[
-		Hsector = {};
-		dim = Length[\[Psi]];
-		rules = Flatten[MapIndexed[{#1->#2[[1]]}&,\[Psi]],1];
-		dispatch = Dispatch[rules];
-		Do[
-			Hblock = SparseArray[{},{dim,dim}];
-			Which[
-				flag == "Bath",
-				Do[
-					num = n[L,f,Norb,j,\[Sigma],orb]/@\[Psi];(*local density*)
-					Hblock += SparseArray@DiagonalMatrix[num];
-				,{\[Sigma],1,f}];
-				AppendTo[Hsector,Hblock],
-			(*-----------------------*)
-				flag == "Hopping",
-				Do[
-					\[Psi]1 = HopSelect[L,f,1,j,\[Sigma],\[Sigma],orb,orb,#]&@\[Psi];
-					If[Length[\[Psi]1] == 0, Continue[];];
-					\[Chi] = Hop[L,f,1,j,\[Sigma],\[Sigma],orb,orb,#]&/@(\[Psi]1);
-					rows=\[Chi]/.dispatch;(**)cols=\[Psi]1/.dispatch;(**)pos={rows,cols}\[Transpose];
-					\[CapitalSigma] = (CCSign[L,f,{1,j},{\[Sigma],\[Sigma]},{orb,orb},#]&/@\[Psi]1);
-					Hblock += SparseArray[pos->\[CapitalSigma],{dim,dim}];
-				,{\[Sigma],1,f}];
-				Hblock = Hblock + Hblock\[ConjugateTranspose];
-				AppendTo[Hsector,Hblock]
-			];
-		,{flag,{"Bath","Hopping"}},{orb,1,Norb},{j,2,L}];
-		AppendTo[H,Hsector];
-	,{\[Psi],Sectors}];
-	H
-];
-*)
-
-(* Non-local Hamiltonian blocks for EdMode="Superc" *)
+(* Non-local Hamiltonian blocks *)
 HNonlocal[L_, f_, Norb_, Sectors_, EdMode_] := Module[
 	{\[Psi]1,\[Chi],H,Hblock,Hsector,dim,rules,dispatch,cols,rows,pos,\[CapitalSigma],num},
 	H = {};
@@ -510,7 +469,7 @@ HNonlocal[L_, f_, Norb_, Sectors_, EdMode_] := Module[
 		rules = Flatten[MapIndexed[{#1->#2[[1]]}&,\[Psi]],1];
 		dispatch = Dispatch[rules];
 		Do[
-			Hblock = SparseArray[{},{dim,dim}];
+			Hblock = SparseArray[{}, {dim,dim}];
 			Which[
 				flag == "Bath",
 				Do[
@@ -528,84 +487,27 @@ HNonlocal[L_, f_, Norb_, Sectors_, EdMode_] := Module[
 					\[CapitalSigma] = (CCSign[L,f,{1,j},{\[Sigma],\[Sigma]},{orb,orb},#]&/@\[Psi]1);
 					Hblock += SparseArray[pos->\[CapitalSigma],{dim,dim}];
 				,{\[Sigma],1,f}];
-				Hblock = Hblock+Hblock\[ConjugateTranspose];
+				Hblock = Hblock + Hblock\[ConjugateTranspose];
 				AppendTo[Hsector, Hblock];,
 			(* --------------------------------------------------------------- *)
 				flag == "Superc" && (EdMode == "Superc" || EdMode == "FullSuperc"),
 				\[Psi]1 = CreatePairSelect[L,f,j,j,1,2,orb,orb,#]&@\[Psi];
-				If[Length[\[Psi]1] == 0, Continue[];];
 				\[Chi] = CreatePair[L,f,j,j,1,2,orb,orb,#]&/@\[Psi]1;
 				rows=\[Chi]/.dispatch;(* *)cols=\[Psi]1/.dispatch;(* *)pos={rows,cols}\[Transpose];
 				\[CapitalSigma] = (CCSign[L,f,{j,j},{1,2},{orb,orb},#]&/@\[Psi]1);
-				Hblock += SparseArray[pos->\[CapitalSigma],{dim,dim}];
-				Hblock = Hblock+Hblock\[ConjugateTranspose];
-				AppendTo[Hsector,Hblock];
+				Hblock += SparseArray[pos->\[CapitalSigma], {dim,dim}];
+				Hblock = Hblock + Hblock\[ConjugateTranspose];
+				AppendTo[Hsector, Hblock];
 			];
-		,{flag,{"Bath","Hopping","Superc"}},{orb,1,Norb},{j,2,L}];
-		AppendTo[H,Hsector];
-	,{\[Psi],Sectors}];
+		,{flag, {"Bath","Hopping","Superc"}}, {orb,1,Norb}, {j,2,L}];
+		AppendTo[H, Hsector];
+	,{\[Psi], Sectors}];
 	H
 ];
 
-(* choose which case *)
-(*ImpHBlocks[L_, f_, Norb_, Sectors_, EdMode_] := Which[
-	EdMode == "Normal",	ImpHBlocksNormal[L, f, Norb, Sectors],
-	EdMode == "Superc",	ImpHBlocksSuperc[L, f, Norb, Sectors]
-];*)
 
 
-(* Local Hamiltonian blocks for EdMode="Normal" or "Superc", i.e. orbitals are decoupled *)
-(*HLocalDecoupled[L_, f_, Norb_, Sectors_] := Module[
-	{H,Hsector,Hblock,num,dim,Nimp=1},
-	H = {};
-	Do[
-		Hsector = {};
-		dim = Length[\[Psi]];
-		Hsector = {};
-		Do[
-			Hblock = SparseArray[{},{dim,dim}];
-			Which[
-				flag == "Hubbard",
-				Do[
-					num = Sum[
-						n[L,f,Norb,j,1,orb,#]*n[L,f,Norb,j,2,orb,#]
-					,{j,1,Nimp}]&/@\[Psi];
-					Hblock = SparseArray@DiagonalMatrix[num];
-					AppendTo[Hsector,Hblock];
-				,{orb,1,Norb}],
-			(* ---------------------------------- *)
-				flag == "Interorb_Hubbard_Opposite_Spin",
-				num = Sum[
-					If[orbA != orbB,
-						n[L,f,Norb,j,1,orbA,#]*n[L,f,Norb,j,2,orbB,#],
-					(*else*)
-						0]
-				,{orbA,1,Norb}, {orbB,1,Norb}, {j,1,Nimp}]&/@\[Psi];
-				Hblock = SparseArray@DiagonalMatrix[num];
-				AppendTo[Hsector,Hblock];,
-			(* ---------------------------------- *)
-				flag == "Interorb_Hubbard_Same_Spin",
-				num = Sum[
-					n[L,f,Norb,j,\[Sigma],1,#]*n[L,f,Norb,j,\[Sigma],2,#]
-				,{\[Sigma],1,f}, {j,1,Nimp}]&/@\[Psi];
-				Hblock = SparseArray@DiagonalMatrix[num];
-				AppendTo[Hsector,Hblock];,
-			(* ---------------------------------- *)
-				flag == "Energy_Shift",
-				num = Sum[
-					n[L,f,Norb,j,\[Sigma],orb,#]
-				,{\[Sigma],1,f}, {orb,1,Norb}, {j,1,Nimp}]&/@\[Psi];
-				Hblock = SparseArray@DiagonalMatrix[num];
-				AppendTo[Hsector,Hblock];
-			];
-		,{flag,{"Hubbard","Interorb_Hubbard_Opposite_Spin","Interorb_Hubbard_Same_Spin","Energy_Shift"}}];
-		AppendTo[H,Hsector];
-	,{\[Psi],Sectors}];
-	H
-];
-*)
-
-(* Local Hamiltonian blocks for EdMode="InterorbNormal" or "InterorbSuperc", i.e. orbitals are coupled *)
+(* Local Hamiltonian blocks *)
 HLocal[L_, f_, Norb_, Sectors_, EdMode_] := Module[
 	{H,Hsector,Hblock,rules,dispatch,num,dim,\[Psi]1,\[Chi],rows,cols,pos,\[CapitalSigma],Nimp=1},
 	H = {};
@@ -635,7 +537,7 @@ HLocal[L_, f_, Norb_, Sectors_, EdMode_] := Module[
 						0]
 				,{orbA,1,Norb}, {orbB,1,Norb}, {j,1,Nimp}]&/@\[Psi];
 				Hblock = SparseArray@DiagonalMatrix[num];
-				AppendTo[Hsector,Hblock];,
+				AppendTo[Hsector, Hblock];,
 			(* ---------------------------------- *)
 				flag == "Interorb_Hubbard_Same_Spin",
 				num = Sum[
@@ -679,17 +581,12 @@ HLocal[L_, f_, Norb_, Sectors_, EdMode_] := Module[
 				Hblock = SparseArray@DiagonalMatrix[num];
 				AppendTo[Hsector,Hblock];
 			];
-		,{flag,{"Hubbard","Interorb_Hubbard_Opposite_Spin","Interorb_Hubbard_Same_Spin","Pair_Hopping","Spin_Exchange","Energy_Shift"}}];
+		,{flag, {"Hubbard","Interorb_Hubbard_Opposite_Spin","Interorb_Hubbard_Same_Spin","Pair_Hopping","Spin_Exchange","Energy_Shift"}}];
 		AppendTo[H,Hsector];
 	,{\[Psi],Sectors}];
 	H
 ];
 
-(* choose which case *)
-(*HLocal[L_, f_, Norb_, Sectors_, EdMode_] := Which[
-	EdMode == "Normal" || EdMode == "Superc",	ImpHLocalDecoupled[L, f, Norb, Sectors],
-	EdMode == "InterorbNormal" || "InterorbSuperc",	ImpHLocalInterorb[L, f, Norb, Sectors]
-];*)
 
 
 End[];
