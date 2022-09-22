@@ -29,14 +29,16 @@ The superconductive EdModes only support f=2 at the moment. "
 
 DrawState::usage = "DrawState[L, f, Norb] draws a graphic representation of a Fock state that can be manipulated. Each box can be filled either with 0 (no particles in that slot) or 1 (a particle in that slot). "
 
+HopSelect::usage = "..."
+Hop::usage = "..."
 
 
 n::usage = "n[L, f, Norb, i, \[Sigma], orb, state]"
 
 
 (* Hamiltonian defining functions *)
-ImpHLocalDecoupled::usage = "ImpHLocalDecoupled[L, f, Norb, Sectors]"
-ImpHLocalInterorb::usage = "ImpHLocalInterorb[L, f, Norb, Sectors]"
+HLocal::usage = "HLocal[L, f, Norb, Sectors, EdMode] "
+HNonlocal::usage = "HNonlocal[L, f, Norb, Sectors, EdMode]"
 
 
 Begin["`Private`"];
@@ -172,26 +174,26 @@ DimSector[L_, f_, Norb_, qns_, EdMode_String]:=Module[
 BuildSector[L_, f_, Norb_, qns_, EdMode_]:=Module[
 	{QnsList,states},
 	Which[
-		EdMode=="Normal",
-		states=BASIS[L,f*Norb,qns],
+		EdMode == "Normal",
+		states = BASIS[L,f*Norb,qns],
 (* ---------------------------------------------- *)
-		EdMode=="InterorbNormal",
-		QnsList=SectorList[L,f,Norb,"Normal"];
-		QnsList=Select[
+		EdMode == "InterorbNormal",
+		QnsList = SectorList[L,f,Norb,"Normal"];
+		QnsList = Select[
 			QnsList,
 			({Sum[#[[2i-1]],{i,1,Norb}],Sum[#[[2i]],{i,1,Norb}]}== qns)&
 		];
-		states=Flatten[BASIS[L,f*Norb,#]&/@QnsList, 1],
+		states = Flatten[BASIS[L,f*Norb,#]&/@QnsList, 1],
 (* ---------------------------------------------- *)
-		EdMode=="Superc",
-		QnsList=SectorList[L,f,Norb,"Normal"];
-		QnsList=Select[
+		EdMode == "Superc",
+		QnsList = SectorList[L,f,Norb,"Normal"];
+		QnsList = Select[
 			QnsList,
 			(Delete[#,Table[{2*i},{i,1,Norb}]]-Delete[#,Table[{2*i-1},{i,1,Norb}]] == qns)&
 		];
 		states = Flatten[BASIS[L,Norb*f,#]&/@QnsList,1],
 (* ---------------------------------------------- *)
-		EdMode=="InterorbSuperc",
+		EdMode == "InterorbSuperc",
 		QnsList = SectorList[L,f,Norb,"Normal"];
 		QnsList = Select[
 			QnsList, 
@@ -203,7 +205,7 @@ BuildSector[L_, f_, Norb_, qns_, EdMode_]:=Module[
 ];
 
 (* Draw a picture of a state to help the user *)
-DrawState[L_,f_,Norb_,j_,\[Sigma]_,orb_]:=Module[
+DrawState[L_, f_, Norb_, j_, \[Sigma]_, orb_]:=Module[
 	{impuritycolor, color},
 	impuritycolor[i_]:=If[i==1,Blue,Black];
 	color[i_,index_]:=If[i==j && index==f*(orb-1)+\[Sigma], Red, Black];
@@ -295,7 +297,7 @@ HopQ = Compile[{
 	RuntimeAttributes->{Listable}, Parallelization->True
 ];
 
-(* select states for which hopping (j, \[Sigma]1, orb1) \[Rule] (i, \[Sigma]2, orb2) is possible *)
+(* select states for which hopping (j, \[Sigma]2, orb2) \[Rule] (i, \[Sigma]1, orb1) is possible *)
 HopSelect = Compile[{
 	{L,_Integer}, {f,_Integer}, {i,_Integer}, {j,_Integer}, {\[Sigma]1,_Integer}, {\[Sigma]2,_Integer}, {orb1,_Integer}, {orb2,_Integer}, {stateList,_Integer,2}
 	},
@@ -307,13 +309,13 @@ HopSelect = Compile[{
 Hop = Compile[{
 	{L,_Integer}, {f,_Integer}, {i,_Integer}, {j,_Integer}, {\[Sigma]1,_Integer}, {\[Sigma]2,_Integer}, {orb1,_Integer}, {orb2,_Integer}, {state,_Integer,1}},
 	MapAt[
-		BitOr[#,2^(L-i)]&,
+		BitSet[#, L-i]&,
 		MapAt[
-			BitAnd[#, BitNot[-2^(L-j)]]&,
+			BitClear[#, L-j]&,
 			state,
-			f*(orb1-1)+\[Sigma]1
+			f*(orb2-1)+\[Sigma]2
 		],
-		f*(orb2-1)+\[Sigma]2
+		f*(orb1-1)+\[Sigma]1
 	],
 	CompilationTarget->"C"
 ];
@@ -389,13 +391,13 @@ PairHopping = Compile[{
 	{L,_Integer}, {f,_Integer}, {i,_Integer}, {orb1,_Integer}, {orb2,_Integer}, {state,_Integer,1}
 	},
 	MapAt[
-		BitOr[#,2^(L-i)]&,
+		BitSet[#, L-i]&,
 		MapAt[
-			BitOr[#,2^(L-i)]&,
+			BitSet[#, L-i]&,
 			MapAt[
-				BitAnd[#, BitNot[-2^(L-i)]]&,
+				BitClear[#, L-i]&,
 				MapAt[
-					BitAnd[#, BitNot[-2^(L-i)]]&,
+					BitClear[#, L-i]&,
 					state,
 					f*(orb2-1)+2
 				],
@@ -438,13 +440,13 @@ SpinExchangeSelect = Compile[{
 SpinExchange = Compile[{
 	{L,_Integer}, {f,_Integer}, {i,_Integer}, {orb1,_Integer}, {orb2,_Integer}, {state,_Integer,1}},
 	MapAt[
-		BitOr[#,2^(L-i)]&,
+		BitSet[#, L-i]&,
 		MapAt[
-			BitOr[#,2^(L-i)]&,
+			BitSet[#, L-i]&,
 			MapAt[
-				BitAnd[#, BitNot[-2^(L-i)]]&,
+				BitClear[#, L-i]&,
 				MapAt[
-					BitAnd[#, BitNot[-2^(L-i)]]&,
+					BitClear[#, L-i]&,
 					state,
 					f*(orb2-1)+1
 				],
@@ -460,7 +462,8 @@ SpinExchange = Compile[{
 
 (*          BUILD THE HAMILTONIAN           *)
 (* Non-local Hamiltonian blocks for EdMode="Normal" *)
-ImpHBlocksNormal[L_, f_, Norb_, Sectors_] := Module[
+(*
+HNonlocal[L_, f_, Norb_, Sectors_] := Module[
 	{\[Psi]1,\[Chi],H,Hblock,Hsector,dim,rules,dispatch,cols,rows,pos,\[CapitalSigma],num},
 	H={};
 	Do[
@@ -495,9 +498,10 @@ ImpHBlocksNormal[L_, f_, Norb_, Sectors_] := Module[
 	,{\[Psi],Sectors}];
 	H
 ];
+*)
 
 (* Non-local Hamiltonian blocks for EdMode="Superc" *)
-ImpHBlocksSuperc[L_, f_, Norb_, Sectors_] := Module[
+HNonlocal[L_, f_, Norb_, Sectors_, EdMode_] := Module[
 	{\[Psi]1,\[Chi],H,Hblock,Hsector,dim,rules,dispatch,cols,rows,pos,\[CapitalSigma],num},
 	H = {};
 	Do[
@@ -510,24 +514,24 @@ ImpHBlocksSuperc[L_, f_, Norb_, Sectors_] := Module[
 			Which[
 				flag == "Bath",
 				Do[
-					num = n[L,f,Norb,j,\[Sigma],orb]/@\[Psi];(*local density*)
+					num = n[L,f,Norb,j,\[Sigma],orb,#]&/@\[Psi];(*local density*)
 					Hblock += SparseArray@DiagonalMatrix[num];
 				,{\[Sigma],1,f}];
 				AppendTo[Hsector, Hblock];,
 			(* --------------------------------------------------------------- *)
 				flag == "Hopping",
 				Do[
-					\[Psi]1 = HopSelect[L,f,1,j,\[Sigma],\[Sigma],orb,orb,#]&@\[Psi];
-					If[Length[\[Psi]1]==0,Continue[];];
+					\[Psi]1 = HopSelect[L, f, 1, j, \[Sigma], \[Sigma], orb, orb, \[Psi]];
+					If[Length[\[Psi]1] == 0, Continue[];];
 					\[Chi] = Hop[L,f,1,j,\[Sigma],\[Sigma],orb,orb,#]&/@(\[Psi]1);
 					rows = \[Chi]/.dispatch;(* *)cols=\[Psi]1/.dispatch;(* *)pos={rows,cols}\[Transpose];
 					\[CapitalSigma] = (CCSign[L,f,{1,j},{\[Sigma],\[Sigma]},{orb,orb},#]&/@\[Psi]1);
 					Hblock += SparseArray[pos->\[CapitalSigma],{dim,dim}];
 				,{\[Sigma],1,f}];
 				Hblock = Hblock+Hblock\[ConjugateTranspose];
-				AppendTo[Hsector, Hblock],
+				AppendTo[Hsector, Hblock];,
 			(* --------------------------------------------------------------- *)
-				flag == "Superc",
+				flag == "Superc" && (EdMode == "Superc" || EdMode == "FullSuperc"),
 				\[Psi]1 = CreatePairSelect[L,f,j,j,1,2,orb,orb,#]&@\[Psi];
 				If[Length[\[Psi]1] == 0, Continue[];];
 				\[Chi] = CreatePair[L,f,j,j,1,2,orb,orb,#]&/@\[Psi]1;
@@ -544,14 +548,14 @@ ImpHBlocksSuperc[L_, f_, Norb_, Sectors_] := Module[
 ];
 
 (* choose which case *)
-ImpHBlocks[L_, f_, Norb_, Sectors_, EdMode_] := Which[
+(*ImpHBlocks[L_, f_, Norb_, Sectors_, EdMode_] := Which[
 	EdMode == "Normal",	ImpHBlocksNormal[L, f, Norb, Sectors],
 	EdMode == "Superc",	ImpHBlocksSuperc[L, f, Norb, Sectors]
-];
+];*)
 
 
 (* Local Hamiltonian blocks for EdMode="Normal" or "Superc", i.e. orbitals are decoupled *)
-ImpHLocalDecoupled[L_, f_, Norb_, Sectors_] := Module[
+(*HLocalDecoupled[L_, f_, Norb_, Sectors_] := Module[
 	{H,Hsector,Hblock,num,dim,Nimp=1},
 	H = {};
 	Do[
@@ -599,9 +603,10 @@ ImpHLocalDecoupled[L_, f_, Norb_, Sectors_] := Module[
 	,{\[Psi],Sectors}];
 	H
 ];
+*)
 
 (* Local Hamiltonian blocks for EdMode="InterorbNormal" or "InterorbSuperc", i.e. orbitals are coupled *)
-ImpHLocalInterorb[L_,f_,Norb_,Sectors_] := Module[
+HLocal[L_, f_, Norb_, Sectors_, EdMode_] := Module[
 	{H,Hsector,Hblock,rules,dispatch,num,dim,\[Psi]1,\[Chi],rows,cols,pos,\[CapitalSigma],Nimp=1},
 	H = {};
 	Do[
@@ -639,7 +644,7 @@ ImpHLocalInterorb[L_,f_,Norb_,Sectors_] := Module[
 				Hblock = SparseArray@DiagonalMatrix[num];
 				AppendTo[Hsector,Hblock];,
 			(* ---------------------------------- *)
-				flag == "Pair_Hopping",
+				flag == "Pair_Hopping" && (EdMode == "InterorbNormal" || EdMode == "InterorbSuperc"),
 				Do[
 					If[orb2 > orb1,
 						\[Psi]1 = PairHoppingSelect[L, f, 1, orb1, orb2, #]&@\[Psi];
@@ -653,7 +658,7 @@ ImpHLocalInterorb[L_,f_,Norb_,Sectors_] := Module[
 				Hblock = Hblock + Hblock\[ConjugateTranspose];
 				AppendTo[Hsector,Hblock];,
 			(* ----------------------------------- *)
-				flag == "Spin_Exchange",
+				flag == "Spin_Exchange" && (EdMode == "InterorbNormal" || EdMode == "InterorbSuperc"),
 				Do[
 					If[orb2 > orb1,
 						\[Psi]1 = SpinExchangeSelect[L, f, 1, orb1, orb2, #]&@\[Psi];
@@ -681,10 +686,10 @@ ImpHLocalInterorb[L_,f_,Norb_,Sectors_] := Module[
 ];
 
 (* choose which case *)
-ImpHLocal[L_, f_, Norb_, Sectors_, EdMode_] := Which[
+(*HLocal[L_, f_, Norb_, Sectors_, EdMode_] := Which[
 	EdMode == "Normal" || EdMode == "Superc",	ImpHLocalDecoupled[L, f, Norb, Sectors],
 	EdMode == "InterorbNormal" || "InterorbSuperc",	ImpHLocalInterorb[L, f, Norb, Sectors]
-];
+];*)
 
 
 End[];
