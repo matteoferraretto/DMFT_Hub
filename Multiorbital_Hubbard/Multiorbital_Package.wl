@@ -526,9 +526,23 @@ HNonlocal[L_, f_, Norb_, Sectors_, EdMode_] := Module[
 				\[CapitalSigma] = (CCSign[L,f,{j,j},{1,2},{orb,orb},#]&/@\[Psi]1);
 				Hblock += SparseArray[pos->\[CapitalSigma], {dim,dim}];
 				Hblock = Hblock + Hblock\[ConjugateTranspose];
+				AppendTo[Hsector, Hblock];,
+			(* --------------------------------------------------------------- *)
+				flag == "InterorbSuperc" && (EdMode == "InterorbSuperc" || EdMode == "FullSuperc"),
+				Do[
+					If[
+						orb2 != orb,
+						\[Psi]1 = CreatePairSelect[L,f,j,j,1,2,orb,orb2,#]&@\[Psi];
+						\[Chi] = CreatePair[L,f,j,j,1,2,orb,orb2,#]&/@\[Psi]1;
+						rows=\[Chi]/.dispatch;(* *)cols=\[Psi]1/.dispatch;(* *)pos={rows,cols}\[Transpose];
+						\[CapitalSigma] = (CCSign[L,f,{j,j},{1,2},{orb,orb2},#]&/@\[Psi]1);
+						Hblock += SparseArray[pos->\[CapitalSigma], {dim,dim}];
+					]
+				, {orb2,1,Norb}];
+				Hblock = Hblock + Hblock\[ConjugateTranspose];
 				AppendTo[Hsector, Hblock];
 			];
-		,{flag, {"Bath","Hopping","Superc"}}, {orb,1,Norb}, {j,2,L}];
+		,{flag, {"Bath","Hopping","Superc","InterorbSuperc"}}, {orb,1,Norb}, {j,2,L}];
 		AppendTo[H, Hsector];
 	,{\[Psi], Sectors}];
 	H
