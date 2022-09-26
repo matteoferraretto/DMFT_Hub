@@ -38,6 +38,8 @@ HNonlocal::usage = "HNonlocal[L, f, Norb, Sectors, EdMode]"
 
 HLocal::usage = "HLocal[L, f, Norb, Sectors, EdMode] "
 
+HImp::usage = "..."
+
 
 Begin["`Private`"];
 
@@ -86,6 +88,21 @@ StartingBath[InitializeBathMode_String, Nbath_Integer, Norb_Integer, EdMode_Stri
 			V = ConstantArray[
 				Table[1.,{k,1,Nbath}],
 			Norb];
+	        \[CapitalXi] = Table[1.,{k,1,Nbath}],
+		(*else*)
+			{e,V,\[CapitalXi]} = Import[InitializeBathMode,"Table"];
+		];
+	   Return[{e,V,\[CapitalXi]}],
+(* ---------------------------------------------- *)
+		EdMode == "FullSuperc",
+		If[
+			InitializeBathMode=="Default",
+			e = ConstantArray[
+				Table[-(Nbath-1)/2.+k,{k,0,Nbath-1}],
+			Norb];
+			V = ConstantArray[
+				Table[1.,{k,1,Nbath}],
+			Norb];
 			\[CapitalDelta] = ConstantArray[
 				Table[1.,{k,1,Nbath}],
 			Norb];
@@ -97,6 +114,18 @@ StartingBath[InitializeBathMode_String, Nbath_Integer, Norb_Integer, EdMode_Stri
 	]
 ];
 
+EdModeInfo[EdMode_] := Which[
+	EdMode == "Normal",
+	Print["The sectors' quantum numbers are the number of fermions for each flavor and each orbital."],
+	EdMode == "Superc",
+	Print["The sectors' quantum numbers are the total spin_z operators for each orbital. The bath can exchange pairs with a reservoir, but pairs have an orbital index."],
+	EdMode == "InterorbNormal",
+	Print["The sectors' quantum numbers are the total number of fermions for each flavor (NOT orbital-wise)."],
+	EdMode == "InterorbSuperc",
+	Print["The sectors' quantum numbers are the total spin_z operators (NOT orbital-wise). The bath can exchange pairs with a reservoir, but pairs are inherently interorbital."],
+	EdMode == "FullSuperc",
+	Print["The sectors' quantum numbers are the total spin_z operators (NOT orbital-wise). The bath can exchange pairs with a reservoir, but pairs are both intraorbital and interorbital."]
+];
 
 
 (*              HILBERT SPACE SECTORS              *)
@@ -121,7 +150,7 @@ SectorList[L_,f_,Norb_,EdMode_]:=Module[
 			Range[0,L]
 		,Norb*f],Norb*f-1],
 (* --------------------------------------- *)
-		EdMode=="InterorbNormal",
+		EdMode == "InterorbNormal",
 		QnsSectorList=Flatten[
 		Outer[{##}&,##]&@@ConstantArray[
 			Range[0,Norb*L]
@@ -133,7 +162,7 @@ SectorList[L_,f_,Norb_,EdMode_]:=Module[
 			Range[-L,L]
 		,Norb], Min[1,Norb-1]],
 (* --------------------------------------- *)
-		EdMode == "InterorbSuperc",
+		EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
 		QnsSectorList = Range[-Norb*L,Norb*L];
 	];
 	QnsSectorList
@@ -143,25 +172,25 @@ SectorList[L_,f_,Norb_,EdMode_]:=Module[
 DimSector[L_, f_, Norb_, qns_, EdMode_String]:=Module[
 	{n, nup, sz, dim},
 	Which[
-		EdMode=="Normal",
-		dim=Product[
+		EdMode == "Normal",
+		dim = Product[
 			Binomial[L,qns[[i]]]
 		,{i,1,Norb*f}],
 (* --------------------------------------- *)
-		EdMode=="InterorbNormal",
-		dim =Product[
+		EdMode == "InterorbNormal",
+		dim = Product[
 			Binomial[Norb*L,qns[[i]]]
 		,{i,1,f}],
 (* --------------------------------------- *)	
-		EdMode=="Superc",
-		dim=Product[
+		EdMode == "Superc",
+		dim = Product[
 			Total@Table[
 				Binomial[L,ndw+qns[[i]]]*Binomial[L,ndw]
 			,{ndw,Max[-qns[[i]],0],Min[L-qns[[i]],L]}]
 		,{i,1,Norb}],
 (* --------------------------------------- *)
-		EdMode=="InterorbSuperc",
-		dim=Total@Table[
+		EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
+		dim = Total@Table[
 			Binomial[Norb*L,ndw+qns]*Binomial[Norb*L,ndw]
 		,{ndw,Max[-qns,0],Min[Norb*L-qns,Norb*L]}];
 	];
@@ -191,7 +220,7 @@ BuildSector[L_, f_, Norb_, qns_, EdMode_]:=Module[
 		];
 		states = Flatten[BASIS[L,Norb*f,#]&/@QnsList,1],
 (* ---------------------------------------------- *)
-		EdMode == "InterorbSuperc",
+		EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
 		QnsList = SectorList[L,f,Norb,"Normal"];
 		QnsList = Select[
 			QnsList, 
@@ -526,10 +555,10 @@ HLocal[L_, f_, Norb_, Sectors_, EdMode_] := Module[
 						n[L,f,Norb,j,1,orb,#]*n[L,f,Norb,j,2,orb,#]
 					,{j,1,Nimp}]&/@\[Psi];
 					Hblock = SparseArray@DiagonalMatrix[num];
-					AppendTo[Hsector,Hblock];
+					AppendTo[Hsector, Hblock];
 				,{orb,1,Norb}],
 			(* ---------------------------------- *)
-				flag == "Interorb_Hubbard_Opposite_Spin",
+				flag == "Interorb_Hubbard_Opposite_Spin" && Norb > 1,
 				num = Sum[
 					If[orbA != orbB,
 						n[L,f,Norb,j,1,orbA,#]*n[L,f,Norb,j,2,orbB,#],
@@ -539,14 +568,14 @@ HLocal[L_, f_, Norb_, Sectors_, EdMode_] := Module[
 				Hblock = SparseArray@DiagonalMatrix[num];
 				AppendTo[Hsector, Hblock];,
 			(* ---------------------------------- *)
-				flag == "Interorb_Hubbard_Same_Spin",
+				flag == "Interorb_Hubbard_Same_Spin" && Norb > 1,
 				num = Sum[
 					n[L,f,Norb,j,\[Sigma],1,#]*n[L,f,Norb,j,\[Sigma],2,#]
 				,{\[Sigma],1,f}, {j,1,Nimp}]&/@\[Psi];
 				Hblock = SparseArray@DiagonalMatrix[num];
 				AppendTo[Hsector,Hblock];,
 			(* ---------------------------------- *)
-				flag == "Pair_Hopping" && (EdMode == "InterorbNormal" || EdMode == "InterorbSuperc"),
+				flag == "Pair_Hopping" && Norb > 1 && (EdMode == "InterorbNormal" || EdMode == "InterorbSuperc" || EdMode == "Superc" || EdMode == "FullSuperc"),
 				Do[
 					If[orb2 > orb1,
 						\[Psi]1 = PairHoppingSelect[L, f, 1, orb1, orb2, #]&@\[Psi];
@@ -560,7 +589,7 @@ HLocal[L_, f_, Norb_, Sectors_, EdMode_] := Module[
 				Hblock = Hblock + Hblock\[ConjugateTranspose];
 				AppendTo[Hsector,Hblock];,
 			(* ----------------------------------- *)
-				flag == "Spin_Exchange" && (EdMode == "InterorbNormal" || EdMode == "InterorbSuperc"),
+				flag == "Spin_Exchange" && Norb > 1 && (EdMode == "InterorbNormal" || EdMode == "InterorbSuperc" || EdMode == "FullSuperc"),
 				Do[
 					If[orb2 > orb1,
 						\[Psi]1 = SpinExchangeSelect[L, f, 1, orb1, orb2, #]&@\[Psi];
@@ -572,14 +601,14 @@ HLocal[L_, f_, Norb_, Sectors_, EdMode_] := Module[
 					];
 				,{orb1,1,Norb}, {orb2,1,Norb}, {j,1,Nimp}];
 				Hblock = Hblock + Hblock\[ConjugateTranspose];
-				AppendTo[Hsector,Hblock];,
+				AppendTo[Hsector, Hblock];,
 			(* ---------------------------------- *)
 				flag == "Energy_Shift",
 				num = Sum[
 					n[L,f,Norb,j,\[Sigma],orb,#]
 				,{\[Sigma],1,f}, {orb,1,Norb}, {j,1,Nimp}]&/@\[Psi];
 				Hblock = SparseArray@DiagonalMatrix[num];
-				AppendTo[Hsector,Hblock];
+				AppendTo[Hsector, Hblock];
 			];
 		,{flag, {"Hubbard","Interorb_Hubbard_Opposite_Spin","Interorb_Hubbard_Same_Spin","Pair_Hopping","Spin_Exchange","Energy_Shift"}}];
 		AppendTo[H,Hsector];
@@ -587,6 +616,44 @@ HLocal[L_, f_, Norb_, Sectors_, EdMode_] := Module[
 	H
 ];
 
+
+HImp[L_, f_, Norb_, Sectors_, BathParameters_, InteractionParameters_, EdMode_] := Module[{
+	HnonlocBlocks = HNonlocal[L, f, Norb, Sectors, EdMode],
+	HlocBlocks = HLocal[L, f, Norb, Sectors, EdMode],
+	EffectiveInteractionParameters,
+	Hloc, Hnonloc
+	},
+	EffectiveInteractionParameters = Which[
+		Norb == 1,
+		(* with 1 orbital, delete Jse, Jph, Usec, Ust, at positions -2, -3, -4, -5 *)
+		Delete[InteractionParameters, {{-2},{-3},{-4},{-5}}],
+	(* --------------------------------------------------- *)
+		Norb > 1 && (EdMode == "InterorbNormal" || EdMode == "InterorbSuperc" || EdMode == "FullSuperc"),
+		(* this is the most complicated scenario, you don't remove anything here *)
+		InteractionParameters,
+	(* --------------------------------------------------- *)
+		Norb > 1 && EdMode == "Superc", 
+		(* pair hopping is possible, but spin exchange is not *)
+		Delete[InteractionParameters, -2],
+	(* --------------------------------------------------- *)
+		Norb > 1 && EdMode == "Normal",
+		(* pair hopping and spin exchange are not possible *)
+		Delete[InteractionParameters, {{-2},{-3}}]
+	];
+	(* build non local Hamiltonian -> avoid Dot[] as it returns dense array *)
+	Hnonloc = SparseArray[#]&/@(
+		Sum[
+			BathParameters[[i]]*#[[i]],
+		{i, 1, Length@BathParameters}]&/@HnonlocBlocks
+	);
+	(* build local Hamiltonian -> avoid Dot[] as it returns dense array *)
+	Hloc = SparseArray[#]&/@(
+		Sum[
+			EffectiveInteractionParameters[[i]]*#[[i]],
+		{i, 1, Length@EffectiveInteractionParameters}]&/@HlocBlocks
+	);
+	Hnonloc + Hloc
+];
 
 
 End[];
