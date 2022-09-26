@@ -24,17 +24,19 @@ Parameters = Flatten[Parameters]
 QnsSectorList = SectorList[L, f, Norb, EdMode]
 Sectors = BuildSector[L, f, Norb, #, EdMode]&/@QnsSectorList;
 
-HNonlocal[L, f, Norb, Sectors, EdMode];
-Dimensions[%]
+HnonlocBlocks = HNonlocal[L, f, Norb, Sectors, EdMode];
 
-(* build H *)
-H = Dot[Parameters, #]&/@HNonlocal[L, f, Norb, Sectors, EdMode];
+Hnonloc = SparseArray[#]&/@(
+	Sum[Parameters[[i]]*#[[i]],{i,1,Length@Parameters}]&/@HnonlocBlocks
+	)
+
+(* build H 
+H = Dot[Parameters, #]&/@HNonlocal[L, f, Norb, Sectors, EdMode]; *)
 (* check that the Hamiltonian has as many blocks as the number of sectors *)
-Length[H] == Length[Sectors]
+Dimensions[HnonlocBlocks]
+ByteCount[Hnonloc]
 (* check that each block of the Hamiltonian is hermitian *)
-HermitianMatrixQ[#]&/@H
-(* print one of the blocks *)
-H[[6]]//MatrixForm
+HermitianMatrixQ[#]&/@Hnonloc
 
 
 
@@ -58,7 +60,6 @@ AbsoluteTiming[
 
 
 (* ::Subtitle:: *)
-(**)
 (*Check that it works with Norb = 2*)
 
 
@@ -74,17 +75,44 @@ Parameters = Flatten[Parameters]
 QnsSectorList = SectorList[L, f, Norb, EdMode]
 Sectors = BuildSector[L, f, Norb, #, EdMode]&/@QnsSectorList;
 
-HNonlocal[L, f, Norb, Sectors, EdMode];
-Dimensions[%]
+(* build H *)
+HnonlocBlocks = HNonlocal[L, f, Norb, Sectors, EdMode];
+Hnonloc = SparseArray[#]&/@(
+	Sum[Parameters[[i]]*#[[i]],{i,1,Length@Parameters}]&/@HnonlocBlocks
+	)
+(* check dimensions *)
+Dimensions[HnonlocBlocks]
+ByteCount[Hnonloc]
+(* check that the Hamiltonian has as many blocks as the number of sectors *)
+Length[Hnonloc] == Length[Sectors]
+(* check that each block of the Hamiltonian is hermitian *)
+HermitianMatrixQ[#]&/@Hnonloc
+
+
+ClearAll["Global*`"]
+L = 2;
+f = 2;
+Norb = 2;
+EdMode = "FullSuperc";
+
+Parameters = StartingBath["Default", L-1, Norb, EdMode]
+Parameters = Flatten[Parameters];
+
+QnsSectorList = SectorList[L, f, Norb, EdMode]
+Sectors = BuildSector[L, f, Norb, #, EdMode]&/@QnsSectorList;
 
 (* build H *)
-H = Dot[Parameters, #]&/@HNonlocal[L, f, Norb, Sectors, EdMode];
+HnonlocBlocks = HNonlocal[L, f, Norb, Sectors, EdMode];
+Hnonloc = SparseArray[#]&/@(
+	Sum[Parameters[[i]]*#[[i]],{i,1,Length@Parameters}]&/@HnonlocBlocks
+	)
+(* check dimensions *)
+Dimensions[HnonlocBlocks]
+ByteCount[Hnonloc]
 (* check that the Hamiltonian has as many blocks as the number of sectors *)
-Length[H] == Length[Sectors]
+Length[Hnonloc] == Length[Sectors]
 (* check that each block of the Hamiltonian is hermitian *)
-HermitianMatrixQ[#]&/@H
-(* print one of the blocks *)
-H[[6]]//MatrixForm
+HermitianMatrixQ[#]&/@Hnonloc
 
 
 (* ::Subtitle:: *)
@@ -92,10 +120,10 @@ H[[6]]//MatrixForm
 
 
 ClearAll["Global*`"]
-L = 5;
+L = 4;
 f = 2;
 Norb = 2;
-EdMode = "Normal";
+EdMode = "FullSuperc";
 
 QnsSectorList = SectorList[L, f, Norb, EdMode];
 Sectors = BuildSector[L, f, Norb, #, EdMode]&/@QnsSectorList;
@@ -104,6 +132,7 @@ DimSector[L, f, Norb, #, EdMode]&/@QnsSectorList
 AbsoluteTiming[
 	HNonlocal[L, f, Norb, Sectors, EdMode];
 ]
+
 
 
 
