@@ -36,6 +36,8 @@ n::usage = "n[L, f, Norb, i, \[Sigma], orb, state]"
 (* Hamiltonian defining functions *)
 HNonlocal::usage = "HNonlocal[L, f, Norb, Sectors, EdMode]"
 
+HNonlocalInfo::usage = "HNonlocalInfo[L, f, Norb, EdMode] prints useful info about the order of non local Hamiltonian blocks."
+
 HLocal::usage = "HLocal[L, f, Norb, Sectors, EdMode] "
 
 HImp::usage = "..."
@@ -121,6 +123,8 @@ EdModeInfo[EdMode_] := Which[
 	Print["The sectors' quantum numbers are the total spin_z operators for each orbital. The bath can exchange pairs with a reservoir, but pairs have an orbital index."],
 	EdMode == "InterorbNormal",
 	Print["The sectors' quantum numbers are the total number of fermions for each flavor (NOT orbital-wise)."],
+	EdMode == "Raman",
+	Print["The sectors' quantum numbers are the orbital-wise total number of fermions (NOT flavor-wise)"],
 	EdMode == "InterorbSuperc",
 	Print["The sectors' quantum numbers are the total spin_z operators (NOT orbital-wise). The bath can exchange pairs with a reservoir, but pairs are inherently interorbital."],
 	EdMode == "FullSuperc",
@@ -155,6 +159,12 @@ SectorList[L_,f_,Norb_,EdMode_]:=Module[
 		Outer[{##}&,##]&@@ConstantArray[
 			Range[0,Norb*L]
 		,f],f-1],
+(* --------------------------------------- *)		
+		EdMode == "Raman",
+		QnsSectorList = Flatten[
+		Outer[{##}&,##]&@@ConstantArray[
+			Range[0,f*L]
+		,Norb], Min[1,Norb-1]],
 (* --------------------------------------- *)
 		EdMode == "Superc",
 		QnsSectorList=Flatten[
@@ -217,6 +227,14 @@ BuildSector[L_, f_, Norb_, qns_, EdMode_]:=Module[
 		QnsList = Select[
 			QnsList,
 			(Delete[#,Table[{2*i},{i,1,Norb}]]-Delete[#,Table[{2*i-1},{i,1,Norb}]] == qns)&
+		];
+		states = Flatten[BASIS[L,Norb*f,#]&/@QnsList,1],
+(* ---------------------------------------------- *)
+		EdMode == "Raman",
+		QnsList = SectorList[L,f,Norb,"Normal"];
+		QnsList = Select[
+			QnsList,
+			(Total/@Partition[#,f]== qns)&
 		];
 		states = Flatten[BASIS[L,Norb*f,#]&/@QnsList,1],
 (* ---------------------------------------------- *)
@@ -531,7 +549,7 @@ HNonlocal[L_, f_, Norb_, Sectors_, EdMode_] := Module[
 				flag == "InterorbSuperc" && (EdMode == "InterorbSuperc" || EdMode == "FullSuperc"),
 				Do[
 					If[
-						orb2 != orb,
+						orb2 > orb,
 						\[Psi]1 = CreatePairSelect[L,f,j,j,1,2,orb,orb2,#]&@\[Psi];
 						\[Chi] = CreatePair[L,f,j,j,1,2,orb,orb2,#]&/@\[Psi]1;
 						rows=\[Chi]/.dispatch;(* *)cols=\[Psi]1/.dispatch;(* *)pos={rows,cols}\[Transpose];
@@ -548,6 +566,30 @@ HNonlocal[L_, f_, Norb_, Sectors_, EdMode_] := Module[
 	H
 ];
 
+(* prints useful info about the order of Hamiltonian blocks *)
+HNonlocalInfo[L_, f_, Norb_, EdMode_] := Module[{},
+	Print["The output blocks have the following order:"]
+	Do[
+		Print[flag,",  j=",j,",   \[Sigma]=",\[Sigma],",  orb=",orb]
+	,{flag,{"Bath","Hopping"}}, {orb,1,Norb}, {\[Sigma],1,f}, {j,2,L}];
+	If[
+		EdMode == "Superc" || EdMode == "FullSuperc",
+		Do[
+			Print["Superc,  j=",j,",  orb=",orb]
+		,{orb,1,Norb},{j,2,L}];
+	];
+	If[
+		EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
+		Do[
+			Do[
+				If[
+					orb2>orb,
+					Print["InterorbSuperc,  j=",j,",  orbs=",orb," ",Mod[orb,Norb]+1]
+				]
+			,{orb2,1,Norb}]
+		,{orb,1,Norb},{j,2,L}];
+	];
+];
 
 
 (* Local Hamiltonian blocks *)
@@ -668,6 +710,9 @@ HImp[L_, f_, Norb_, Sectors_, BathParameters_, InteractionParameters_, EdMode_] 
 	);
 	Hnonloc + Hloc
 ];
+
+
+
 
 
 End[];
