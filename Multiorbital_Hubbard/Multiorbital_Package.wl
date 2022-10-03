@@ -47,7 +47,7 @@ Begin["`Private`"];
 
 
 (* Initialize starting bath *)
-StartingBath[InitializeBathMode_String, Nbath_Integer, Norb_Integer, EdMode_String]:=Module[
+StartingBath[InitializeBathMode_, Nbath_, Norb_, EdMode_] := Module[
 	{e,V,\[CapitalDelta],\[CapitalXi]},
 	Which[
 		EdMode == "Normal" || EdMode == "InterorbNormal",
@@ -77,7 +77,7 @@ StartingBath[InitializeBathMode_String, Nbath_Integer, Norb_Integer, EdMode_Stri
 				Table[1.,{k,1,Nbath}],
 			Norb],
 		(*else*)
-	     {e,V,\[CapitalDelta]} = Import[InitializeBathMode,"Table"];
+			{e,V,\[CapitalDelta]} = Import[InitializeBathMode,"Table"];
 		];
 		Return[{e,V,\[CapitalDelta]}],
 (* ---------------------------------------------- *)
@@ -505,7 +505,7 @@ SpinExchange = Compile[{
 ];
 
 
-(*          BUILD THE HAMILTONIAN           *)
+(*          BUILD THE IMPURITY HAMILTONIAN           *)
 (* Non-local Hamiltonian blocks *)
 HNonlocal[L_, f_, Norb_, Sectors_, EdMode_] := Module[
 	{\[Psi]1,\[Chi],H,Hblock,Hsector,dim,rules,dispatch,cols,rows,pos,\[CapitalSigma],num},
@@ -712,7 +712,64 @@ HImp[L_, f_, Norb_, Sectors_, BathParameters_, InteractionParameters_, EdMode_] 
 ];
 
 
+(*       BUILD CHAIN HAMILTONIAN        *)
+(* gives right neighbor of a site j in a closed (open) chain of L elements *)
+Neighbor = Compile[{
+	{L,_Integer}, {j,_Integer}
+	},
+	Mod[j,L]+1
+];
 
+Options[Hnonint] = {RealPBC -> True, SyntheticPBC -> False, RealPhase -> {0}, SyntheticPhase -> 0};
+
+Hnonint[L_, f_, Norb_:1, Sectors_, EdMode_, OptionsPattern[]] := Module[
+	{\[Psi]1,\[Chi],H,Hblock,Hsector,dim,rules,dispatch,cols,rows,pos,\[CapitalSigma],num},
+	H = {};
+	Do[
+		Hsector = {};
+		dim = Length[\[Psi]];
+		rules = Flatten[MapIndexed[{#1->#2[[1]]}&,\[Psi]],1];
+		dispatch = Dispatch[rules];
+		Do[
+			Hblock = SparseArray[{}, {dim,dim}];
+			Which[
+				flag == "Potential",
+				num = n[L, f, Norb, j, \[Sigma], orb, #]&/@\[Psi];(*local density*)
+				Hblock += SparseArray@DiagonalMatrix[num];
+				AppendTo[Hsector, Hblock];,
+			(* --------------------------------------------------------------- *)
+				flag == "Hopping",
+				If[j == L && !OptionValue[RealPBC], Continue[];];
+				\[Psi]1 = HopSelect[L, f, j, Neighbor[L,j], \[Sigma], \[Sigma], orb, orb, \[Psi]];
+				If[Length[\[Psi]1] != 0, Continue[];];
+				\[Chi] = Hop[L, f, j, Neighbor[L,j], \[Sigma], \[Sigma], orb, orb, #]&/@(\[Psi]1);
+				rows = \[Chi]/.dispatch;(* *)cols=\[Psi]1/.dispatch;(* *)pos={rows,cols}\[Transpose];
+				\[CapitalSigma] = (CCSign[L,f,{j,Neighbor[L,j]},{\[Sigma],\[Sigma]},{orb,orb},#]&/@\[Psi]1);
+				If[
+					OptionValue[RealPhase] == {0},
+					Hblock += SparseArray[pos -> \[CapitalSigma],{dim,dim}];,
+				(* else *)
+					Hblock += SparseArray[pos -> \[CapitalSigma]*Exp[I*OptionValue[RealPhase][[\[Sigma]]]],{dim,dim}]
+					]
+				Hblock = Hblock + Hblock\[ConjugateTranspose];
+				AppendTo[Hsector, Hblock];,
+			(* --------------------------------------------------------------- *)
+				flag == "Raman",
+				If[\[Sigma] == f && !OptionValue[SyntheticPBC], Continue[];];
+				\[Psi]1 = HopSelect[L, f, j, j, \[Sigma], Neighbor[f,\[Sigma]], orb, orb, \[Psi]];
+				If[Length[\[Psi]1] != 0, Continue[];];
+				\[Chi] = Hop[L, f, j, j, \[Sigma], Neighbor[f,\[Sigma]], orb, orb, #]&/@(\[Psi]1);
+				rows = \[Chi]/.dispatch;(* *)cols=\[Psi]1/.dispatch;(* *)pos={rows,cols}\[Transpose];
+				\[CapitalSigma] = (CCSign[L,f,{j,j},{\[Sigma],Neighbor[f,\[Sigma]]},{orb,orb},#]&/@\[Psi]1);
+				Hblock += SparseArray[pos -> \[CapitalSigma]*Exp[I*OptionValue[SyntheticPhase]], {dim,dim}];
+				Hblock = Hblock + Hblock\[ConjugateTranspose];
+				AppendTo[Hsector, Hblock];	
+			];
+		,{flag, {"Potential","Hopping","Raman"}}, {orb,1,Norb}, {\[Sigma],1,f}, {j,1,L}];
+		AppendTo[H, Hsector];
+	,{\[Psi], Sectors}];
+	H
+];
 
 
 End[];
