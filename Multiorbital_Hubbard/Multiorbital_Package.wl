@@ -33,7 +33,7 @@ DrawState::usage = "DrawState[L, f, Norb] draws a graphic representation of a Fo
 n::usage = "n[L, f, Norb, i, \[Sigma], orb, state]"
 
 
-(* Hamiltonian defining functions *)
+(* Impurity Hamiltonian defining functions *)
 HNonlocal::usage = "HNonlocal[L, f, Norb, Sectors, EdMode]"
 
 HNonlocalInfo::usage = "HNonlocalInfo[L, f, Norb, EdMode] prints useful info about the order of non local Hamiltonian blocks."
@@ -41,6 +41,10 @@ HNonlocalInfo::usage = "HNonlocalInfo[L, f, Norb, EdMode] prints useful info abo
 HLocal::usage = "HLocal[L, f, Norb, Sectors, EdMode] "
 
 HImp::usage = "..."
+
+
+(* Fermionic ladder Hamiltonian defining functions *)
+Hnonint::usage = "Hnonint[L, f, Norb, Sectors, EdMode]. Optional arguments: RealPBC -> True (default)/ False; SyntheticPBC -> True / False (default), RealPhase -> {0}, SyntheticPhase -> 0  "
 
 
 Begin["`Private`"];
@@ -722,7 +726,7 @@ Neighbor = Compile[{
 
 Options[Hnonint] = {RealPBC -> True, SyntheticPBC -> False, RealPhase -> {0}, SyntheticPhase -> 0};
 
-Hnonint[L_, f_, Norb_:1, Sectors_, EdMode_, OptionsPattern[]] := Module[
+Hnonint[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 	{\[Psi]1,\[Chi],H,Hblock,Hsector,dim,rules,dispatch,cols,rows,pos,\[CapitalSigma],num},
 	H = {};
 	Do[
@@ -741,23 +745,23 @@ Hnonint[L_, f_, Norb_:1, Sectors_, EdMode_, OptionsPattern[]] := Module[
 				flag == "Hopping",
 				If[j == L && !OptionValue[RealPBC], Continue[];];
 				\[Psi]1 = HopSelect[L, f, j, Neighbor[L,j], \[Sigma], \[Sigma], orb, orb, \[Psi]];
-				If[Length[\[Psi]1] != 0, Continue[];];
+				If[Length[\[Psi]1] == 0, Continue[];];
 				\[Chi] = Hop[L, f, j, Neighbor[L,j], \[Sigma], \[Sigma], orb, orb, #]&/@(\[Psi]1);
 				rows = \[Chi]/.dispatch;(* *)cols=\[Psi]1/.dispatch;(* *)pos={rows,cols}\[Transpose];
 				\[CapitalSigma] = (CCSign[L,f,{j,Neighbor[L,j]},{\[Sigma],\[Sigma]},{orb,orb},#]&/@\[Psi]1);
 				If[
 					OptionValue[RealPhase] == {0},
-					Hblock += SparseArray[pos -> \[CapitalSigma],{dim,dim}];,
+					Hblock += SparseArray[pos -> \[CapitalSigma], {dim,dim}];,
 				(* else *)
-					Hblock += SparseArray[pos -> \[CapitalSigma]*Exp[I*OptionValue[RealPhase][[\[Sigma]]]],{dim,dim}]
-					]
+					Hblock += SparseArray[pos -> \[CapitalSigma]*Exp[I*OptionValue[RealPhase][[\[Sigma]]]], {dim,dim}]
+				];
 				Hblock = Hblock + Hblock\[ConjugateTranspose];
 				AppendTo[Hsector, Hblock];,
 			(* --------------------------------------------------------------- *)
-				flag == "Raman",
+				flag == "Raman" && EdMode == "Raman",
 				If[\[Sigma] == f && !OptionValue[SyntheticPBC], Continue[];];
 				\[Psi]1 = HopSelect[L, f, j, j, \[Sigma], Neighbor[f,\[Sigma]], orb, orb, \[Psi]];
-				If[Length[\[Psi]1] != 0, Continue[];];
+				If[Length[\[Psi]1] == 0, Continue[];];
 				\[Chi] = Hop[L, f, j, j, \[Sigma], Neighbor[f,\[Sigma]], orb, orb, #]&/@(\[Psi]1);
 				rows = \[Chi]/.dispatch;(* *)cols=\[Psi]1/.dispatch;(* *)pos={rows,cols}\[Transpose];
 				\[CapitalSigma] = (CCSign[L,f,{j,j},{\[Sigma],Neighbor[f,\[Sigma]]},{orb,orb},#]&/@\[Psi]1);
