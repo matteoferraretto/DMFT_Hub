@@ -51,50 +51,51 @@ Begin["`Private`"];
 
 
 (* Initialize starting bath *)
-StartingBath[InitializeBathMode_, Nbath_, Norb_, EdMode_] := Module[
-	{e,V,\[CapitalDelta],\[CapitalXi]},
+StartingBath[L_, f_, Norb_, InitializeBathMode_, EdMode_] := Module[
+	{e,V,\[CapitalDelta],\[CapitalXi],Nbath},
+	Nbath = L - 1;
 	Which[
 		EdMode == "Normal" || EdMode == "InterorbNormal",
 		If[
 			InitializeBathMode == "Default",
 			e = ConstantArray[
 				Table[-(Nbath-1)/2.+k,{k,0,Nbath-1}],
-			Norb];
+			f*Norb];
 			V = ConstantArray[
 				Table[1.,{k,1,Nbath}],
-			Norb],	
+			f*Norb],	
 		(*else*)
 			{e,V} = Import[InitializeBathMode,"Table"];
 		];
-		Return[{e,V}],
+		Return[{e, V}],
 (* ---------------------------------------------- *)
 		EdMode == "Superc",
 		If[
 			InitializeBathMode == "Default",
 			e = ConstantArray[
 				Table[-(Nbath-1)/2.+k,{k,0,Nbath-1}],
-			Norb];
+			f*Norb];
 			V = ConstantArray[
 				Table[1.,{k,1,Nbath}],
-			Norb];
+			f*Norb];
 			\[CapitalDelta] = ConstantArray[
 				Table[1.,{k,1,Nbath}],
 			Norb],
 		(*else*)
 			{e,V,\[CapitalDelta]} = Import[InitializeBathMode,"Table"];
 		];
-		Return[{e,V,\[CapitalDelta]}],
+		Return[{e, V, \[CapitalDelta]}],
 (* ---------------------------------------------- *)
 		EdMode == "InterorbSuperc",
 		If[
 			InitializeBathMode=="Default",
 			e = ConstantArray[
 				Table[-(Nbath-1)/2.+k,{k,0,Nbath-1}],
-			Norb];
+			f*Norb];
 			V = ConstantArray[
-				Table[1.,{k,1,Nbath}],
-			Norb];
-	        \[CapitalXi] = Table[1.,{k,1,Nbath}],
+				Table[1., {k,1,Nbath}],
+			f*Norb];
+	        \[CapitalXi] = Table[1., {k,1,Nbath}],
 		(*else*)
 			{e,V,\[CapitalXi]} = Import[InitializeBathMode,"Table"];
 		];
@@ -102,13 +103,13 @@ StartingBath[InitializeBathMode_, Nbath_, Norb_, EdMode_] := Module[
 (* ---------------------------------------------- *)
 		EdMode == "FullSuperc",
 		If[
-			InitializeBathMode=="Default",
+			InitializeBathMode == "Default",
 			e = ConstantArray[
 				Table[-(Nbath-1)/2.+k,{k,0,Nbath-1}],
-			Norb];
+			f*Norb];
 			V = ConstantArray[
 				Table[1.,{k,1,Nbath}],
-			Norb];
+			f*Norb];
 			\[CapitalDelta] = ConstantArray[
 				Table[1.,{k,1,Nbath}],
 			Norb];
@@ -508,10 +509,18 @@ SpinExchange = Compile[{
 	CompilationTarget->"C"
 ];
 
+(* gives right neighbor of a site j in a closed (open) chain of L elements *)
+Neighbor = Compile[{
+	{L,_Integer}, {j,_Integer}
+	},
+	Mod[j,L]+1,
+	CompilationTarget->"C"
+];
+
 
 (*          BUILD THE IMPURITY HAMILTONIAN           *)
 (* Non-local Hamiltonian blocks *)
-HNonlocal[L_, f_, Norb_, Sectors_, EdMode_] := Module[
+HNonlocal[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 	{\[Psi]1,\[Chi],H,Hblock,Hsector,dim,rules,dispatch,cols,rows,pos,\[CapitalSigma],num},
 	H = {};
 	Do[
@@ -523,52 +532,56 @@ HNonlocal[L_, f_, Norb_, Sectors_, EdMode_] := Module[
 			Hblock = SparseArray[{}, {dim,dim}];
 			Which[
 				flag == "Bath",
-				Do[
-					num = n[L,f,Norb,j,\[Sigma],orb,#]&/@\[Psi];(*local density*)
-					Hblock += SparseArray@DiagonalMatrix[num];
-				,{\[Sigma],1,f}];
+				num = n[L, f, Norb, j, \[Sigma], orb, #]&/@\[Psi];(*local density*)
+				Hblock += SparseArray@DiagonalMatrix[num];
 				AppendTo[Hsector, Hblock];,
 			(* --------------------------------------------------------------- *)
 				flag == "Hopping",
-				Do[
-					\[Psi]1 = HopSelect[L, f, 1, j, \[Sigma], \[Sigma], orb, orb, \[Psi]];
-					If[Length[\[Psi]1] == 0, Continue[];];
-					\[Chi] = Hop[L,f,1,j,\[Sigma],\[Sigma],orb,orb,#]&/@(\[Psi]1);
+				\[Psi]1 = HopSelect[L, f, 1, j, \[Sigma], \[Sigma], orb, orb, \[Psi]];
+				If[Length[\[Psi]1] != 0, 
+					\[Chi] = Hop[L, f, 1, j, \[Sigma], \[Sigma], orb, orb, #]&/@(\[Psi]1);
 					rows = \[Chi]/.dispatch;(* *)cols=\[Psi]1/.dispatch;(* *)pos={rows,cols}\[Transpose];
-					\[CapitalSigma] = (CCSign[L,f,{1,j},{\[Sigma],\[Sigma]},{orb,orb},#]&/@\[Psi]1);
+					\[CapitalSigma] = (CCSign[L, f, {1,j}, {\[Sigma],\[Sigma]}, {orb,orb}, #]&/@\[Psi]1);
 					Hblock += SparseArray[pos->\[CapitalSigma],{dim,dim}];
-				,{\[Sigma],1,f}];
-				Hblock = Hblock + Hblock\[ConjugateTranspose];
+					Hblock = Hblock + Hblock\[ConjugateTranspose];
+				];
 				AppendTo[Hsector, Hblock];,
 			(* --------------------------------------------------------------- *)
 				flag == "Superc" && (EdMode == "Superc" || EdMode == "FullSuperc"),
-				\[Psi]1 = CreatePairSelect[L,f,j,j,1,2,orb,orb,#]&@\[Psi];
-				\[Chi] = CreatePair[L,f,j,j,1,2,orb,orb,#]&/@\[Psi]1;
-				rows=\[Chi]/.dispatch;(* *)cols=\[Psi]1/.dispatch;(* *)pos={rows,cols}\[Transpose];
-				\[CapitalSigma] = (CCSign[L,f,{j,j},{1,2},{orb,orb},#]&/@\[Psi]1);
-				Hblock += SparseArray[pos->\[CapitalSigma], {dim,dim}];
-				Hblock = Hblock + Hblock\[ConjugateTranspose];
-				AppendTo[Hsector, Hblock];,
+				If[\[Sigma] == 1,
+					\[Psi]1 = CreatePairSelect[L, f, j, j, 1, 2, orb, orb, #]&@\[Psi];
+					If[Length[\[Psi]1] != 0, 
+						\[Chi] = CreatePair[L, f, j, j, 1, 2, orb, orb, #]&/@\[Psi]1;
+						rows=\[Chi]/.dispatch;(* *)cols=\[Psi]1/.dispatch;(* *)pos={rows,cols}\[Transpose];
+						\[CapitalSigma] = (CCSign[L, f, {j,j}, {1,2}, {orb,orb}, #]&/@\[Psi]1);
+						Hblock += SparseArray[pos->\[CapitalSigma], {dim,dim}];
+						Hblock = Hblock + Hblock\[ConjugateTranspose];
+					];
+					AppendTo[Hsector, Hblock];
+				];,
 			(* --------------------------------------------------------------- *)
 				flag == "InterorbSuperc" && (EdMode == "InterorbSuperc" || EdMode == "FullSuperc"),
+				If[\[Sigma] == 1,
 				Do[
 					If[
 						orb2 > orb,
-						\[Psi]1 = CreatePairSelect[L,f,j,j,1,2,orb,orb2,#]&@\[Psi];
-						\[Chi] = CreatePair[L,f,j,j,1,2,orb,orb2,#]&/@\[Psi]1;
-						rows=\[Chi]/.dispatch;(* *)cols=\[Psi]1/.dispatch;(* *)pos={rows,cols}\[Transpose];
-						\[CapitalSigma] = (CCSign[L,f,{j,j},{1,2},{orb,orb2},#]&/@\[Psi]1);
-						Hblock += SparseArray[pos->\[CapitalSigma], {dim,dim}];
+						\[Psi]1 = CreatePairSelect[L, f, j, j, 1, 2, orb, orb2, #]&@\[Psi];
+						\[Chi] = CreatePair[L, f, j, j, 1, 2, orb, orb2, #]&/@\[Psi]1;
+						rows = \[Chi]/.dispatch;(* *)cols = \[Psi]1/.dispatch;(* *)pos = {rows,cols}\[Transpose];
+						\[CapitalSigma] = (CCSign[L, f, {j,j}, {1,2}, {orb,orb2}, #]&/@\[Psi]1);
+						Hblock += SparseArray[pos -> \[CapitalSigma], {dim,dim}];
 					]
 				, {orb2,1,Norb}];
 				Hblock = Hblock + Hblock\[ConjugateTranspose];
 				AppendTo[Hsector, Hblock];
 			];
-		,{flag, {"Bath","Hopping","Superc","InterorbSuperc"}}, {orb,1,Norb}, {j,2,L}];
+			];
+		,{flag, {"Bath","Hopping","Superc","InterorbSuperc"}}, {orb,1,Norb}, {\[Sigma],1,f}, {j,OptionValue[Nimp]+1,L}];
 		AppendTo[H, Hsector];
 	,{\[Psi], Sectors}];
 	H
 ];
+Options[HNonlocal] = {Nimp -> 1};
 
 (* prints useful info about the order of Hamiltonian blocks *)
 HNonlocalInfo[L_, f_, Norb_, EdMode_] := Module[{},
@@ -597,8 +610,8 @@ HNonlocalInfo[L_, f_, Norb_, EdMode_] := Module[{},
 
 
 (* Local Hamiltonian blocks *)
-HLocal[L_, f_, Norb_, Sectors_, EdMode_] := Module[
-	{H,Hsector,Hblock,rules,dispatch,num,dim,\[Psi]1,\[Chi],rows,cols,pos,\[CapitalSigma],Nimp=1},
+HLocal[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
+	{H,Hsector,Hblock,rules,dispatch,num,dim,\[Psi]1,\[Chi],rows,cols,pos,\[CapitalSigma]},
 	H = {};
 	Do[
 		Hsector = {};
@@ -611,12 +624,14 @@ HLocal[L_, f_, Norb_, Sectors_, EdMode_] := Module[
 			Which[
 				flag == "Hubbard",
 				Do[
-					num = Sum[
-						n[L,f,Norb,j,1,orb,#]*n[L,f,Norb,j,2,orb,#]
-					,{j,1,Nimp}]&/@\[Psi];
-					Hblock = SparseArray@DiagonalMatrix[num];
+					Do[
+						num = Sum[
+							n[L, f, Norb, j, \[Sigma], orb, #]
+						, {\[Sigma], 1, f}]&/@\[Psi];
+						Hblock += SparseArray@DiagonalMatrix[num*(num-1)];
+					, {j, 1, OptionValue[Nimp]}];
 					AppendTo[Hsector, Hblock];
-				,{orb,1,Norb}],
+				, {orb, 1, Norb}],
 			(* ---------------------------------- *)
 				flag == "Interorb_Hubbard_Opposite_Spin" && Norb > 1,
 				num = Sum[
@@ -624,14 +639,14 @@ HLocal[L_, f_, Norb_, Sectors_, EdMode_] := Module[
 						n[L,f,Norb,j,1,orbA,#]*n[L,f,Norb,j,2,orbB,#],
 					(*else*)
 						0]
-				,{orbA,1,Norb}, {orbB,1,Norb}, {j,1,Nimp}]&/@\[Psi];
+				,{orbA,1,Norb}, {orbB,1,Norb}, {j,1,OptionValue[Nimp]}]&/@\[Psi];
 				Hblock = SparseArray@DiagonalMatrix[num];
 				AppendTo[Hsector, Hblock];,
 			(* ---------------------------------- *)
 				flag == "Interorb_Hubbard_Same_Spin" && Norb > 1,
 				num = Sum[
 					n[L,f,Norb,j,\[Sigma],1,#]*n[L,f,Norb,j,\[Sigma],2,#]
-				,{\[Sigma],1,f}, {j,1,Nimp}]&/@\[Psi];
+				,{\[Sigma],1,f}, {j,1,OptionValue[Nimp]}]&/@\[Psi];
 				Hblock = SparseArray@DiagonalMatrix[num];
 				AppendTo[Hsector,Hblock];,
 			(* ---------------------------------- *)
@@ -645,7 +660,7 @@ HLocal[L_, f_, Norb_, Sectors_, EdMode_] := Module[
 						\[CapitalSigma]=CCSign[L, f, {j,j,j,j}, {1,2,1,2}, {orb1,orb1,orb2,orb2}, #]&/@\[Psi]1;
 						Hblock += SparseArray[pos->\[CapitalSigma],{dim,dim}];
 					];
-				,{orb1,1,Norb}, {orb2,1,Norb}, {j,1,Nimp}];
+				,{orb1,1,Norb}, {orb2,1,Norb}, {j,1,OptionValue[Nimp]}];
 				Hblock = Hblock + Hblock\[ConjugateTranspose];
 				AppendTo[Hsector,Hblock];,
 			(* ----------------------------------- *)
@@ -659,22 +674,23 @@ HLocal[L_, f_, Norb_, Sectors_, EdMode_] := Module[
 						\[CapitalSigma] = CCSign[L, f, {j,j,j,j}, {1,2,1,2}, {orb1,orb1,orb2,orb2}, #]&/@\[Psi]1;
 						Hblock += SparseArray[pos->\[CapitalSigma],{dim,dim}];
 					];
-				,{orb1,1,Norb}, {orb2,1,Norb}, {j,1,Nimp}];
+				,{orb1,1,Norb}, {orb2,1,Norb}, {j,1,OptionValue[Nimp]}];
 				Hblock = Hblock + Hblock\[ConjugateTranspose];
 				AppendTo[Hsector, Hblock];,
 			(* ---------------------------------- *)
 				flag == "Energy_Shift",
 				num = Sum[
 					n[L,f,Norb,j,\[Sigma],orb,#]
-				,{\[Sigma],1,f}, {orb,1,Norb}, {j,1,Nimp}]&/@\[Psi];
+				,{\[Sigma],1,f}, {orb,1,Norb}, {j,1,OptionValue[Nimp]}]&/@\[Psi];
 				Hblock = SparseArray@DiagonalMatrix[num];
 				AppendTo[Hsector, Hblock];
 			];
 		,{flag, {"Hubbard","Interorb_Hubbard_Opposite_Spin","Interorb_Hubbard_Same_Spin","Pair_Hopping","Spin_Exchange","Energy_Shift"}}];
-		AppendTo[H,Hsector];
+		AppendTo[H, Hsector];
 	,{\[Psi],Sectors}];
 	H
 ];
+Options[HLocal] = {Nimp -> 1};
 
 
 HImp[L_, f_, Norb_, Sectors_, BathParameters_, InteractionParameters_, EdMode_] := Module[{
@@ -717,15 +733,6 @@ HImp[L_, f_, Norb_, Sectors_, BathParameters_, InteractionParameters_, EdMode_] 
 
 
 (*       BUILD CHAIN HAMILTONIAN        *)
-(* gives right neighbor of a site j in a closed (open) chain of L elements *)
-Neighbor = Compile[{
-	{L,_Integer}, {j,_Integer}
-	},
-	Mod[j,L]+1
-];
-
-Options[Hnonint] = {RealPBC -> True, SyntheticPBC -> False, RealPhase -> {0}, SyntheticPhase -> 0};
-
 Hnonint[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 	{\[Psi]1,\[Chi],H,Hblock,Hsector,dim,rules,dispatch,cols,rows,pos,\[CapitalSigma],num},
 	H = {};
@@ -774,6 +781,7 @@ Hnonint[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 	,{\[Psi], Sectors}];
 	H
 ];
+Options[Hnonint] = {RealPBC -> True, SyntheticPBC -> False, RealPhase -> {0}, SyntheticPhase -> 0};
 
 
 End[];
