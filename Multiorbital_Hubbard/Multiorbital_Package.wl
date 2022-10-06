@@ -30,9 +30,6 @@ The superconductive EdModes only support f=2 at the moment. "
 DrawState::usage = "DrawState[L, f, Norb] draws a graphic representation of a Fock state that can be manipulated. Each box can be filled either with 0 (no particles in that slot) or 1 (a particle in that slot). "
 
 
-n::usage = "n[L, f, Norb, i, \[Sigma], orb, state]"
-
-
 (* Impurity Hamiltonian defining functions *)
 HNonlocal::usage = "HNonlocal[L, f, Norb, Sectors, EdMode]"
 
@@ -278,6 +275,46 @@ DrawState[L_,f_,Norb_]:=Module[{},
 
 
 (*               MANIPULATION OF STATES                *)
+(* gives True if it is possible to create a particle on site (i,\[Sigma],orb), False otherwise *)
+CreateParticleQ = Compile[{
+	{L,_Integer}, {f,_Integer}, {i,_Integer}, {\[Sigma],_Integer}, {orb,_Integer}, {state,_Integer,1}
+	},
+	If[(IntegerDigits[#,2,L]&@state[[f*(orb-1)+\[Sigma]]])[[i]]==0,
+		True,
+	(* else *)
+		False
+	], 
+	RuntimeAttributes->{Listable}, Parallelization->True
+];
+
+(* gives True if it is possible to destroy a particle on site (i,\[Sigma],orb), False otherwise *)
+DestroyParticleQ = Compile[{
+	{L,_Integer}, {f,_Integer}, {i,_Integer}, {\[Sigma],_Integer}, {orb,_Integer}, {state,_Integer,1}
+	},
+	If[(IntegerDigits[#,2,L]&@state[[f*(orb-1)+\[Sigma]]])[[i]]==1,
+		True,
+	(* else *)
+		False
+	], 
+	RuntimeAttributes->{Listable}, Parallelization->True
+];
+
+(* select states for which it is possible to create a particle on site (i,\[Sigma],orb) *)
+CreateParticleSelect = Compile[{
+	{L,_Integer}, {f,_Integer}, {i,_Integer}, {\[Sigma],_Integer}, {orb,_Integer}, {stateList,_Integer,2}
+	},
+	Select[stateList, CreateParticleQ[L,f,i,\[Sigma],orb,#]&],
+	RuntimeAttributes->{Listable}, Parallelization->True, CompilationTarget->"C"
+];
+
+(* select states for which it is possible to destroy a particle on site (i,\[Sigma],orb) *)
+DestroyParticleSelect = Compile[{
+	{L,_Integer}, {f,_Integer}, {i,_Integer}, {\[Sigma],_Integer}, {orb,_Integer}, {stateList,_Integer,2}
+	},
+	Select[stateList, DestroyParticleQ[L,f,i,\[Sigma],orb,#]&],
+	RuntimeAttributes->{Listable}, Parallelization->True, CompilationTarget->"C"
+];
+
 (* apply cdg_orb_spin in the impurity site to a basis state: return the integer form of the resulting basis state or 0 *)
 cdg = Compile[{
 	{L,_Integer}, {f,_Integer}, {i,_Integer}, {\[Sigma],_Integer}, {orb,_Integer}, {state,_Integer,1}
@@ -628,7 +665,7 @@ HLocal[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 						num = Sum[
 							n[L, f, Norb, j, \[Sigma], orb, #]
 						, {\[Sigma], 1, f}]&/@\[Psi];
-						Hblock += SparseArray@DiagonalMatrix[num*(num-1)];
+						Hblock += SparseArray@DiagonalMatrix[0.5*num*(num-1)];
 					, {j, 1, OptionValue[Nimp]}];
 					AppendTo[Hsector, Hblock];
 				, {orb, 1, Norb}],
@@ -772,7 +809,7 @@ Hnonint[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 				\[Chi] = Hop[L, f, j, j, \[Sigma], Neighbor[f,\[Sigma]], orb, orb, #]&/@(\[Psi]1);
 				rows = \[Chi]/.dispatch;(* *)cols=\[Psi]1/.dispatch;(* *)pos={rows,cols}\[Transpose];
 				\[CapitalSigma] = (CCSign[L,f,{j,j},{\[Sigma],Neighbor[f,\[Sigma]]},{orb,orb},#]&/@\[Psi]1);
-				Hblock += SparseArray[pos -> \[CapitalSigma]*Exp[I*OptionValue[SyntheticPhase]], {dim,dim}];
+				Hblock += SparseArray[pos -> \[CapitalSigma]*Exp[I*OptionValue[SyntheticPhase]*j], {dim,dim}];
 				Hblock = Hblock + Hblock\[ConjugateTranspose];
 				AppendTo[Hsector, Hblock];	
 			];
@@ -782,6 +819,56 @@ Hnonint[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 	H
 ];
 Options[Hnonint] = {RealPBC -> True, SyntheticPBC -> False, RealPhase -> {0}, SyntheticPhase -> 0};
+
+
+
+(*                APPLY CDG / C TO STATES             *)
+(* apply cdg_{j,\[Sigma],orb} |gs>, where |gs> belongs to the sector with quantum numbers qns and give the resulting vector resized to fit the dimension of the sector obtained adding a particle with state label (j,\[Sigma],orb)*)
+ApplyCdg[L_, f_, Norb_, j_, \[Sigma]_, orb_, gs_, qns_, Sectors_, SectorsDispatch_, EdMode_] := Module[
+	{newqns = qns,startingsector = Sectors[[qns/.SectorsDispatch]],finalsector, newdim,sign,dispatch,pos,newpos,coeff,\[Psi]1,\[Chi]},
+	(* check which states of the starting sector can host the extra particle *)
+	dispatch = Dispatch[Flatten[MapIndexed[{#1->#2[[1]]}&,startingsector],1]];
+	\[Psi]1 = CreateParticleSelect[L, f, j, \[Sigma], orb, startingsector];
+	pos = \[Psi]1/.dispatch;
+	(* compute the correct signs obtained moving cdg to the correct position  *)
+	sign = CSign[L, f, j, \[Sigma], orb, #]&/@startingsector;
+	(* list of coefficients that remain non vanishing *)
+	coeff = (gs*sign)[[pos]];
+	(* build the final sector *)
+	Which[
+		EdMode=="Normal",
+		If[qns[[f*(orb-1)+\[Sigma]]]==L,Return[0]];  (* trivial case *)
+		newqns[[f*(orb-1)+\[Sigma]]]+=1;,
+	(* ---------------------------- *)
+		EdMode == "InterorbNormal",
+		If[qns[[\[Sigma]]] == Norb*L, Return[0]];  (* trivial case *)
+		newqns[[\[Sigma]]]+=1;,
+	(* ---------------------------- *)
+		EdMode == "Superc",
+		If[f>2, Return["error. f>2 not supported with EdMode = ''Superc''"];];
+		If[(qns[[orb]] == -L && \[Sigma] == 2) || (qns[[orb]] == L && \[Sigma] == 1),Return[0]];  (* trivial case *)
+		Which[
+			\[Sigma]==1, newqns[[orb]]+=1,
+			\[Sigma]==2, newqns[[orb]]-=1
+		],
+	(* ---------------------------- *)
+		EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
+		If[f>2, Return["error. f>2 not supported with EdMode = ''FullSuperc'' or ''InterorbSuperc''"];];
+		If[(qns==-Norb*L&&\[Sigma]==2)||(qns==Norb*L&&\[Sigma]==1),Return[0]];  (* trivial case *)
+		Which[
+			\[Sigma]==1, newqns+=1,
+			\[Sigma]==2, newqns-=1
+		]
+	];
+	finalsector = Sectors[[newqns/.SectorsDispatch]];
+	newdim = Length[finalsector];
+	(* create a dispatch that labels all these states *)
+	dispatch = Dispatch[Flatten[MapIndexed[{#1->#2[[1]]}&,finalsector],1]];(* find the new positions where the entries of gs should go after applying cdg_spin *)
+	\[Chi] = cdg[L,f,j,\[Sigma],orb,#]&/@\[Psi]1;
+	newpos = \[Chi]/.dispatch;
+	(* create a list of rules and define the resulting array *)
+	SparseArray[Thread[newpos->coeff],newdim]
+];
 
 
 End[];
