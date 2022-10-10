@@ -3,8 +3,8 @@
 BeginPackage["DMFT`"]
 
 
-StartingBath::usage = "StartingBath[InitializeBathMode, Nbath, Norb, EdMode] returns a list containing the bath parameters to start the DMFT loop.
-If EdMode = ''Normal'' then the output has the form {e,V}, where e and V are lists of Norb x Nbath elements, representing the bath energies and the bath-impurity hybridizations.
+StartingBath::usage = "StartingBath[L, f, Norb, InitializeBathMode, EdMode] returns a list containing the bath parameters to start the DMFT loop.
+If EdMode = ''Normal'' then the output has the form {e,V}, where e and V are lists of Norb x (L-1) elements, representing the bath energies and the bath-impurity hybridizations.
 If EdMode = ''Superc'' then the output has the form {e,V,\[CapitalDelta]}, where e and V are defined as above, and \[CapitalDelta] is the Norb x Nbath dimensional list of pairs creation (annihilation) amplitudes.
 If EdMode = ''InterorbSuperc'' then the output has the form {e,V,\[CapitalDelta],\[CapitalXi]}, where e, V, \[CapitalDelta] are as above, and \[CapitalXi] is the Nbath - dimensional list of interorbital pairs creation (annihilation) amplitudes
 InitializeBathMode is a string with the path to the file containing the bath parameters; if it is set to ''Default'', default parameters are dropped."
@@ -38,6 +38,13 @@ HNonlocalInfo::usage = "HNonlocalInfo[L, f, Norb, EdMode] prints useful info abo
 HLocal::usage = "HLocal[L, f, Norb, Sectors, EdMode] "
 
 HImp::usage = "..."
+
+cdg::usage = "."
+c::usage = "."
+CSign::usage = "."
+CreateParticleSelect::usage = "."
+DestroyParticleSelect::usage = "."
+GreenFunctionED::usage = "GreenFunctionED[L, f, Norb, {i,j}, \[Sigma], orb, Sectors, QnsSectorList, eigs, T, zlist, EdMode]"
 
 
 (* Fermionic ladder Hamiltonian defining functions *)
@@ -144,10 +151,10 @@ basis = Compile[{
 ];
 
 (* integer version of the full basis for all flavours *)
-BASIS[L_Integer, flavors_Integer, qns_]:=Flatten[Outer[{##}&,##]&@@Table[basis[L,qns[[\[Sigma]]]],{\[Sigma],1,flavors}],flavors-1];
+BASIS[L_, flavors_, qns_] := Flatten[Outer[{##}&,##]&@@Table[basis[L,qns[[\[Sigma]]]],{\[Sigma],1,flavors}],flavors-1];
 
 (* list of all the quantum numbers that label the sectors *)
-SectorList[L_,f_,Norb_,EdMode_]:=Module[
+SectorList[L_, f_, Norb_, EdMode_]:=Module[
 	{QnsSectorList},
 	Which[
 		EdMode == "Normal",
@@ -181,7 +188,7 @@ SectorList[L_,f_,Norb_,EdMode_]:=Module[
 ];
 
 (* return the theoretical estimate of the dimension of a sector labeled by the quantum number(s) qns *)
-DimSector[L_, f_, Norb_, qns_, EdMode_String]:=Module[
+DimSector[L_, f_, Norb_, qns_, EdMode_] := Module[
 	{n, nup, sz, dim},
 	Which[
 		EdMode == "Normal",
@@ -204,13 +211,13 @@ DimSector[L_, f_, Norb_, qns_, EdMode_String]:=Module[
 		EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
 		dim = Total@Table[
 			Binomial[Norb*L,ndw+qns]*Binomial[Norb*L,ndw]
-		,{ndw,Max[-qns,0],Min[Norb*L-qns,Norb*L]}];
+		,{ndw,Max[-qns,0], Min[Norb*L-qns,Norb*L]}];
 	];
 	dim
 ];
 
 (* build sector, i.e. list of all the Fock states with given quantum number(s) qns *)
-BuildSector[L_, f_, Norb_, qns_, EdMode_]:=Module[
+BuildSector[L_, f_, Norb_, qns_, EdMode_] := Module[
 	{QnsList,states},
 	Which[
 		EdMode == "Normal",
@@ -252,7 +259,7 @@ BuildSector[L_, f_, Norb_, qns_, EdMode_]:=Module[
 ];
 
 (* Draw a picture of a state to help the user *)
-DrawState[L_, f_, Norb_, j_, \[Sigma]_, orb_]:=Module[
+DrawState[L_, f_, Norb_, j_, \[Sigma]_, orb_] := Module[
 	{impuritycolor, color},
 	impuritycolor[i_]:=If[i==1,Blue,Black];
 	color[i_,index_]:=If[i==j && index==f*(orb-1)+\[Sigma], Red, Black];
@@ -262,9 +269,9 @@ DrawState[L_, f_, Norb_, j_, \[Sigma]_, orb_]:=Module[
 				{EdgeForm[{Thick,impuritycolor[i]}],color[i,index],Opacity[.3],Rectangle[{1.1*i,0}]},{i,L}
 			]
 		],
-	{index,f*Norb}]
+	{index, f*Norb}]
 ];
-DrawState[L_,f_,Norb_]:=Module[{},
+DrawState[L_, f_, Norb_] := Module[{},
 	Print[Style["Architecture of a state",16]];
 	Print[Style["Red:",Red]," (site j, spin \[Sigma], orbital orb)"];
 	Print[Style["Blue edge:",Blue]," impurity"];
@@ -279,40 +286,28 @@ DrawState[L_,f_,Norb_]:=Module[{},
 CreateParticleQ = Compile[{
 	{L,_Integer}, {f,_Integer}, {i,_Integer}, {\[Sigma],_Integer}, {orb,_Integer}, {state,_Integer,1}
 	},
-	If[(IntegerDigits[#,2,L]&@state[[f*(orb-1)+\[Sigma]]])[[i]]==0,
-		True,
-	(* else *)
-		False
-	], 
-	RuntimeAttributes->{Listable}, Parallelization->True
+	(IntegerDigits[#,2,L]&@state[[f*(orb-1)+\[Sigma]]])[[i]] == 0,
+	CompilationTarget->"C", RuntimeAttributes->{Listable}, Parallelization->True
 ];
 
 (* gives True if it is possible to destroy a particle on site (i,\[Sigma],orb), False otherwise *)
 DestroyParticleQ = Compile[{
 	{L,_Integer}, {f,_Integer}, {i,_Integer}, {\[Sigma],_Integer}, {orb,_Integer}, {state,_Integer,1}
 	},
-	If[(IntegerDigits[#,2,L]&@state[[f*(orb-1)+\[Sigma]]])[[i]]==1,
-		True,
-	(* else *)
-		False
-	], 
-	RuntimeAttributes->{Listable}, Parallelization->True
+	(IntegerDigits[#,2,L]&@state[[f*(orb-1)+\[Sigma]]])[[i]] == 1,
+	CompilationTarget->"C", RuntimeAttributes->{Listable}, Parallelization->True
 ];
 
 (* select states for which it is possible to create a particle on site (i,\[Sigma],orb) *)
-CreateParticleSelect = Compile[{
-	{L,_Integer}, {f,_Integer}, {i,_Integer}, {\[Sigma],_Integer}, {orb,_Integer}, {stateList,_Integer,2}
-	},
-	Select[stateList, CreateParticleQ[L,f,i,\[Sigma],orb,#]&],
-	RuntimeAttributes->{Listable}, Parallelization->True, CompilationTarget->"C"
+CreateParticleSelect[L_, f_, i_, \[Sigma]_, orb_, stateList_] := Module[
+	{criteria = CreateParticleQ[L, f, i, \[Sigma], orb, stateList]},
+	Pick[stateList, criteria]
 ];
 
 (* select states for which it is possible to destroy a particle on site (i,\[Sigma],orb) *)
-DestroyParticleSelect = Compile[{
-	{L,_Integer}, {f,_Integer}, {i,_Integer}, {\[Sigma],_Integer}, {orb,_Integer}, {stateList,_Integer,2}
-	},
-	Select[stateList, DestroyParticleQ[L,f,i,\[Sigma],orb,#]&],
-	RuntimeAttributes->{Listable}, Parallelization->True, CompilationTarget->"C"
+DestroyParticleSelect[L_, f_, i_, \[Sigma]_, orb_, stateList_] := Module[
+	{criteria = DestroyParticleQ[L, f, i, \[Sigma], orb, stateList]},
+	Pick[stateList, criteria]
 ];
 
 (* apply cdg_orb_spin in the impurity site to a basis state: return the integer form of the resulting basis state or 0 *)
@@ -323,7 +318,7 @@ cdg = Compile[{
 		BitSet[#, L-i]&,
 		state,
 		f*(orb-1)+\[Sigma]
-	], CompilationTarget->"C"];
+	], CompilationTarget->"C", RuntimeAttributes->{Listable}];
 
 (* apply c_orb_spin in the impurity site to a basis state: return the integer form of the resulting basis state or 0 *)
 c = Compile[{
@@ -333,7 +328,7 @@ c = Compile[{
 		BitClear[#, L-i]&,
 		state,
 		f*(orb-1)+\[Sigma]
-	], CompilationTarget->"C"];
+	], CompilationTarget->"C", RuntimeAttributes->{Listable}];
 
 (* Counts how many fermions there are before state[[\[Sigma],orb,i]] (excluded). If you set i=1,\[Sigma]=1,orb=1 you get 0; if you set i=L+1,\[Sigma]=f,orb=Norb you get the total number of fermions in the state *)
 CountFermions = Compile[{
@@ -350,8 +345,11 @@ CountFermions = Compile[{
 CSign = Compile[{
 	{L,_Integer},{f,_Integer},{i,_Integer},{\[Sigma],_Integer},{orb,_Integer},{state,_Integer,1}
 	},
-	(-1)^CountFermions[L,f,i,\[Sigma],orb,state],
-	CompilationTarget->"C"
+	(-1)^Total@Take[ (* sum *)
+		Flatten[IntegerDigits[#,2,L]&/@state] (* flattened version of the binary representation of the state *)
+		,L*(f*(orb-1)+\[Sigma]-1)+(i-1) (* sum up to this index in the flattened version of the state *)
+	],
+	CompilationTarget->"C", RuntimeAttributes->{Listable}, Parallelization->True, RuntimeOptions->"Speed"
 ];
 
 (* sign accumulated by moving c_i1_orb1_\[Sigma]1, c_i2_orb2_\[Sigma]2, c_i3_orb3_\[Sigma]3, ... to the correct positions when applying c_i1_orb1_\[Sigma]1 c_i2_orb2_\[Sigma]2 ...|state> or similar operators *)
@@ -365,7 +363,7 @@ CCSign = Compile[{
 	(-1)^Total[
 		Total@Take[binarystate, #]&/@indexes
 	]
-	], CompilationTarget->"C"
+	], CompilationTarget->"C", RuntimeAttributes->{Listable}, RuntimeOptions->"Speed"
 ];
 
 CCCCSign = CCSign;
@@ -376,20 +374,14 @@ CCCCSign = CCSign;
 HopQ = Compile[{
 	{L,_Integer}, {f,_Integer}, {i,_Integer}, {j,_Integer}, {\[Sigma]1,_Integer}, {\[Sigma]2,_Integer}, {orb1,_Integer}, {orb2,_Integer}, {state,_Integer,1}
 	},
-	If[(IntegerDigits[#,2,L]&@state[[f*(orb2-1)+\[Sigma]2]])[[j]]==1 && (IntegerDigits[#,2,L]&@state[[f*(orb1-1)+\[Sigma]1]])[[i]]==0,
-		True,
-	(* else *)
-		False
-	], 
-	RuntimeAttributes->{Listable}, Parallelization->True
+	(IntegerDigits[#,2,L]&@state[[f*(orb2-1)+\[Sigma]2]])[[j]]==1 && (IntegerDigits[#,2,L]&@state[[f*(orb1-1)+\[Sigma]1]])[[i]]==0, 
+	CompilationTarget->"C", RuntimeAttributes->{Listable}, Parallelization->True, RuntimeOptions->"Speed"
 ];
 
 (* select states for which hopping (j, \[Sigma]2, orb2) \[Rule] (i, \[Sigma]1, orb1) is possible *)
-HopSelect = Compile[{
-	{L,_Integer}, {f,_Integer}, {i,_Integer}, {j,_Integer}, {\[Sigma]1,_Integer}, {\[Sigma]2,_Integer}, {orb1,_Integer}, {orb2,_Integer}, {stateList,_Integer,2}
-	},
-	Select[stateList, HopQ[L,f,i,j,\[Sigma]1,\[Sigma]2,orb1,orb2,#]&],
-	RuntimeAttributes->{Listable}, Parallelization->True, CompilationTarget->"C"
+HopSelect[L_, f_, i_, j_, \[Sigma]1_, \[Sigma]2_, orb1_, orb2_, stateList_] := Module[
+	{criteria = HopQ[L,f,i,j,\[Sigma]1,\[Sigma]2,orb1,orb2,stateList]},
+	Pick[stateList, criteria]
 ];
 
 (* apply hopping operator to a given state *)
@@ -404,11 +396,16 @@ Hop = Compile[{
 		],
 		f*(orb1-1)+\[Sigma]1
 	],
-	CompilationTarget->"C"
+	CompilationTarget->"C", RuntimeAttributes->{Listable}, RuntimeOptions->"Speed"
 ];
 
 (* number of particles on site i with spin \[Sigma] in orbital orb *)
-n[L_, f_, Norb_, i_, \[Sigma]_, orb_, state_] := (IntegerDigits[#,2,L]&@state[[f*(orb-1)+\[Sigma]]])[[i]];
+nOld[L_, f_, Norb_, i_, \[Sigma]_, orb_, state_] := (IntegerDigits[#,2,L]&@state[[f*(orb-1)+\[Sigma]]])[[i]];
+n = Compile[{
+	{L,_Integer}, {f,_Integer}, {Norb,_Integer}, {i,_Integer}, {\[Sigma],_Integer}, {orb,_Integer}, {state,_Integer,1}},
+	(IntegerDigits[#,2,L]&@state[[f*(orb-1)+\[Sigma]]])[[i]],
+	CompilationTarget->"C", RuntimeAttributes->{Listable}, Parallelization->True, RuntimeOptions->"Speed"
+];
 
 
 (*           PAIR CREATION / ANNIHILATION FUNCTIONS          *)
@@ -416,20 +413,14 @@ n[L_, f_, Norb_, i_, \[Sigma]_, orb_, state_] := (IntegerDigits[#,2,L]&@state[[f
 CreatePairQ = Compile[{
 	{L,_Integer}, {f,_Integer}, {i,_Integer}, {j,_Integer}, {\[Sigma]1,_Integer}, {\[Sigma]2,_Integer}, {orb1,_Integer}, {orb2,_Integer}, {state,_Integer,1}
 	},
-	If[
-		(IntegerDigits[#,2,L]&@state[[f*(orb1-1)+\[Sigma]1]])[[i]]==0&&(IntegerDigits[#,2,L]&@state[[f*(orb2-1)+\[Sigma]2]])[[j]]==0,
-		True,
-	(*else*)
-		False
-	]
+	(IntegerDigits[#,2,L]&@state[[f*(orb1-1)+\[Sigma]1]])[[i]] == 0 && (IntegerDigits[#,2,L]&@state[[f*(orb2-1)+\[Sigma]2]])[[j]] == 0,
+	CompilationTarget->"C", RuntimeAttributes->{Listable}, Parallelization->True, RuntimeOptions->"Speed"
 ];
 
 (* selects states for which pair creation (i,orb1,\[Sigma]1), (j,orb2,\[Sigma]2) is possible*)
-CreatePairSelect = Compile[{
-	{L,_Integer}, {f,_Integer}, {i,_Integer}, {j,_Integer}, {\[Sigma]1,_Integer}, {\[Sigma]2,_Integer}, {orb1,_Integer}, {orb2,_Integer}, {stateList,_Integer,2}
-	},
-	Select[stateList, CreatePairQ[L,f,i,j,\[Sigma]1,\[Sigma]2,orb1,orb2,#]&],
-	RuntimeAttributes->{Listable}, Parallelization->True, CompilationTarget->"C"
+CreatePairSelect[L_, f_, i_, j_, \[Sigma]1_, \[Sigma]2_, orb1_, orb2_, stateList_] := Module[
+	{criteria = CreatePairQ[L, f, i, j, \[Sigma]1, \[Sigma]2, orb1, orb2, stateList]},
+	Pick[stateList, criteria]
 ];
 
 (* create a pair of particles (i,orb1,\[Sigma]1) (j,orb2,\[Sigma]2) and return the integer version of the states. *)
@@ -445,7 +436,7 @@ CreatePair = Compile[{
 		],
 		f*(orb2-1)+\[Sigma]2
 	],
-	CompilationTarget->"C"
+	CompilationTarget->"C", RuntimeAttributes->{Listable}, RuntimeOptions->"Speed"
 ];
 
 
@@ -454,23 +445,17 @@ CreatePair = Compile[{
 PairHoppingQ = Compile[{
 	{L,_Integer}, {f,_Integer}, {i,_Integer},{orb1,_Integer}, {orb2,_Integer}, {state,_Integer,1}
 	},
-	If[
 	(IntegerDigits[#,2,L]&@state[[f*(orb1-1)+1]])[[i]] == 0 &&
 	(IntegerDigits[#,2,L]&@state[[f*(orb1-1)+2]])[[i]] == 0 &&
 	(IntegerDigits[#,2,L]&@state[[f*(orb2-1)+1]])[[i]] == 1 &&
 	(IntegerDigits[#,2,L]&@state[[f*(orb2-1)+2]])[[i]] == 1,
-		True,
-	(*else*)
-		False
-	]
+	CompilationTarget->"C", RuntimeAttributes->{Listable}, Parallelization->True, RuntimeOptions->"Speed"
 ];
 
 (* selects states for which pair hopping from (i,orb2) to (i,orb1) is possible*)
-PairHoppingSelect = Compile[{
-	{L,_Integer}, {f,_Integer}, {i,_Integer}, {orb1,_Integer}, {orb2,_Integer}, {stateList,_Integer,2}
-	},
-	Select[stateList, PairHoppingQ[L,f,i,orb1,orb2,#]&],
-	RuntimeAttributes->{Listable}, Parallelization->True, CompilationTarget->"C"
+PairHoppingSelect[L_, f_, i_, orb1_, orb2_, stateList_] := Module[
+	{criteria = PairHoppingQ[L,f,i,orb1,orb2,stateList]},
+	Pick[stateList, criteria]
 ];
 
 (* returns the integer form of the state obtained by pair hopping *)
@@ -494,7 +479,7 @@ PairHopping = Compile[{
 		],
 		f*(orb1-1)+2
 	],
-	CompilationTarget->"C"
+	CompilationTarget->"C", RuntimeAttributes->{Listable}, RuntimeOptions->"Speed"
 ];
 
 
@@ -503,24 +488,17 @@ PairHopping = Compile[{
 SpinExchangeQ = Compile[{
 	{L,_Integer}, {f,_Integer}, {i,_Integer}, {orb1,_Integer}, {orb2,_Integer}, {state,_Integer,1}
 	},
-	If[
 	(IntegerDigits[#,2,L]&@state[[f*(orb2-1)+1]])[[i]] == 1 && 
 	(IntegerDigits[#,2,L]&@state[[f*(orb1-1)+2]])[[i]] == 1 &&
 	(IntegerDigits[#,2,L]&@state[[f*(orb2-1)+2]])[[i]] == 0 && 
-	(IntegerDigits[#,2,L]&@state[[f*(orb1-1)+1]])[[i]] == 0,
-		True,
-	(* else *)
-		False
-	], 
-	RuntimeAttributes->{Listable}, Parallelization->True
+	(IntegerDigits[#,2,L]&@state[[f*(orb1-1)+1]])[[i]] == 0, 
+	CompilationTarget->"C", RuntimeAttributes->{Listable}, Parallelization->True, RuntimeOptions->"Speed"
 ];
 
 (* select states for which spin exchange on site i is possible: spin exchange = cdg_orb1_up c_orb1_dw cdg_orb2_dw c_orb2_up *)
-SpinExchangeSelect = Compile[{
-	{L,_Integer}, {f,_Integer}, {i,_Integer}, {orb1,_Integer}, {orb2,_Integer}, {stateList,_Integer,2}
-	},
-	Select[stateList, SpinExchangeQ[L,f,i,orb1,orb2,#]&],
-	RuntimeAttributes->{Listable}, Parallelization->True, CompilationTarget->"C"
+SpinExchangeSelect[L_, f_, i_, orb1_, orb2_, stateList_] := Module[
+	{criteria = SpinExchangeQ[L,f,i,orb1,orb2,stateList]},
+	Pick[stateList, criteria]
 ];
 
 (* apply spin exchange operator to a given state *)
@@ -543,7 +521,7 @@ SpinExchange = Compile[{
 		],
 		f*(orb2-1)+2
 	],
-	CompilationTarget->"C"
+	CompilationTarget->"C", RuntimeAttributes->{Listable}, RuntimeOptions->"Speed"
 ];
 
 (* gives right neighbor of a site j in a closed (open) chain of L elements *)
@@ -569,16 +547,16 @@ HNonlocal[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 			Hblock = SparseArray[{}, {dim,dim}];
 			Which[
 				flag == "Bath",
-				num = n[L, f, Norb, j, \[Sigma], orb, #]&/@\[Psi];(*local density*)
+				num = n[L, f, Norb, j, \[Sigma], orb, \[Psi]];(*local density*)
 				Hblock += SparseArray@DiagonalMatrix[num];
 				AppendTo[Hsector, Hblock];,
 			(* --------------------------------------------------------------- *)
 				flag == "Hopping",
 				\[Psi]1 = HopSelect[L, f, 1, j, \[Sigma], \[Sigma], orb, orb, \[Psi]];
 				If[Length[\[Psi]1] != 0, 
-					\[Chi] = Hop[L, f, 1, j, \[Sigma], \[Sigma], orb, orb, #]&/@(\[Psi]1);
+					\[Chi] = Hop[L, f, 1, j, \[Sigma], \[Sigma], orb, orb, \[Psi]1];
 					rows = \[Chi]/.dispatch;(* *)cols=\[Psi]1/.dispatch;(* *)pos={rows,cols}\[Transpose];
-					\[CapitalSigma] = (CCSign[L, f, {1,j}, {\[Sigma],\[Sigma]}, {orb,orb}, #]&/@\[Psi]1);
+					\[CapitalSigma] = CCSign[L, f, {1,j}, {\[Sigma],\[Sigma]}, {orb,orb}, \[Psi]1];
 					Hblock += SparseArray[pos->\[CapitalSigma],{dim,dim}];
 					Hblock = Hblock + Hblock\[ConjugateTranspose];
 				];
@@ -586,11 +564,11 @@ HNonlocal[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 			(* --------------------------------------------------------------- *)
 				flag == "Superc" && (EdMode == "Superc" || EdMode == "FullSuperc"),
 				If[\[Sigma] == 1,
-					\[Psi]1 = CreatePairSelect[L, f, j, j, 1, 2, orb, orb, #]&@\[Psi];
+					\[Psi]1 = CreatePairSelect[L, f, j, j, 1, 2, orb, orb, \[Psi]];
 					If[Length[\[Psi]1] != 0, 
-						\[Chi] = CreatePair[L, f, j, j, 1, 2, orb, orb, #]&/@\[Psi]1;
+						\[Chi] = CreatePair[L, f, j, j, 1, 2, orb, orb, \[Psi]1];
 						rows=\[Chi]/.dispatch;(* *)cols=\[Psi]1/.dispatch;(* *)pos={rows,cols}\[Transpose];
-						\[CapitalSigma] = (CCSign[L, f, {j,j}, {1,2}, {orb,orb}, #]&/@\[Psi]1);
+						\[CapitalSigma] = CCSign[L, f, {j,j}, {1,2}, {orb,orb}, \[Psi]1];
 						Hblock += SparseArray[pos->\[CapitalSigma], {dim,dim}];
 						Hblock = Hblock + Hblock\[ConjugateTranspose];
 					];
@@ -602,11 +580,13 @@ HNonlocal[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 				Do[
 					If[
 						orb2 > orb,
-						\[Psi]1 = CreatePairSelect[L, f, j, j, 1, 2, orb, orb2, #]&@\[Psi];
-						\[Chi] = CreatePair[L, f, j, j, 1, 2, orb, orb2, #]&/@\[Psi]1;
-						rows = \[Chi]/.dispatch;(* *)cols = \[Psi]1/.dispatch;(* *)pos = {rows,cols}\[Transpose];
-						\[CapitalSigma] = (CCSign[L, f, {j,j}, {1,2}, {orb,orb2}, #]&/@\[Psi]1);
-						Hblock += SparseArray[pos -> \[CapitalSigma], {dim,dim}];
+						\[Psi]1 = CreatePairSelect[L, f, j, j, 1, 2, orb, orb2, \[Psi]];
+						If[Length[\[Psi]1] != 0,
+							\[Chi] = CreatePair[L, f, j, j, 1, 2, orb, orb2, \[Psi]1];
+							rows = \[Chi]/.dispatch;(* *)cols = \[Psi]1/.dispatch;(* *)pos = {rows,cols}\[Transpose];
+							\[CapitalSigma] = CCSign[L, f, {j,j}, {1,2}, {orb,orb2}, \[Psi]1];
+							Hblock += SparseArray[pos -> \[CapitalSigma], {dim,dim}];
+						];
 					]
 				, {orb2,1,Norb}];
 				Hblock = Hblock + Hblock\[ConjugateTranspose];
@@ -663,8 +643,8 @@ HLocal[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 				Do[
 					Do[
 						num = Sum[
-							n[L, f, Norb, j, \[Sigma], orb, #]
-						, {\[Sigma], 1, f}]&/@\[Psi];
+							n[L, f, Norb, j, \[Sigma], orb, \[Psi]]
+						, {\[Sigma], 1, f}];
 						Hblock += SparseArray@DiagonalMatrix[0.5*num*(num-1)];
 					, {j, 1, OptionValue[Nimp]}];
 					AppendTo[Hsector, Hblock];
@@ -673,28 +653,28 @@ HLocal[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 				flag == "Interorb_Hubbard_Opposite_Spin" && Norb > 1,
 				num = Sum[
 					If[orbA != orbB,
-						n[L,f,Norb,j,1,orbA,#]*n[L,f,Norb,j,2,orbB,#],
+						n[L,f,Norb,j,1,orbA,\[Psi]]*n[L,f,Norb,j,2,orbB,\[Psi]],
 					(*else*)
 						0]
-				,{orbA,1,Norb}, {orbB,1,Norb}, {j,1,OptionValue[Nimp]}]&/@\[Psi];
+				,{orbA,1,Norb}, {orbB,1,Norb}, {j,1,OptionValue[Nimp]}];
 				Hblock = SparseArray@DiagonalMatrix[num];
 				AppendTo[Hsector, Hblock];,
 			(* ---------------------------------- *)
 				flag == "Interorb_Hubbard_Same_Spin" && Norb > 1,
 				num = Sum[
-					n[L,f,Norb,j,\[Sigma],1,#]*n[L,f,Norb,j,\[Sigma],2,#]
-				,{\[Sigma],1,f}, {j,1,OptionValue[Nimp]}]&/@\[Psi];
+					n[L,f,Norb,j,\[Sigma],1,\[Psi]]*n[L,f,Norb,j,\[Sigma],2,\[Psi]]
+				,{\[Sigma],1,f}, {j,1,OptionValue[Nimp]}];
 				Hblock = SparseArray@DiagonalMatrix[num];
 				AppendTo[Hsector,Hblock];,
 			(* ---------------------------------- *)
 				flag == "Pair_Hopping" && Norb > 1 && (EdMode == "InterorbNormal" || EdMode == "InterorbSuperc" || EdMode == "Superc" || EdMode == "FullSuperc"),
 				Do[
 					If[orb2 > orb1,
-						\[Psi]1 = PairHoppingSelect[L, f, 1, orb1, orb2, #]&@\[Psi];
+						\[Psi]1 = PairHoppingSelect[L, f, 1, orb1, orb2, \[Psi]];
 						If[Length[\[Psi]1] == 0, Continue[];];
-						\[Chi] = PairHopping[L, f, 1, orb1, orb2, #]&/@\[Psi]1;
+						\[Chi] = PairHopping[L, f, 1, orb1, orb2, \[Psi]1];
 						rows=\[Chi]/.dispatch;(* *)cols=\[Psi]1/.dispatch;(* *)pos={rows,cols}\[Transpose];
-						\[CapitalSigma]=CCSign[L, f, {j,j,j,j}, {1,2,1,2}, {orb1,orb1,orb2,orb2}, #]&/@\[Psi]1;
+						\[CapitalSigma] = CCSign[L, f, {j,j,j,j}, {1,2,1,2}, {orb1,orb1,orb2,orb2}, \[Psi]1];
 						Hblock += SparseArray[pos->\[CapitalSigma],{dim,dim}];
 					];
 				,{orb1,1,Norb}, {orb2,1,Norb}, {j,1,OptionValue[Nimp]}];
@@ -704,11 +684,11 @@ HLocal[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 				flag == "Spin_Exchange" && Norb > 1 && (EdMode == "InterorbNormal" || EdMode == "InterorbSuperc" || EdMode == "FullSuperc"),
 				Do[
 					If[orb2 > orb1,
-						\[Psi]1 = SpinExchangeSelect[L, f, 1, orb1, orb2, #]&@\[Psi];
+						\[Psi]1 = SpinExchangeSelect[L, f, 1, orb1, orb2, \[Psi]];
 						If[Length[\[Psi]1] == 0, Continue[];];
-						\[Chi] = SpinExchange[L, f, 1, orb1, orb2, #]&/@\[Psi]1;
+						\[Chi] = SpinExchange[L, f, 1, orb1, orb2, \[Psi]1];
 						rows = \[Chi]/.dispatch;(* *)cols = \[Psi]1/.dispatch;(* *)pos = {rows,cols}\[Transpose];
-						\[CapitalSigma] = CCSign[L, f, {j,j,j,j}, {1,2,1,2}, {orb1,orb1,orb2,orb2}, #]&/@\[Psi]1;
+						\[CapitalSigma] = CCSign[L, f, {j,j,j,j}, {1,2,1,2}, {orb1,orb1,orb2,orb2}, \[Psi]1];
 						Hblock += SparseArray[pos->\[CapitalSigma],{dim,dim}];
 					];
 				,{orb1,1,Norb}, {orb2,1,Norb}, {j,1,OptionValue[Nimp]}];
@@ -717,8 +697,8 @@ HLocal[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 			(* ---------------------------------- *)
 				flag == "Energy_Shift",
 				num = Sum[
-					n[L,f,Norb,j,\[Sigma],orb,#]
-				,{\[Sigma],1,f}, {orb,1,Norb}, {j,1,OptionValue[Nimp]}]&/@\[Psi];
+					n[L,f,Norb,j,\[Sigma],orb,\[Psi]]
+				,{\[Sigma],1,f}, {orb,1,Norb}, {j,1,OptionValue[Nimp]}];
 				Hblock = SparseArray@DiagonalMatrix[num];
 				AppendTo[Hsector, Hblock];
 			];
@@ -782,17 +762,18 @@ Hnonint[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 			Hblock = SparseArray[{}, {dim,dim}];
 			Which[
 				flag == "Potential",
-				num = n[L, f, Norb, j, \[Sigma], orb, #]&/@\[Psi];(*local density*)
+				num = n[L, f, Norb, j, \[Sigma], orb, \[Psi]];(*local density*)
 				Hblock += SparseArray@DiagonalMatrix[num];
 				AppendTo[Hsector, Hblock];,
 			(* --------------------------------------------------------------- *)
 				flag == "Hopping",
 				If[j == L && !OptionValue[RealPBC], Continue[];];
 				\[Psi]1 = HopSelect[L, f, j, Neighbor[L,j], \[Sigma], \[Sigma], orb, orb, \[Psi]];
-				If[Length[\[Psi]1] == 0, Continue[];];
-				\[Chi] = Hop[L, f, j, Neighbor[L,j], \[Sigma], \[Sigma], orb, orb, #]&/@(\[Psi]1);
+				If[Length[\[Psi]1] == 0, AppendTo[Hsector, Hblock]; Continue[];];
+				\[Chi] = Hop[L, f, j, Neighbor[L,j], \[Sigma], \[Sigma], orb, orb, \[Psi]1];
 				rows = \[Chi]/.dispatch;(* *)cols=\[Psi]1/.dispatch;(* *)pos={rows,cols}\[Transpose];
-				\[CapitalSigma] = (CCSign[L,f,{j,Neighbor[L,j]},{\[Sigma],\[Sigma]},{orb,orb},#]&/@\[Psi]1);
+				\[CapitalSigma] = CCSign[L,f,{j,Neighbor[L,j]},{\[Sigma],\[Sigma]},{orb,orb},\[Psi]1];
+				If[j == L, \[CapitalSigma] = -\[CapitalSigma]];(* if j=L, we are applying cdg_L c_1. When moving cdg_L before position L, it jumps over c_1 and the sign changes! *)
 				If[
 					OptionValue[RealPhase] == {0},
 					Hblock += SparseArray[pos -> \[CapitalSigma], {dim,dim}];,
@@ -805,10 +786,11 @@ Hnonint[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 				flag == "Raman" && EdMode == "Raman",
 				If[\[Sigma] == f && !OptionValue[SyntheticPBC], Continue[];];
 				\[Psi]1 = HopSelect[L, f, j, j, \[Sigma], Neighbor[f,\[Sigma]], orb, orb, \[Psi]];
-				If[Length[\[Psi]1] == 0, Continue[];];
-				\[Chi] = Hop[L, f, j, j, \[Sigma], Neighbor[f,\[Sigma]], orb, orb, #]&/@(\[Psi]1);
+				If[Length[\[Psi]1] == 0, AppendTo[Hsector, Hblock]; Continue[];];
+				\[Chi] = Hop[L, f, j, j, \[Sigma], Neighbor[f,\[Sigma]], orb, orb, \[Psi]1];
 				rows = \[Chi]/.dispatch;(* *)cols=\[Psi]1/.dispatch;(* *)pos={rows,cols}\[Transpose];
-				\[CapitalSigma] = (CCSign[L,f,{j,j},{\[Sigma],Neighbor[f,\[Sigma]]},{orb,orb},#]&/@\[Psi]1);
+				\[CapitalSigma] = CCSign[L,f,{j,j},{\[Sigma],Neighbor[f,\[Sigma]]},{orb,orb},\[Psi]1];
+				If[\[Sigma] == f, \[CapitalSigma] = -\[CapitalSigma]];(* if \[Sigma]=f, we are applying cdg_f c_1. When moving cdg_f before position f, it jumps over c_1 and the sign changes! *)
 				Hblock += SparseArray[pos -> \[CapitalSigma]*Exp[I*OptionValue[SyntheticPhase]*j], {dim,dim}];
 				Hblock = Hblock + Hblock\[ConjugateTranspose];
 				AppendTo[Hsector, Hblock];	
@@ -831,9 +813,9 @@ ApplyCdg[L_, f_, Norb_, j_, \[Sigma]_, orb_, gs_, qns_, Sectors_, SectorsDispatc
 	\[Psi]1 = CreateParticleSelect[L, f, j, \[Sigma], orb, startingsector];
 	pos = \[Psi]1/.dispatch;
 	(* compute the correct signs obtained moving cdg to the correct position  *)
-	sign = CSign[L, f, j, \[Sigma], orb, #]&/@startingsector;
+	sign = CSign[L, f, j, \[Sigma], orb, \[Psi]1];
 	(* list of coefficients that remain non vanishing *)
-	coeff = (gs*sign)[[pos]];
+	coeff = gs[[pos]]*sign;
 	(* build the final sector *)
 	Which[
 		EdMode=="Normal",
@@ -864,11 +846,145 @@ ApplyCdg[L_, f_, Norb_, j_, \[Sigma]_, orb_, gs_, qns_, Sectors_, SectorsDispatc
 	newdim = Length[finalsector];
 	(* create a dispatch that labels all these states *)
 	dispatch = Dispatch[Flatten[MapIndexed[{#1->#2[[1]]}&,finalsector],1]];(* find the new positions where the entries of gs should go after applying cdg_spin *)
-	\[Chi] = cdg[L,f,j,\[Sigma],orb,#]&/@\[Psi]1;
+	\[Chi] = cdg[L,f,j,\[Sigma],orb,\[Psi]1];
 	newpos = \[Chi]/.dispatch;
 	(* create a list of rules and define the resulting array *)
 	SparseArray[Thread[newpos->coeff],newdim]
 ];
+
+(* apply c_{j,\[Sigma],orb} |gs>, where |gs> belongs to the sector with quantum numbers qns and give the resulting vector resized to fit the dimension of the sector obtained removing a particle with state label (j,\[Sigma],orb)*)
+ApplyC[L_, f_, Norb_, j_, \[Sigma]_, orb_, gs_, qns_, Sectors_, SectorsDispatch_, EdMode_] := Module[
+	{newqns = qns,startingsector = Sectors[[qns/.SectorsDispatch]],finalsector, newdim,sign,dispatch,pos,newpos,coeff,\[Psi]1,\[Chi]},
+	(* check which states of the starting sector can host the extra particle *)
+	dispatch = Dispatch[Flatten[MapIndexed[{#1->#2[[1]]}&,startingsector],1]];
+	\[Psi]1 = DestroyParticleSelect[L, f, j, \[Sigma], orb, startingsector];
+	pos = \[Psi]1/.dispatch;
+	(* compute the correct signs obtained moving cdg to the correct position  *)
+	sign = CSign[L,f,j,\[Sigma],orb,\[Psi]1];
+	(* list of coefficients that remain non vanishing *)
+	coeff = gs[[pos]]*sign;
+	(* build the final sector *)
+	Which[
+		EdMode=="Normal",
+		If[qns[[f*(orb-1)+\[Sigma]]]==0, Return[0]];  (* trivial case *)
+		newqns[[f*(orb-1)+\[Sigma]]]-=1;,
+	(* ---------------------------- *)
+		EdMode =="InterorbNormal",
+		If[qns[[\[Sigma]]]==0, Return[0]];  (* trivial case *)
+		newqns[[\[Sigma]]]-=1;,
+	(* ---------------------------- *)
+		EdMode == "Superc",
+		If[f>2, Return["error. f>2 not supported with EdMode = ''Superc''"];];
+		If[(qns[[orb]]==-L&&\[Sigma]==1)||(qns[[orb]]==L&&\[Sigma]==2), Return[0]];  (* trivial case *)
+		Which[
+			\[Sigma]==1, newqns[[orb]]-=1,
+			\[Sigma]==2, newqns[[orb]]+=1
+		],
+	(* ---------------------------- *)
+		EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
+		If[f>2, Return["error. f>2 not supported with EdMode = ''FullSuperc'' or ''InterorbSuperc''"];];
+		If[(qns==-Norb*L&&\[Sigma]==1)||(qns==Norb*L&&\[Sigma]==2),Return[0]];  (* trivial case *)
+		Which[
+			\[Sigma]==1, newqns-=1,
+			\[Sigma]==2, newqns+=1
+		]
+	];
+	finalsector = Sectors[[newqns/.SectorsDispatch]];
+	newdim = Length[finalsector];
+	(* create a dispatch that labels all these states *)
+	dispatch = Dispatch[Flatten[MapIndexed[{#1->#2[[1]]}&,finalsector],1]];(* find the new positions where the entries of gs should go after applying cdg_spin *)
+	\[Chi] = c[L,f,j,\[Sigma],orb,\[Psi]1];
+	newpos = \[Chi]/.dispatch;
+	(* create a list of rules and define the resulting array *)
+	SparseArray[Thread[newpos->coeff], newdim]
+];
+
+
+
+(*      EXACT CALCULATION OF GREEN FUNCTION       *)
+GreenFunctionED[L_, f_, Norb_, {i_,j_}, \[Sigma]_, orb_, Sectors_, QnsSectorList_, eigs_, T_, zlist_, EdMode_, OptionsPattern[]] := Module[
+	{newqns, SectorsDispatch, startingsector, finalsector, dim, newdim, dispatch, sign, rows, cols, pos, \[Psi]1, \[Psi]2, \[Chi]1, \[Chi]2, A, B, P, Q, S, Z=1., e0, energies, eigenstates, G},
+	(* get energies and eigenstates *)
+	energies = eigs[[All, 1]];
+	eigenstates = eigs[[All, 2]];
+	e0 = Min[Flatten[energies]];
+	(* get normalization factor if required *)
+	If[OptionValue[NormalizedFunction], Z = Total[Exp[-(Flatten[energies]-e0)/T]]; ];
+	(* get dispatch of the quantum numbers and initialize G.F. *)
+	SectorsDispatch = Dispatch[Flatten[MapIndexed[{#1->#2[[1]]}&,QnsSectorList],1]];
+	G = ConstantArray[0, Length[zlist]];
+	(* loop over all the sectors *)
+	Do[
+		(* get starting sector *)
+		startingsector = Sectors[[qns/.SectorsDispatch]];
+		dim = Length[startingsector];
+		dispatch = Dispatch[Flatten[MapIndexed[{#1->#2[[1]]}&, startingsector],1]];
+		(* select those states for which you can create a particle with index j,\[Sigma],orb *)
+		\[Psi]1 = CreateParticleSelect[L, f, j, \[Sigma], orb, startingsector];
+		cols = \[Psi]1/.dispatch;
+		sign = CSign[L, f, j, \[Sigma], orb, \[Psi]1];
+		(* get final sector *)
+		newqns = qns;
+		Which[
+			EdMode == "Normal",
+			If[qns[[f*(orb-1)+\[Sigma]]] == L, Continue[];];  (* trivial case *)
+			newqns[[f*(orb-1)+\[Sigma]]] += 1;,
+	(* ---------------------------- *)
+			EdMode == "InterorbNormal",
+			If[qns[[\[Sigma]]] == Norb*L, Continue[];];  (* trivial case *)
+			newqns[[\[Sigma]]] += 1;,
+	(* ---------------------------- *)
+			EdMode == "Superc",
+			If[f>2, Return["error. f>2 not supported with EdMode = ''Superc''"];];
+			If[(qns[[orb]] == -L && \[Sigma] == 2) || (qns[[orb]] == L && \[Sigma] == 1), Continue[];];  (* trivial case *)
+			Which[
+				\[Sigma]==1, newqns[[orb]] += 1,
+				\[Sigma]==2, newqns[[orb]] -= 1
+			],
+	(* ---------------------------- *)
+			EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
+			If[f>2, Return["error. f>2 not supported with EdMode = ''FullSuperc'' or ''InterorbSuperc''"];];
+			If[(qns == -Norb*L && \[Sigma] == 2) || (qns == Norb*L && \[Sigma] == 1), Continue[];];  (* trivial case *)
+			Which[
+				\[Sigma]==1, newqns += 1,
+				\[Sigma]==2, newqns -= 1
+			]
+		];
+		finalsector = Sectors[[newqns/.SectorsDispatch]];
+		newdim = Length[finalsector];
+		dispatch = Dispatch[Flatten[MapIndexed[{#1->#2[[1]]}&,finalsector],1]];
+		\[Chi]1 = cdg[L,f,j,\[Sigma],orb,\[Psi]1];
+		rows = \[Chi]1/.dispatch;
+		(* build the matrix Smn = <n|c_i,\[Sigma]1,orb1|m><m|cdg_j,\[Sigma]2,orb2|n> * (e^-\[Beta]Em + e^-\[Beta]En)/(z + En - Em) *)
+		(* where |n> is the n-th eigenstate that belongs to the sector with quantum number qns, and |m> is in a sector with one more particle. *)
+		(* let Amn = <m|cdg_j,\[Sigma]2,orb2|n> and Bnm = <n|c_i,\[Sigma]1,orb1|m> *)
+		pos = {rows, cols}\[Transpose];
+		A = SparseArray[Thread[pos->sign], {newdim, dim}];(* A in the canonical basis *)
+		P = Transpose[eigenstates[[qns/.SectorsDispatch]]];(* change of basis in starting sector *)
+		Q = Transpose[eigenstates[[newqns/.SectorsDispatch]]];(* change of basis in final sector *)
+		A = Q\[HermitianConjugate] . A . P;(* A in the eigenstates basis *)
+	(* ------------------------------------- *)
+		\[Psi]2 = DestroyParticleSelect[L, f, i, \[Sigma], orb, finalsector];
+		rows = \[Psi]2/.dispatch;
+		sign = CSign[L,f,i,\[Sigma],orb,\[Psi]2];
+		dispatch = Dispatch[Flatten[MapIndexed[{#1->#2[[1]]}&,startingsector],1]];(* find the new positions where the entries of gs should go after applying cdg_spin *)
+		\[Chi]2 = c[L,f,i,\[Sigma],orb,\[Psi]2];
+		cols = \[Chi]2/.dispatch;
+		pos = {rows, cols}\[Transpose];
+		B = SparseArray[Thread[pos->sign], {newdim, dim}];(* B in the canonical basis *)
+		B = Q\[HermitianConjugate] . B . P;
+	(* ------------------------------------- *)
+		S = A * B * Table[
+			Exp[-(energies[[qns/.SectorsDispatch]][[n]]-e0)/T] + Exp[-(energies[[newqns/.SectorsDispatch]][[m]]-e0)/T]
+		,{m,newdim},{n,dim}];
+		G = G + (Total[#,2]&/@(
+			S * Table[
+				1./(# + energies[[qns/.SectorsDispatch]][[n]] - energies[[newqns/.SectorsDispatch]][[m]])
+			,{m, newdim}, {n, dim}]&/@zlist));
+	,{qns, QnsSectorList}];
+	G/Z
+];
+Options[GreenFunctionED] = {NormalizedFunction -> False};
 
 
 End[];
