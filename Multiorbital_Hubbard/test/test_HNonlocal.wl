@@ -1,7 +1,7 @@
 (* ::Package:: *)
 
-ClearAll["Global*`"];
-ClearAll["DMFT*`"];
+ClearAll["Global`*"];
+ClearAll["DMFT`*"];
 
 FolderPath = NotebookDirectory[];
 <<(FolderPath<>"/../Multiorbital_Package.wl");
@@ -12,19 +12,24 @@ FolderPath = NotebookDirectory[];
 (*Check that it works with Norb = 1*)
 
 
-ClearAll["Global*`"]
+ClearAll["Global`*"]
 L = 3;
 f = 2;
-Norb = 1;
+Norb = 2;
 EdMode = "Superc";
 
-Parameters = StartingBath["Default", L-1, Norb, EdMode];
+Parameters = StartingBath[L, f, Norb, "Default", EdMode]
 Parameters = Flatten[Parameters]
+Length[Parameters]
 
 QnsSectorList = SectorList[L, f, Norb, EdMode]
 Sectors = BuildSector[L, f, Norb, #, EdMode]&/@QnsSectorList;
+Length[QnsSectorList]
 
 HnonlocBlocks = HNonlocal[L, f, Norb, Sectors, EdMode];
+Table[
+	Dimensions[HnonlocBlocks[[i]]],
+	{i, Length@QnsSectorList}]
 
 Hnonloc = SparseArray[#]&/@(
 	Sum[Parameters[[i]]*#[[i]],{i,1,Length@Parameters}]&/@HnonlocBlocks
@@ -44,7 +49,7 @@ HermitianMatrixQ[#]&/@Hnonloc
 (*Test performance with large matrices*)
 
 
-ClearAll["Global*`"]
+ClearAll["Global`*"]
 L = 8;
 f = 2;
 Norb = 1;
@@ -63,13 +68,13 @@ AbsoluteTiming[
 (*Check that it works with Norb = 2*)
 
 
-ClearAll["Global*`"]
+ClearAll["Global`*"]
 L = 3;
 f = 2;
 Norb = 2;
 EdMode = "Normal";
 
-Parameters = StartingBath["Default", L-1, Norb, EdMode];
+Parameters = StartingBath[L, f, Norb, "Default", EdMode];
 Parameters = Flatten[Parameters]
 
 QnsSectorList = SectorList[L, f, Norb, EdMode]
@@ -89,13 +94,13 @@ Length[Hnonloc] == Length[Sectors]
 HermitianMatrixQ[#]&/@Hnonloc
 
 
-ClearAll["Global*`"]
+ClearAll["Global`*"]
 L = 2;
 f = 2;
 Norb = 2;
 EdMode = "FullSuperc";
 
-Parameters = StartingBath["Default", L-1, Norb, EdMode]
+Parameters = StartingBath[L, f, Norb, "Default", EdMode]
 Parameters = Flatten[Parameters];
 
 QnsSectorList = SectorList[L, f, Norb, EdMode]
@@ -119,7 +124,7 @@ HermitianMatrixQ[#]&/@Hnonloc
 (*Test performance*)
 
 
-ClearAll["Global*`"]
+ClearAll["Global`*"]
 L = 4;
 f = 2;
 Norb = 2;
@@ -132,7 +137,6 @@ DimSector[L, f, Norb, #, EdMode]&/@QnsSectorList
 AbsoluteTiming[
 	HNonlocal[L, f, Norb, Sectors, EdMode];
 ]
-
 
 
 

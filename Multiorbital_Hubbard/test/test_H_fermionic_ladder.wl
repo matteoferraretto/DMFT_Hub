@@ -1,7 +1,7 @@
 (* ::Package:: *)
 
-ClearAll["Global*`"];
-ClearAll["DMFT*`"];
+ClearAll["Global`*"];
+ClearAll["DMFT`*"];
 
 FolderPath = NotebookDirectory[];
 <<(FolderPath<>"/../Multiorbital_Package.wl");
@@ -13,21 +13,22 @@ FolderPath = NotebookDirectory[];
 
 
 ClearAll["Global`*"];
-L = 2;
+L = 3;
 f = 2;
 Norb = 1;
 EdMode = "Raman";
 
-e = 0.2;(* electric field *)
+e = 0;(* electric field *)
 t = -1.0;(* real hopping *)
 \[CapitalOmega] = 0.5;(* Raman hopping *)
-\[Gamma] = Pi/2;(* effective flux *)
-\[Phi] = Pi/10;(* phase of real hopping *)
+\[Gamma] = 2*Pi/L;(* effective flux *)
+\[Phi] = 0*2*Pi/3;(* phase of real hopping *)
 U = 2.0;(* Hubbard interaction *)
+nParticles = L;(* number of particles *)
 \[Mu] = 0;(* chemical potential term *)
 
-realPBC = True;
-syntheticPBC = True;
+realPBC = False;
+syntheticPBC = False;
 
 
 (* local potential *)
@@ -45,11 +46,11 @@ Length[Parameters]
 QnsSectorList = SectorList[L, f, Norb, EdMode];
 Sectors = BuildSector[L, f, Norb, #, EdMode]&/@QnsSectorList;
 
-HalfFilledSector = BuildSector[L, f, Norb, {L}, EdMode];
+HalfFilledSector = BuildSector[L, f, Norb, {nParticles}, EdMode];
 IntegerDigits[#,2,L]&/@HalfFilledSector
 
 Hblocks = Join[
-	First @ Hnonint[L, f, Norb, {HalfFilledSector}, EdMode, RealPBC -> realPBC, SyntheticPBC -> syntheticPBC, RealPhase -> ConstantArray[\[Phi], f], SyntheticPhase -> \[Gamma]],
+	First @ Hnonint[L, f, Norb, {HalfFilledSector}, EdMode, RealPBC -> realPBC, SyntheticPBC -> syntheticPBC, RealPhase -> {\[Phi]/2, -\[Phi]/2}, SyntheticPhase -> \[Gamma]],
 	First @ HLocal[L, f, Norb, {HalfFilledSector}, EdMode, Nimp -> L]
 ];
 Length[Hblocks]
