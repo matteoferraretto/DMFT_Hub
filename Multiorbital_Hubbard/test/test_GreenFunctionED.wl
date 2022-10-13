@@ -9,11 +9,11 @@ FolderPath = NotebookDirectory[];
 
 
 (* ::Subtitle:: *)
-(*Test the function for Norb = 1*)
+(*Test for the non interacting chain*)
 
 
 ClearAll["Global`*"];
-L = 4;
+L = 7;
 f = 1;
 Norb = 1;
 EdMode = "Normal";
@@ -49,8 +49,6 @@ H = SparseArray[#]&/@(
 (*energies = Eigenvalues[#]&/@H;
 eigenstates = Eigenvectors[#]&/@H;*)
 eigs = Eigensystem[#]&/@H;
-energies = eigs[[All,1]];
-eigenstates = eigs[[All,2]];
 
 
 d\[Omega] = 0.005; \[Eta] = 0.1;
@@ -58,7 +56,9 @@ zlist = Table[n*d\[Omega], {n, -800,800}] + \[Eta]*I;
 \[Epsilon][k_] := -2*t*Cos[k];
 kvalues = Table[2Pi*n/L, {n, 0, L-1}]
 
-gf = GreenFunctionED[L, f, Norb, {1,1}, 1, 1, Sectors, QnsSectorList, eigs, 0.01, zlist, EdMode, NormalizedFunction->True];
+AbsoluteTiming[
+	gf = GreenFunctionED[L, f, Norb, {1,1}, 1, 1, Sectors, QnsSectorList, eigs, 3.0, zlist, EdMode, NormalizedFunction->True];
+]
 
 ListPlot[
 	{Re[zlist], -(1/Pi)*Im[gf]}\[Transpose],
@@ -71,8 +71,50 @@ Show[
 	ListPlot[{kvalues, \[Epsilon]/@kvalues}\[Transpose],PlotStyle->{Blue,PointSize[.02]}]
 ]
 
-
 (* total area under the spectral function. It should be around 1, not exactly 1 due to the presence of broadening \[Eta] *)
 Total[
 	-(1/Pi)*Im[gf]*d\[Omega]
 ]
+
+
+(* ::Subtitle:: *)
+(*Test for the atomic limit*)
+
+
+ClearAll["Global`*"];
+L = 1;
+f = 2;
+Norb = 1;
+EdMode = "Normal";
+T = 0.1;(* temperature *)
+U = {5.0};
+\[Mu] = U[[1]]/2;
+
+Parameters = Flatten[{U, -\[Mu]}];
+
+QnsSectorList = SectorList[L, f, Norb, EdMode]
+Sectors = BuildSector[L, f, Norb, #, EdMode]&/@QnsSectorList;
+
+Hblocks = HLocal[L, f, Norb, Sectors, EdMode];
+Dimensions[Hblocks]
+
+H = SparseArray[#]&/@(
+	Sum[Parameters[[i]]*#[[i]],{i,1,Length@Parameters}]&/@Hblocks
+	)
+
+eigs = Eigensystem[#]&/@H;
+
+d\[Omega] = 0.005; \[Eta] = 0.05;
+zlist = Table[n*d\[Omega], {n, -800,800}] + \[Eta]*I;
+
+AbsoluteTiming[
+	gf = GreenFunctionED[L, f, Norb, {1,1}, 1, 1, Sectors, QnsSectorList, eigs, T, zlist, EdMode, NormalizedFunction->True];
+]
+
+ListPlot[
+	{Re[zlist], -(1/Pi)*Im[gf]}\[Transpose],
+	PlotRange->All,
+	AxesLabel->{"\[Omega]","DoS"}]
+
+
+
