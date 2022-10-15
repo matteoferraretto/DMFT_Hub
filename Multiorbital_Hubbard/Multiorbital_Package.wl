@@ -803,6 +803,66 @@ Hnonint[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 Options[Hnonint] = {RealPBC -> True, SyntheticPBC -> False, RealPhase -> {0}, SyntheticPhase -> 0};
 
 
+(*                       LANCZOS                       *)
+Lanczos[H_, StartingVector_, OptionsPattern[]] := Module[{
+	miniter = OptionValue[MinIter],
+	maxiter = OptionValue[MaxIter],
+	\[Epsilon] = OptionValue[ConvergenceThreshold],
+	shift = OptionValue[Shift],
+	a,b,a0,b1,v,w,HKrilov,E0old,E0new,nfinal
+	},
+	(* initialize array of a_n :  a[1]=a_0 , a[1+n]=a_n *)
+	a = ConstantArray[0, maxiter+1];
+	(*initialize array of b_n : b[n]=b_n *)
+	b = ConstantArray[0, maxiter];
+	(* initialize starting vector *)
+	v = Normalize[StartingVector];
+	(* initialize a new vector w = Hv *)
+	w = H . v;
+	a0 = (Conjugate[v]) . w;
+	w = w - a0*v;
+	b1 = Norm[w];
+	a[[1]] = a0; b[[1]] = b1;
+	E0old = a0;
+	nfinal = maxiter;
+	Do[
+		If[b[[n]] < \[Epsilon] && n >= miniter,
+			nfinal = n; Break[];
+		];
+		w = w/b[[n]];(* w=Subscript[v, n] *)
+		v = -b[[n]]*v;(* v=-Subscript[b, n]Subscript[v, n-1]*)
+		{v,w} = {w,v};
+		w = w + H . v;(* w=Subscript[Hv, n]-Subscript[b, n]Subscript[v, n-1] *)
+		a[[n+1]] = (Conjugate@v) . w; (*Subscript[a, n] = Subscript[v, n]Subscript[Hv, n]-Subscript[b, n]Subscript[v, n]Subscript[v, n-1]*)
+		w = w - a[[n+1]] * v;
+		If[n < maxiter,
+			b[[n+1]] = Norm[w];
+		];
+		(*Build hamiltonian in the Krylov subspace*)
+		HKrilov = SparseArray[{
+			Band[{1,2}] -> Take[b, n],
+			Band[{2,1}] -> Take[b, n],
+			Band[{1,1}] -> Take[a, n+1]
+		},{n+1, n+1}];
+		E0new = If[shift==0,
+			Min@Eigenvalues@HKrilov,
+		(*else*)	
+			Eigenvalues[HKrilov-DiagonalMatrix[ConstantArray[shift,1+n]]][[1]]+shift
+		];
+		If[Abs[E0new-E0old] < \[Epsilon] && n > miniter,
+			nfinal = n; Break[];
+		];
+		E0old=E0new;
+	,{n,1,maxiter}];
+	a = Take[a, nfinal+1];
+	b = Take[b, nfinal];
+	{E0new,a,b}
+];
+Options[Lanczos] = {ConvergenceThreshold -> 1.0*10^(-8), MinIter -> 2, MaxIter -> 2000, Shift -> 0};
+
+(* i,j element of the inverse matrix *)
+InverseElement[m_, {i_,j_}] := (-1)^(i+j)Det[Drop[m,{j},{i}]]/Det[m];
+
 
 (*                APPLY CDG / C TO STATES             *)
 (* apply cdg_{j,\[Sigma],orb} |gs>, where |gs> belongs to the sector with quantum numbers qns and give the resulting vector resized to fit the dimension of the sector obtained adding a particle with state label (j,\[Sigma],orb)*)
