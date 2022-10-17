@@ -865,6 +865,70 @@ InverseElement[m_, {i_,j_}] := (-1)^(i+j)Det[Drop[m,{j},{i}]]/Det[m];
 
 
 (*                APPLY CDG / C TO STATES             *)
+(* find the quantum number of the final state after application of operator_{j,\[Sigma],orb} to a state living in the sector qns *)
+FinalSector[L_, f_, Norb_, j_, \[Sigma]_, orb_, qns_, operator_, EdMode_] := Module[
+	{newqns = qns},
+	Which[
+		operator == "Creation",
+		Which[
+			EdMode == "Normal",
+			If[qns[[f*(orb-1)+\[Sigma]]] == L, Return[]];  (* trivial case: return Null if final sector does not exist *)
+			newqns[[f*(orb-1)+\[Sigma]]] += 1;,
+		(* ---------------------------- *)
+			EdMode == "InterorbNormal",
+			If[qns[[\[Sigma]]] == Norb*L, Return[]]; (* trivial case: return Null if sector does not exist *)
+			newqns[[\[Sigma]]] += 1;,
+		(* ---------------------------- *)
+			EdMode == "Superc",
+			If[f>2, Return["error. f>2 not supported with EdMode = ''Superc''"];];
+			If[(qns[[orb]] == -L && \[Sigma] == 2) || (qns[[orb]] == L && \[Sigma] == 1), Return[]];  (* trivial case: return Null if sector does not exist *)
+			Which[
+				\[Sigma]==1, newqns[[orb]] += 1,
+				\[Sigma]==2, newqns[[orb]] -= 1
+			];,
+		(* ---------------------------- *)
+			EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
+			If[f>2, Return["error. f>2 not supported with EdMode = ''FullSuperc'' or ''InterorbSuperc''"];];
+			If[(qns == -Norb*L && \[Sigma]==2) || (qns == Norb*L && \[Sigma]==1), Return[]];  (* trivial case: return Null if final sector does not exist. *)
+			Which[
+				\[Sigma]==1, newqns+=1,
+				\[Sigma]==2, newqns-=1
+			];
+		],
+	(* ------------------------------------------ *)	
+		operator == "Annihilation",
+		Which[
+			EdMode == "Normal",
+			If[qns[[f*(orb-1)+\[Sigma]]] == 0, Return[]];  (* trivial case *)
+			newqns[[f*(orb-1)+\[Sigma]]] -= 1;,
+		(* ---------------------------- *)
+			EdMode == "InterorbNormal",
+			If[qns[[\[Sigma]]] == 0, Return[]];  (* trivial case *)
+			newqns[[\[Sigma]]] -= 1;,
+		(* ---------------------------- *)
+			EdMode == "Superc",
+			If[f>2, Return["error. f>2 not supported with EdMode = ''Superc''"];];
+			If[(qns[[orb]] == -L && \[Sigma] == 1) || (qns[[orb]] == L && \[Sigma] == 2), Return[]];  (* trivial case *)
+			Which[
+				\[Sigma]==1, newqns[[orb]] -= 1,
+				\[Sigma]==2, newqns[[orb]] += 1
+			];,
+		(* ---------------------------- *)
+			EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
+			If[f>2, Return["error. f>2 not supported with EdMode = ''FullSuperc'' or ''InterorbSuperc''"];];
+			If[(qns == -Norb*L && \[Sigma]==1) || (qns == Norb*L && \[Sigma]==2), Return[]];  (* trivial case *)
+			Which[
+				\[Sigma]==1, newqns -= 1,
+				\[Sigma]==2, newqns += 1
+			];
+		],
+	(* ------------------------------------------ *)	
+		operator == "Density",
+		newqns = qns;	
+	];
+	newqns
+];
+
 (* apply cdg_{j,\[Sigma],orb} |gs>, where |gs> belongs to the sector with quantum numbers qns and give the resulting vector resized to fit the dimension of the sector obtained adding a particle with state label (j,\[Sigma],orb)*)
 ApplyCdg[L_, f_, Norb_, j_, \[Sigma]_, orb_, gs_, qns_, Sectors_, SectorsDispatch_, EdMode_] := Module[
 	{newqns = qns,startingsector = Sectors[[qns/.SectorsDispatch]],finalsector, newdim,sign,dispatch,pos,newpos,coeff,\[Psi]1,\[Chi]},
@@ -984,32 +1048,8 @@ GreenFunctionED[L_, f_, Norb_, {i_,j_}, \[Sigma]_, orb_, Sectors_, QnsSectorList
 		cols = \[Psi]1/.dispatch;
 		sign = CSign[L, f, j, \[Sigma], orb, \[Psi]1];
 		(* get final sector *)
-		newqns = qns;
-		Which[
-			EdMode == "Normal",
-			If[qns[[f*(orb-1)+\[Sigma]]] == L, Continue[];];  (* trivial case *)
-			newqns[[f*(orb-1)+\[Sigma]]] += 1;,
-	(* ---------------------------- *)
-			EdMode == "InterorbNormal",
-			If[qns[[\[Sigma]]] == Norb*L, Continue[];];  (* trivial case *)
-			newqns[[\[Sigma]]] += 1;,
-	(* ---------------------------- *)
-			EdMode == "Superc",
-			If[f>2, Return["error. f>2 not supported with EdMode = ''Superc''"];];
-			If[(qns[[orb]] == -L && \[Sigma] == 2) || (qns[[orb]] == L && \[Sigma] == 1), Continue[];];  (* trivial case *)
-			Which[
-				\[Sigma]==1, newqns[[orb]] += 1,
-				\[Sigma]==2, newqns[[orb]] -= 1
-			],
-	(* ---------------------------- *)
-			EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
-			If[f>2, Return["error. f>2 not supported with EdMode = ''FullSuperc'' or ''InterorbSuperc''"];];
-			If[(qns == -Norb*L && \[Sigma] == 2) || (qns == Norb*L && \[Sigma] == 1), Continue[];];  (* trivial case *)
-			Which[
-				\[Sigma]==1, newqns += 1,
-				\[Sigma]==2, newqns -= 1
-			]
-		];
+		newqns = FinalSector[L, f, Norb, 1, \[Sigma], orb, qns, "Creation", EdMode];
+		If[newqns == Null, Continue[];];
 		finalsector = Sectors[[newqns/.SectorsDispatch]];
 		newdim = Length[finalsector];
 		dispatch = Dispatch[Flatten[MapIndexed[{#1->#2[[1]]}&,finalsector],1]];
