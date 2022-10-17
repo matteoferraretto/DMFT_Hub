@@ -45,6 +45,7 @@ CSign::usage = "."
 CreateParticleSelect::usage = "."
 DestroyParticleSelect::usage = "."
 GreenFunctionED::usage = "GreenFunctionED[L, f, Norb, {i,j}, \[Sigma], orb, Sectors, QnsSectorList, eigs, T, zlist, EdMode]"
+GreenFunctionLanczos::usage = "GreenFunctionLanczos[L_, f_, Norb_, \[Sigma]_, orb_, Egs_, gs_, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, EdMode_, zlist_]"
 
 
 (* Fermionic ladder Hamiltonian defining functions *)
@@ -1085,6 +1086,74 @@ GreenFunctionED[L_, f_, Norb_, {i_,j_}, \[Sigma]_, orb_, Sectors_, QnsSectorList
 	G/Z
 ];
 Options[GreenFunctionED] = {NormalizedFunction -> False};
+
+(* impurity Green function (spin and orbital diagonal part) *)
+GreenFunctionLanczos[L_, f_, Norb_, \[Sigma]_, orb_, Egs_, gs_, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, EdMode_, zlist_]:=Module[
+	{startingsector = Sectors[[GsQns/.SectorsDispatch]],
+	newqns = GsQns,
+	GF = ConstantArray[0, Length[zlist]],
+	finalsector, newdim, sign, dispatch, pos, newpos, coeff, \[Psi]1, \[Chi], cdggs, cgs, norm, H, E0, a, b},
+(* STEP 1:   apply Cdg_\[Sigma],orb | gs > *)	
+	(* 1.1:   check which states of the starting sector can host an extra particle *)
+	dispatch = Dispatch[Flatten[MapIndexed[{#1->#2[[1]]}&,startingsector],1]];
+	\[Psi]1 = CreateParticleSelect[L, f, 1, \[Sigma], orb, startingsector];
+	pos = \[Psi]1/.dispatch;
+	(* 1.2:   compute the resulting vector components *)
+	sign = CSign[L, f, 1, \[Sigma], orb, \[Psi]1]; (* correct signs obtained moving cdg to the correct position *)
+	coeff = gs[[pos]]*sign;(* list of coefficients that remain non vanishing *)
+	(* 1.3:   build the final sector with an extra particle *)
+	newqns = FinalSector[L, f, Norb, 1, \[Sigma], orb, GsQns, "Creation", EdMode];
+	If[newqns == Null, Return[GF]];
+	finalsector = Sectors[[newqns/.SectorsDispatch]];
+	newdim = Length[finalsector];
+	(* 1.4:  find the new positions where the entries of gs should go after applying cdg_spin *)
+	dispatch = Dispatch[Flatten[MapIndexed[{#1->#2[[1]]}&,finalsector],1]];
+	\[Chi] = cdg[L, f, 1, \[Sigma], orb, \[Psi]1];
+	newpos = \[Chi]/.dispatch;
+	(* 1.5:   resulting vector *)
+	cdggs = SparseArray[Thread[newpos->coeff], newdim];
+	norm = (Conjugate@cdggs) . cdggs;
+(* STEP 2:    *)
+	(* 2.1:   find Hamiltonian block in the final sector and the corresponding Krylov matrix *)
+	H = Hsectors[[newqns/.SectorsDispatch]];
+	{E0, a, b} = Lanczos[H, cdggs/norm];
+	Print[newqns," ", E0];
+	H = SparseArray[DiagonalMatrix[b, 1] + DiagonalMatrix[b, -1] + DiagonalMatrix[a]];(* Krylov matrix in the final sector *)
+	GF += norm*(
+		InverseElement[
+			SparseArray[(# + Egs) * IdentityMatrix[Length[a]] - H]
+		, {1, 1}]&/@zlist);(* <gs|c cdg |gs> ((z - (HKrylov - Egs))^-1)[[1,1]] *)
+(* STEP 3:   apply C_\[Sigma],orb | gs > *)	
+	(* 3.1:   check which states of the starting sector can host an extra particle *)
+	dispatch = Dispatch[Flatten[MapIndexed[{#1->#2[[1]]}&,startingsector],1]];
+	\[Psi]1 = DestroyParticleSelect[L, f, 1, \[Sigma], orb, startingsector];
+	pos = \[Psi]1/.dispatch;
+	(* 3.2:   compute the resulting vector components *)
+	sign = CSign[L, f, 1, \[Sigma], orb, \[Psi]1]; (* correct signs obtained moving c to the correct position *)
+	coeff = gs[[pos]]*sign;(* list of coefficients that remain non vanishing *)
+	(* 3.3:   build the final sector with an extra hole *)
+	newqns = FinalSector[L, f, Norb, 1, \[Sigma], orb, GsQns, "Annihilation", EdMode];
+	If[newqns == Null, Return[GF]]; 
+	finalsector = Sectors[[newqns/.SectorsDispatch]];
+	newdim = Length[finalsector];
+	(* 3.4:  find the new positions where the entries of gs should go after applying cdg_spin *)
+	dispatch = Dispatch[Flatten[MapIndexed[{#1->#2[[1]]}&,finalsector],1]];
+	\[Chi] = c[L, f, 1, \[Sigma], orb, \[Psi]1];
+	newpos = \[Chi]/.dispatch;
+	(* 3.5:   resulting vector *)
+	cgs = SparseArray[Thread[newpos->coeff], newdim];
+	norm = (Conjugate@cgs) . cgs;
+(* STEP 4:    *)
+	(* 4.1:   find Hamiltonian block in the final sector and the corresponding Krylov matrix *)
+	H = Hsectors[[newqns/.SectorsDispatch]];
+	{E0, a, b} = Lanczos[H, cgs/norm];
+	H = SparseArray[DiagonalMatrix[b, 1] + DiagonalMatrix[b, -1] + DiagonalMatrix[a]];(* Krylov matrix in the final sector *)
+	GF += norm*(
+		InverseElement[
+			SparseArray[(# - Egs) * IdentityMatrix[Length[a]] + H]
+		, {1, 1}]&/@zlist);(* <gs|cdg c |gs> ((z + (HKrylov - Egs))^-1)[[1,1]] *)
+	GF
+];
 
 
 End[];
