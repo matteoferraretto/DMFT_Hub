@@ -45,7 +45,8 @@ CSign::usage = "."
 CreateParticleSelect::usage = "."
 DestroyParticleSelect::usage = "."
 GreenFunctionED::usage = "GreenFunctionED[L, f, Norb, {i,j}, \[Sigma], orb, Sectors, QnsSectorList, eigs, T, zlist, EdMode]"
-GreenFunctionLanczos::usage = "GreenFunctionLanczos[L_, f_, Norb_, \[Sigma]_, orb_, Egs_, gs_, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, EdMode_, zlist_]"
+GreenFunctionImpurity::usage = "GreenFunctionImpurity[L_, f_, Norb_, \[Sigma]_, orb_, Egs_, gs_, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, EdMode_, zlist_]"
+GreenFunctionImpurityNambu::usage = "GreenFunctionImpurityNambu[L_, f_, Norb_, orb_, Egs_, Gs_, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, EdMode_, zlist_]"
 
 
 (* Fermionic ladder Hamiltonian defining functions *)
@@ -865,6 +866,7 @@ Options[Lanczos] = {ConvergenceThreshold -> 1.0*10^(-8), MinIter -> 2, MaxIter -
 InverseElement[m_, {i_,j_}] := (-1)^(i+j)Det[Drop[m,{j},{i}]]/Det[m];
 
 
+
 (*                APPLY CDG / C TO STATES             *)
 (* find the quantum number of the final state after application of operator_{j,\[Sigma],orb} to a state living in the sector qns *)
 FinalSector[L_, f_, Norb_, j_, \[Sigma]_, orb_, qns_, operator_, EdMode_] := Module[
@@ -1088,7 +1090,7 @@ GreenFunctionED[L_, f_, Norb_, {i_,j_}, \[Sigma]_, orb_, Sectors_, QnsSectorList
 Options[GreenFunctionED] = {NormalizedFunction -> False};
 
 (* impurity Green function (spin and orbital diagonal part) *)
-GreenFunctionLanczos[L_, f_, Norb_, \[Sigma]_, orb_, Egs_, gs_, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, EdMode_, zlist_]:=Module[
+GreenFunctionImpurity[L_, f_, Norb_, \[Sigma]_, orb_, Egs_, gs_, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, EdMode_, zlist_]:=Module[
 	{startingsector = Sectors[[GsQns/.SectorsDispatch]],
 	newqns = GsQns,
 	GF = ConstantArray[0, Length[zlist]],
@@ -1153,6 +1155,105 @@ GreenFunctionLanczos[L_, f_, Norb_, \[Sigma]_, orb_, Egs_, gs_, GsQns_, Hsectors
 			SparseArray[(# - Egs) * IdentityMatrix[Length[a]] + H]
 		, {1, 1}]&/@zlist);(* <gs|cdg c |gs> ((z + (HKrylov - Egs))^-1)[[1,1]] *)
 	GF
+];
+
+(* compute the impurity Green function in the Nambu formalism *)
+GreenFunctionImpurityNambu[L_, f_, Norb_, orb_, Egs_, Gs_, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, EdMode_, zlist_] := Module[{
+	(* compute cdg_s|gs> and c_s|gs> for s = up, dw *)
+	cdgup = ApplyCdg[L, f, Norb, 1, 1, orb, Normalize[Gs], GsQns, Sectors, SectorsDispatch, EdMode],
+	cdgdw = ApplyCdg[L, f, Norb, 1, 2, orb, Normalize[Gs], GsQns, Sectors, SectorsDispatch, EdMode],
+	cup = ApplyC[L, f, Norb, 1, 1, orb, Normalize[Gs], GsQns, Sectors, SectorsDispatch, EdMode],
+	cdw = ApplyC[L, f, Norb, 1, 2, orb, Normalize[Gs], GsQns, Sectors, SectorsDispatch, EdMode],
+	Odggs, Ogs, Pdggs, Pgs,
+	newqns, H, E0, a, b,
+	GFAparticle, GFAhole, GFBparticle, GFBhole, GFOparticle, GFOhole, GFO, GFPparticle, GFPhole, GFP, GFA, GFB, GF12, GF21},	
+(* compute all the main contributions to the Green function *)
+(*          G_O(z) "Particle" contribution             *)
+	Odggs = cdgup + cdw;(* apply Odg|gs> = (Cdg_up + C_dw)|gs> *)
+	newqns = FinalSector[L, f, Norb, 1, 1, orb, GsQns, "Creation", EdMode];
+	H = Hsectors[[newqns/.SectorsDispatch]];(*Hamiltonian on that sector*)
+	{E0,a,b} = Lanczos[H, Normalize[Odggs]];(* Apply Lanczos starting from Odg|gs> *)
+	H = SparseArray[DiagonalMatrix[b, 1] + DiagonalMatrix[b, -1] + DiagonalMatrix[a]];(* Krylov matrix in the final sector *)
+	GFOparticle = (Norm[Odggs]^2)*(
+		InverseElement[
+			SparseArray[(# + Egs) * IdentityMatrix[Length[a]] - H]
+		, {1, 1}] &/@ zlist);
+(*           G_O(z) "Hole" contribution               *)
+	Ogs = cup + cdgdw;(* apply (C_up + Cdg_dw)|gs> = O|gs> *)
+	newqns = FinalSector[L, f, Norb, 1, 1, orb, GsQns, "Annihilation", EdMode];
+	H = Hsectors[[newqns/.SectorsDispatch]];
+	{E0,a,b} = Lanczos[H, Normalize[Ogs]];
+	H = SparseArray[DiagonalMatrix[b, 1] + DiagonalMatrix[b, -1] + DiagonalMatrix[a]];(* Krylov matrix in the final sector *)
+	GFOhole = (Norm[Ogs]^2)*(
+		InverseElement[
+			SparseArray[(# - Egs) * IdentityMatrix[Length[a]] + H]
+		, {1, 1}] &/@ zlist);
+(*         G_P(z) "Particle" contribution           *)
+	Pdggs = cdgup + I*cdw;(* apply (Cdg_up + I*C_dw)|gs> = Pdg|gs> *)
+	newqns = FinalSector[L, f, Norb, 1, 1, orb, GsQns, "Creation", EdMode];(* if you create an up fermion or destroy a down fermion, you go from sz to sz+1 *)
+	H = Hsectors[[newqns/.SectorsDispatch]];(* Hamiltonian on that sector *)
+	{E0,a,b} = Lanczos[H, Normalize[Pdggs]];(*Apply Lanczos starting from Adg|gs> *)
+	H = SparseArray[DiagonalMatrix[b, 1] + DiagonalMatrix[b, -1] + DiagonalMatrix[a]];(* Krylov matrix in the final sector *)
+	GFPparticle = (Norm[Pdggs]^2)*(
+		InverseElement[
+			SparseArray[(# + Egs) * IdentityMatrix[Length[a]] - H]
+		, {1, 1}]&/@zlist);
+(*          G_P(z) "Hole" contribution             *)
+	Pgs = cup - I*cdgdw;(*apply (C_up - I*Cdg_dw)|gs> = P|gs> *)
+	newqns = FinalSector[L, f, Norb, 1, 1, orb, GsQns, "Annihilation", EdMode];(*if you remove an up fermion or create a down fermion, you go from sz to sz-1*)
+	H = Hsectors[[newqns/.SectorsDispatch]];
+	{E0,a,b} = Lanczos[H, Normalize[Pgs]];
+	H = SparseArray[DiagonalMatrix[b, 1] + DiagonalMatrix[b, -1] + DiagonalMatrix[a]];(* Krylov matrix in the final sector *)
+	GFPhole = (Norm[Pgs]^2)*(
+		InverseElement[
+			SparseArray[(# - Egs) * IdentityMatrix[Length[a]] + H]
+		, {1, 1}]&/@zlist);
+(*          G_up,up(z) "Particle" contribution             *)
+	newqns = FinalSector[L, f, Norb, 1, 1, orb, GsQns, "Creation", EdMode];
+	H = Hsectors[[newqns/.SectorsDispatch]];
+	{E0,a,b} = Lanczos[H, Normalize[cdgup]];
+	H = SparseArray[DiagonalMatrix[b, 1] + DiagonalMatrix[b, -1] + DiagonalMatrix[a]];(* Krylov matrix in the final sector *)
+	GFAparticle = (Norm[cdgup]^2)*(
+		InverseElement[
+			SparseArray[(# + Egs) * IdentityMatrix[Length[a]] - H]
+		, {1, 1}]&/@zlist);
+(*          G_up,up(z) "Hole" contribution             *)
+	newqns = FinalSector[L, f, Norb, 1, 1, orb, GsQns, "Annihilation", EdMode];
+	H = Hsectors[[newqns/.SectorsDispatch]];
+	{E0,a,b} = Lanczos[H, Normalize[cup]];
+	H = SparseArray[DiagonalMatrix[b, 1] + DiagonalMatrix[b, -1] + DiagonalMatrix[a]];(* Krylov matrix in the final sector *)
+	GFAhole = (Norm[cup]^2)*(
+		InverseElement[
+			SparseArray[(# - Egs) * IdentityMatrix[Length[a]] + H]
+		, {1, 1}]&/@zlist);
+(*          G_dw,dw(-z) "Particle" contribution             *)
+	newqns = FinalSector[L, f, Norb, 1, 2, orb, GsQns, "Creation", EdMode];
+	H = Hsectors[[newqns/.SectorsDispatch]];
+	{E0,a,b} = Lanczos[H, Normalize[cdgdw]];
+	H = SparseArray[DiagonalMatrix[b, 1] + DiagonalMatrix[b, -1] + DiagonalMatrix[a]];(* Krylov matrix in the final sector *)
+	GFBparticle = (Norm[cdgdw]^2)*(
+		InverseElement[
+			SparseArray[(# + Egs) * IdentityMatrix[Length[a]] - H]
+		, {1, 1}]&/@(-zlist));		
+(*          G_dw,dw(-z) "Hole" contribution             *)
+	newqns = FinalSector[L, f, Norb, 1, 2, orb, GsQns, "Annihilation", EdMode];	
+	H = Hsectors[[newqns/.SectorsDispatch]];
+	{E0,a,b} = Lanczos[H, Normalize[cdw]];
+	H = SparseArray[DiagonalMatrix[b, 1] + DiagonalMatrix[b, -1] + DiagonalMatrix[a]];(* Krylov matrix in the final sector *)
+	GFBhole = (Norm[cdw]^2)*(
+		InverseElement[
+			SparseArray[(# - Egs) * IdentityMatrix[Length[a]] + H]
+		, {1, 1}]&/@(-zlist));					
+(*          Build Green function components               *)	
+	GFA = GFAparticle + GFAhole;(* G_upup(z) *)
+	GFB = -(GFBparticle + GFBhole);(* -G_dwdw(-z) *)
+	GFO = GFOparticle + GFOhole;(* G_0(z) *)
+	GFP = GFPparticle + GFPhole;(* G_P(z) *)
+	(*compute the off-diagonal part using the diagonal part and GFO, GFP*)
+	GF12 = (1./2.)*(GFO - I*GFP - 1.*(1 - I)*(GFA + GFB));
+	GF21 = (1./2.)*(GFO + I*GFP - 1.*(1 + I)*(GFA + GFB));
+	(* return a list with NMatsubara 2x2 matrices, each of them being the G.F. at that specific frequency *)
+	Partition[#,2]&/@({GFA,GF12,GF21,GFB}\[Transpose])
 ];
 
 
