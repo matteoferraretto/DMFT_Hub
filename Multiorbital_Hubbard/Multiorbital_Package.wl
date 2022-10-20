@@ -3,6 +3,9 @@
 BeginPackage["DMFT`"]
 
 
+Eigs::usage = "Eigs[Temperature] "
+
+
 StartingBath::usage = "StartingBath[L, f, Norb, InitializeBathMode, EdMode] returns a list containing the bath parameters to start the DMFT loop.
 If EdMode = ''Normal'' then the output has the form {e,V}, where e and V are lists of Norb x (L-1) elements, representing the bath energies and the bath-impurity hybridizations.
 If EdMode = ''Superc'' then the output has the form {e,V,\[CapitalDelta]}, where e and V are defined as above, and \[CapitalDelta] is the Norb x Nbath dimensional list of pairs creation (annihilation) amplitudes.
@@ -37,7 +40,9 @@ HNonlocalInfo::usage = "HNonlocalInfo[L, f, Norb, EdMode] prints useful info abo
 
 HLocal::usage = "HLocal[L, f, Norb, Sectors, EdMode] "
 
-HImp::usage = "..."
+GetHamiltonian::usage = "GetHamiltonian[L_, f_, Norb_, Sectors_, LoadHamiltonianQ_, HnonlocFile_, HlocFile_, EdMode_]"
+
+HImp::usage = "HImp[Norb_, HnonlocBlocks_, HlocBlocks_, BathParameters_, InteractionParameters_, EdMode_]"
 
 cdg::usage = "."
 c::usage = "."
@@ -47,6 +52,7 @@ DestroyParticleSelect::usage = "."
 GreenFunctionED::usage = "GreenFunctionED[L, f, Norb, {i,j}, \[Sigma], orb, Sectors, QnsSectorList, eigs, T, zlist, EdMode]"
 GreenFunctionImpurity::usage = "GreenFunctionImpurity[L_, f_, Norb_, \[Sigma]_, orb_, Egs_, gs_, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, EdMode_, zlist_]"
 GreenFunctionImpurityNambu::usage = "GreenFunctionImpurityNambu[L_, f_, Norb_, orb_, Egs_, Gs_, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, EdMode_, zlist_]"
+GreenFunction0::usage = "GreenFunction0[L_, f_,\[Mu]_, symbols_, z_, EdMode_]"
 
 
 (* Fermionic ladder Hamiltonian defining functions *)
@@ -55,6 +61,17 @@ Hnonint::usage = "Hnonint[L, f, Norb, Sectors, EdMode]. Optional arguments: Real
 
 Begin["`Private`"];
 
+
+(* compute eigenstates *)
+Eigs[Temperature_, OptionsPattern[]]:=
+	If[Temperature == 0,
+		If[Length[#] >= OptionValue[MinLanczosDim],
+			-Eigensystem[-#,1,Method->{"Arnoldi","Criteria"->"RealPart"}],
+		(*else*)
+			Sort[Transpose[Eigensystem[#]]][[1]]
+		]
+	]&;
+Options[Eigs] = {MinLanczosDim -> 32};
 
 (* Initialize starting bath *)
 StartingBath[L_, f_, Norb_, InitializeBathMode_, EdMode_] := Module[
@@ -402,7 +419,6 @@ Hop = Compile[{
 ];
 
 (* number of particles on site i with spin \[Sigma] in orbital orb *)
-nOld[L_, f_, Norb_, i_, \[Sigma]_, orb_, state_] := (IntegerDigits[#,2,L]&@state[[f*(orb-1)+\[Sigma]]])[[i]];
 n = Compile[{
 	{L,_Integer}, {f,_Integer}, {Norb,_Integer}, {i,_Integer}, {\[Sigma],_Integer}, {orb,_Integer}, {state,_Integer,1}},
 	(IntegerDigits[#,2,L]&@state[[f*(orb-1)+\[Sigma]]])[[i]],
@@ -712,12 +728,29 @@ HLocal[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 Options[HLocal] = {Nimp -> 1};
 
 
-HImp[L_, f_, Norb_, Sectors_, BathParameters_, InteractionParameters_, EdMode_] := Module[{
-	HnonlocBlocks = HNonlocal[L, f, Norb, Sectors, EdMode],
-	HlocBlocks = HLocal[L, f, Norb, Sectors, EdMode],
-	EffectiveInteractionParameters,
-	Hloc, Hnonloc
-	},
+(* Get the Hamiltonian structure once for all *)
+GetHamiltonian[L_, f_, Norb_, Sectors_, LoadHamiltonianQ_, HnonlocFile_, HlocFile_, EdMode_] := Module[
+	{HnonlocBlocks, HlocBlocks},
+	If[LoadHamiltonianQ,
+		Print["Getting Hamiltonians from file"];
+		HnonlocBlocks = Import[HnonlocFile];
+		HlocBlocks = Import[HlocFile];
+		Print["Done! Let's get started! \n"],
+	(* else *)
+		Print["Computing Hamiltonians..."];
+		Print["Time: ", First @ AbsoluteTiming[
+			HnonlocBlocks = HNonlocal[L, f, Norb, Sectors, EdMode];
+			Export[HnonlocFile, HnonlocBlocks];
+			HlocBlocks = HLocal[L, f, Norb, Sectors, EdMode];
+			Export[HlocFile, HlocBlocks];
+		]," sec."];
+		Print["Done! Let's get started! \n"];
+	];
+	{HnonlocBlocks, HlocBlocks}
+];
+
+HImp[Norb_, HnonlocBlocks_, HlocBlocks_, BathParameters_, InteractionParameters_, EdMode_] := Module[
+	{EffectiveInteractionParameters, Hloc, Hnonloc},
 	EffectiveInteractionParameters = Which[
 		Norb == 1,
 		(* with 1 orbital, delete Jse, Jph, Usec, Ust, at positions -2, -3, -4, -5 *)
@@ -865,6 +898,52 @@ Options[Lanczos] = {ConvergenceThreshold -> 1.0*10^(-8), MinIter -> 2, MaxIter -
 (* i,j element of the inverse matrix *)
 InverseElement[m_, {i_,j_}] := (-1)^(i+j)Det[Drop[m,{j},{i}]]/Det[m];
 
+
+(* ANALYTIC EVALUATION OF NONINTERACTING IMPURITY GREEN FUNCTION *)
+GreenFunction0[L_, f_,\[Mu]_, symbols_, z_, EdMode_] := Module[
+	{e, V, \[CapitalDelta], H, G},
+	Which[
+		EdMode == "Normal",
+		e = symbols[[1;;L-1]];
+		V = symbols[[L;;2(L-1)]];
+		(* the spinor is (d, c_1, c_2, ...) *)
+		H = SparseArray[{
+			{i_,j_}/;(i==1&&j>1):>V[[j-1]]
+		},
+		{L,L}];
+		H = H + H\[Transpose];
+		H += SparseArray[{
+			{1,1}->-\[Mu],
+		{i_,i_}/;(i>1):>e[[i-1]]
+		},
+		{L,L}];
+		G = InverseElement[SparseArray[z*IdentityMatrix[L]-H], {1,1}];,
+	(* ------------------------ *)
+		EdMode == "Superc",
+		e = symbols[[1;;L-1]];
+		V = symbols[[L;;2(L-1)]];
+		\[CapitalDelta] = symbols[[2L-1;;3(L-1)]];
+		(* the spinor is (d_up, ddg_dw, c_1up, cdg_1dw, c_2up, cdg_2dw, ... *)
+		H = SparseArray[{
+			{i_,j_}/;(j==i+1&&i>2&&Mod[i,f]==1):>\[CapitalDelta][[Quotient[i,f]]],
+			{i_,j_}/;(i==1&&j>2&&Mod[j,f]==1):>V[[Quotient[j,f]]],
+			{i_,j_}/;(i==2&&j>2&&Mod[j,f]==0):>-V[[Quotient[j-1,f]]]
+		},
+		{f*L, f*L}];
+		H = H + H\[Transpose];
+		H += SparseArray[{
+			{1, 1}->-\[Mu], {2,2}->\[Mu],
+			{i_,i_}/;(i>2&&Mod[i,f]==1):>e[[Quotient[i-1,f]]],
+			{i_,i_}/;(i>2&&Mod[i,f]==0):>-e[[Quotient[(i-2),f]]]
+		},
+		{f*L,f*L}
+		];
+		G = Table[
+			InverseElement[SparseArray[z*IdentityMatrix[f*L]-H], {i,j}]
+		,{i,1,2},{j,1,2}];(* the IMPURITY part of the Green function is the 2x2 top left block *)
+	];
+G
+];
 
 
 (*                APPLY CDG / C TO STATES             *)
