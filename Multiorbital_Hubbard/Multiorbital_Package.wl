@@ -6,6 +6,14 @@ BeginPackage["DMFT`"]
 Eigs::usage = "Eigs[Temperature] "
 
 
+(* General facilities *)
+Eigs::usage = "Eigs[H] returns the lowest eigenvalue(s) and the corresponding eigenvector(s) of H in the form {values, vectors}. There are several optional arguments: '
+'Temperature'', ''MinLanczosDim'', ''DegeneracyThreshold'', ''BoltzmannThreshold''. 
+If ''Temperature'' -> 0 (default), then the function returns only the lowest eigenstate(s) with the respective degeneracies. Two states are considered degenerate when the difference of 
+their energies is below the desired ''DegeneracyThreshold'' (\!\(\*SuperscriptBox[\(10\), \(-9\)]\) is the default).
+If ''Temperature'' is >0, then all the lowest eigenstates with a Boltzmann weight above ''BoltzmannThreshold'' are returned (\!\(\*SuperscriptBox[\(10\), \(-9\)]\) is the default). 
+The option ''MinLanczosDim'' establishes a threshold on the matrix dimension, above which the Lanczos method is adopted and below which full diagonalization is performed (32 by default)."
+
 StartingBath::usage = "StartingBath[L, f, Norb, InitializeBathMode, EdMode] returns a list containing the bath parameters to start the DMFT loop.
 If EdMode = ''Normal'' then the output has the form {e,V}, where e and V are lists of Norb x (L-1) elements, representing the bath energies and the bath-impurity hybridizations.
 If EdMode = ''Superc'' then the output has the form {e,V,\[CapitalDelta]}, where e and V are defined as above, and \[CapitalDelta] is the Norb x Nbath dimensional list of pairs creation (annihilation) amplitudes.
@@ -63,17 +71,13 @@ Begin["`Private`"];
 
 
 (* compute eigenstates *)
-(*Eigs[Temperature_, OptionsPattern[]]:=
-	If[Temperature == 0,
-		If[Length[#] >= OptionValue[MinLanczosDim],
-			-Eigensystem[-#,1,Method->{"Arnoldi","Criteria"->"RealPart"}],
-		(*else*)
-			Sort[Transpose[Eigensystem[#]]][[1]]
-		]
-	]&;
-Options[Eigs] = {MinLanczosDim -> 32};*)
 Eigs[H_, OptionsPattern[]] := Module[
-	{values, vectors, eigs, dim = Length[H], T = OptionValue["Temperature"], \[Epsilon]deg = OptionValue["DegeneracyThreshold"]},
+	{values, vectors, eigs, 
+	dim = Length[H], 
+	T = OptionValue["Temperature"], 
+	\[Epsilon]deg = OptionValue["DegeneracyThreshold"], 
+	\[Epsilon]temp = - OptionValue["Temperature"] * Log[OptionValue["BoltzmannThreshold"]]
+	},
 	If[dim <= OptionValue["MinLanczosDim"],
 		(* if the matrix is small, just compute the full spectrum *)
 		eigs = Eigensystem[H];
@@ -83,14 +87,20 @@ Eigs[H_, OptionsPattern[]] := Module[
 		If[T == 0,
 			(* return just the ground state, taking into account possible degeneracies *)
 			Return[
-				Take[#, 
+				Take[#,
 					Count[
-						values, x_/;Abs[x - Min[values]] < \[Epsilon]deg
+						values, x_/;(Abs[x - values[[1]]] < \[Epsilon]deg)
 					]
-				]&/@eigs	
+				]&/@eigs
 			],
-		(* else *)
-			Return["todo"]
+		(* else, if T != 0 *)
+			Return[
+				Take[#,
+					Count[
+						values, x_/;((Abs[x - values[[1]]] < \[Epsilon]temp) || (Abs[x - values[[1]]] < \[Epsilon]deg))
+					]
+				]&/@eigs
+			]
 		],
 	(* else *)
 		(* if the matrix is large, apply Lanczos *)
@@ -98,15 +108,21 @@ Eigs[H_, OptionsPattern[]] := Module[
 			eigs = -Eigensystem[-H, n, Method->{"Arnoldi","Criteria"->"RealPart"}];
 			values = eigs[[1]];
 			(* sometimes if H has degeneracies, eigenvalues are not sorted properly. We fix this by the following code *)
-				If[values[[1]] > values[[2]], values = Sort[values]; eigs = SortBy[eigs\[Transpose], First]\[Transpose];];
+			If[values[[1]] > values[[2]], values = Sort[values]; eigs = SortBy[eigs\[Transpose], First]\[Transpose];];
 			(* end of fixing line *)
-			(* if there are no degeneracies, break the loop *)
-			If[Abs[values[[-1]] - values[[-2]]] > \[Epsilon]deg, Break[];];
+			(* condition for stopping the loop *)
+			If[T == 0,
+				(* if there are no degeneracies, break the loop *)
+				If[Abs[values[[-1]] - values[[-2]]] > \[Epsilon]deg, Break[];];,
+			(* else if T != 0 *)
+				(* if the n-th Boltzmann weight is below threshold and there are no degeneracies, break the loop *)
+				If[(Abs[values[[-1]] - values[[-2]]] > \[Epsilon]deg) && (Abs[values[[-1]] - values[[1]]] > \[Epsilon]temp), Break[];];
+			];
 		, {n, 2, dim}];
-		Return[Drop[#,-1] &/@ eigs];
+		Return[Drop[#,-1] &/@ eigs]
 	];
 ];
-Options[Eigs] = {"Temperature" -> 0, "MinLanczosDim" -> 2, "DegeneracyThreshold" -> 10^(-9)};
+Options[Eigs] = {"Temperature" -> 0, "MinLanczosDim" -> 32, "DegeneracyThreshold" -> 10^(-9), "BoltzmannThreshold" -> 10^(-9)};
 
 (* Initialize starting bath *)
 StartingBath[L_, f_, Norb_, InitializeBathMode_, EdMode_] := Module[
