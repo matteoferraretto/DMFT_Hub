@@ -13,7 +13,6 @@ FolderPath = NotebookDirectory[];
 
 
 (* ::Subtitle:: *)
-(**)
 (*INPUT PARAMETERS FOR DMFT LOOP*)
 
 
@@ -35,10 +34,21 @@ Jse = 0.0; (* spin-exchange coupling. It is set automatically if HundMode = True
 \[CapitalDelta]0 = 0.2; (* starting value of intraorbital symmetry breaking field if EdMode="Superc" *)
 \[CapitalXi]0 = 0.2; (* starting value of interorbital symmetry breaking field if EdMode="InterorbSuperc" or "FullSuperc". *)
 \[Mu] = 0; (* chemical potential. It is set automatically if HFMode = True (so you can actually tune it ONLY IF HFMode = False). *)
+T = 0; (* temperature *)
 InitializeBathMode = "Default"; (* path to input file of bath parameters or "Default" *)
 HFMode = False; (* if this is True, chemical potential is automatically set to a value that ensures PH symmetry of the Kanamori Hamiltonian *)
 HundMode = False; (* if this is True, interorbital couplings are authomatically set to U-2JH and U-3JH, Jph=JH, Jse=-JH enforcing the rotational invariance *)
 DegeneracyThreshold = 10^(-9);(* below this threshold, two energy levels are assumed to be degenerate *)
+
+(* INFO ON MATSUBARA AND REAL FREQUENCIES *)
+TMats = 0.001; (* fictitious temperature to define Matsubara frequencies *)
+NMatsubara = 5000; (* Total number of Matsubara frequencies *)
+i\[Omega] = Table[(2n-1)Pi*I*TMats, {n, NMatsubara}]; (* list of Matsubara frequencies *)
+\[Omega]min = -5.; \[Omega]max = 5.; (* set min and max value for the set of real frequencies *)
+NReal = 10000;(* number of real frequencies *)
+d\[Omega] = (\[Omega]max - \[Omega]min)/NReal; (* real frequency step *)
+\[Omega] = Table[\[Omega]min + n*d\[Omega], {n, 0, NReal}]; (* list of real frequencies *)
+\[Eta] = 0.025;(* small shift of the pole in the imaginary axis: this avoids singularities, but introduces an artificial broadening of the spectrum *)
 
 (* OPTIONAL VARIABLES *)
 LoadHamiltonianQ = False;(* load Hamiltonian from a file? *)
@@ -47,7 +57,6 @@ HlocFile = FolderPath<>"Hloc_L="<>ToString[L]<>".mx";(* file name for import / e
 
 
 (* ::Subtitle:: *)
-(**)
 (*PREPARATION  (get bath parameters, sectors, Hamiltonians etc...)*)
 
 
@@ -123,6 +132,7 @@ Print["The Weiss field for the given impurity problem is  \!\(\*SuperscriptBox[S
 QnsSectorList = SectorList[L, f, Norb, EdMode]; (* list of quantum numbers of all the sectors {n,nup} or sz *)
 DimSectorList = DimSector[L, f, Norb, #, EdMode]&/@QnsSectorList; (* list of dimensions of all the sectors *)
 Sectors = BuildSector[L, f, Norb, #, EdMode]&/@QnsSectorList; (* list of all the sectors *)
+SectorsDispatch = Dispatch[Flatten[MapIndexed[{#1->#2[[1]]}&, QnsSectorList], 1]]; (* list of rules that assigns every element of QnsSectorList to an integer *)
 Print[Style["Recap of input:", 16, Bold]];
 Print["Nsectors: ", Length[QnsSectorList], ". Dim. of the largest sector: ", Max@DimSectorList];
 
@@ -152,23 +162,45 @@ FilePrint[FolderPath<>"used_input.dat"]
 	Print["E.D. time: ", AbsoluteTiming[
 	
 		Hsectors = HImp[Norb, HnonlocBlocks, HlocBlocks, BathParameters, InteractionParameters, EdMode];
-		{EgsSectorList, GsSectorList} = (Map[Eigs[0], Hsectors])\[Transpose];(* find the ground state for each sector *)
-		EgsSectorList = Flatten@EgsSectorList;(*correctly reshape the list *)
-		GsSectorList = Replace[GsSectorList,{x_List}:>x,{0,-2}];(*correctly reshape the list*)
-
+		eigs = Map[Eigs[#, "Temperature" -> T]&, Hsectors];
+		EgsSectorList = eigs[[All, 1]];
+		GsSectorList = eigs[[All, 2]];
+	
 	]," sec.\n"];
 	
-	Print["Computing ground state and Green functions..."];
-
-	(* Compute the ground state *)
-	Egs = Min@EgsSectorList;(*ground state energy (lowest of all the sectors)*)
-	GsSectorIndex =
-		Flatten@Position[EgsSectorList,
+	(* ZERO TEMPERATURE CALCULATIONS *)
+	If[T == 0,
+		Print["Computing ground state and Green functions..."];
+		(* Compute the ground state *)
+		Egs = Min[Flatten[EgsSectorList]];(* ground state energy (lowest of all the sectors) *)
+		GsSectorIndex = Position[
+			EgsSectorList,
 			_?((Abs[# - Egs] < DegeneracyThreshold)&)
-		];(*sector index where the lowest energy is obtained: if this list contains more than 1 element, there is a degeneracy*)
-	DegeneracyWarning = If[Length[GsSectorIndex]>1, True, (*else*) False](*is True if the ground state is degenerate, False otherwise*)
+		];(* sector index where the lowest energy is obtained: if this list contains more than 1 element, there is a degeneracy *)
+		Gs = MapApply[GsSectorList[[##]]&, GsSectorIndex];(* list of all the degenerate ground states *)
+		GsQns = QnsSectorList[[GsSectorIndex[[All, 1]]]];(* list of quantum numbers of the degenerate ground states *)	
+		Print["\t\t Ground state info:\n", "Egs = ", Egs, "   Quantum numbers = ", GsQns];(* print relevant information about the ground state *)
 	
-
+		g = Mean[
+			MapApply[
+				GreenFunctionImpurity[L, f, Norb, 1, 1, Egs, ##, Hsectors, Sectors, SectorsDispatch, EdMode, i\[Omega]]&,
+				{Gs, GsQns}\[Transpose]
+			]
+		];
+	];
+	
+	(* FINITE TEMPERATURE CALCULATIONS *)
+	If[T != 0,
+		Print["not supported."];
+		Break[];
+	];
+	
+	
+	Dimensions[g]
+	ListPlot[Re[g]]
+	ListPlot[Im[g]]
+	Gs
+	GsQns
 (*];*)
 
 

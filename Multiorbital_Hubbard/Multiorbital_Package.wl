@@ -3,15 +3,12 @@
 BeginPackage["DMFT`"]
 
 
-Eigs::usage = "Eigs[Temperature] "
-
-
 (* General facilities *)
 Eigs::usage = "Eigs[H] returns the lowest eigenvalue(s) and the corresponding eigenvector(s) of H in the form {values, vectors}. There are several optional arguments: '
 'Temperature'', ''MinLanczosDim'', ''DegeneracyThreshold'', ''BoltzmannThreshold''. 
 If ''Temperature'' -> 0 (default), then the function returns only the lowest eigenstate(s) with the respective degeneracies. Two states are considered degenerate when the difference of 
 their energies is below the desired ''DegeneracyThreshold'' (\!\(\*SuperscriptBox[\(10\), \(-9\)]\) is the default).
-If ''Temperature'' is >0, then all the lowest eigenstates with a Boltzmann weight above ''BoltzmannThreshold'' are returned (\!\(\*SuperscriptBox[\(10\), \(-9\)]\) is the default). 
+If ''Temperature'' is > 0, then all the lowest eigenstates with a Boltzmann weight above ''BoltzmannThreshold'' are returned (\!\(\*SuperscriptBox[\(10\), \(-9\)]\) is the default). 
 The option ''MinLanczosDim'' establishes a threshold on the matrix dimension, above which the Lanczos method is adopted and below which full diagonalization is performed (32 by default)."
 
 StartingBath::usage = "StartingBath[L, f, Norb, InitializeBathMode, EdMode] returns a list containing the bath parameters to start the DMFT loop.
@@ -1249,7 +1246,6 @@ GreenFunctionImpurity[L_, f_, Norb_, \[Sigma]_, orb_, Egs_, gs_, GsQns_, Hsector
 	(* 2.1:   find Hamiltonian block in the final sector and the corresponding Krylov matrix *)
 	H = Hsectors[[newqns/.SectorsDispatch]];
 	{E0, a, b} = Lanczos[H, cdggs/norm];
-	Print[newqns," ", E0];
 	H = SparseArray[DiagonalMatrix[b, 1] + DiagonalMatrix[b, -1] + DiagonalMatrix[a]];(* Krylov matrix in the final sector *)
 	GF += norm*(
 		InverseElement[
