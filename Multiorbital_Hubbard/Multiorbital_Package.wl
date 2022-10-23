@@ -57,7 +57,14 @@ DestroyParticleSelect::usage = "."
 GreenFunctionED::usage = "GreenFunctionED[L, f, Norb, {i,j}, \[Sigma], orb, Sectors, QnsSectorList, eigs, T, zlist, EdMode]"
 GreenFunctionImpurity::usage = "GreenFunctionImpurity[L_, f_, Norb_, \[Sigma]_, orb_, Egs_, gs_, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, EdMode_, zlist_]"
 GreenFunctionImpurityNambu::usage = "GreenFunctionImpurityNambu[L_, f_, Norb_, orb_, Egs_, Gs_, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, EdMode_, zlist_]"
+LocalGreenFunction::usage = "."
+InverseGreenFunction::usage = "InverseGreenFunction[L, f, Norb, \[Sigma], orb, Egs, gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, zlist] evaluates numerically the inverse Green function 
+of the fully interacting impurity problem. This function returns a list of either numbers when EdMode = Normal, or matrices in the suitable Nambu basis depending on EdMode. The input 
+spin and orbital indexes are completely ignored when the Nambu basis mixes up spin / orbital degrees of freedom. "
 GreenFunction0::usage = "GreenFunction0[L_, f_,\[Mu]_, symbols_, z_, EdMode_]"
+WeissField::usage = "WeissField[L, f, \[Mu], symbols, z, EdMode] returns a symbolic expression for the Weiss field of the problem. The input variable ''symbols'' should be a list of symbols
+with the minimal number of bath parameters needed to build the Weiss field for the given problem. For example, if L=2, f=2, Norb=2, EdMode = ''Normal'' and the problem has orbital and spin 
+symmetry, then symbols = {e1, e2, V1, V2} [do not provide the whole list of 2*L*f*Norb bath parameters, but only the 2L representatives]. "
 
 
 (* Fermionic ladder Hamiltonian defining functions *)
@@ -797,6 +804,7 @@ GetHamiltonian[L_, f_, Norb_, Sectors_, LoadHamiltonianQ_, HnonlocFile_, HlocFil
 	{HnonlocBlocks, HlocBlocks}
 ];
 
+(* build the impurity Hamiltonian from the local and nonlocal blocks and the respective parameters *)
 HImp[Norb_, HnonlocBlocks_, HlocBlocks_, BathParameters_, InteractionParameters_, EdMode_] := Module[
 	{EffectiveInteractionParameters, Hloc, Hnonloc},
 	EffectiveInteractionParameters = Which[
@@ -948,6 +956,7 @@ InverseElement[m_, {i_,j_}] := (-1)^(i+j)Det[Drop[m,{j},{i}]]/Det[m];
 
 
 (* ANALYTIC EVALUATION OF NONINTERACTING IMPURITY GREEN FUNCTION *)
+(* non-interacting Green function *)
 GreenFunction0[L_, f_,\[Mu]_, symbols_, z_, EdMode_] := Module[
 	{e, V, \[CapitalDelta], H, G},
 	Which[
@@ -987,10 +996,19 @@ GreenFunction0[L_, f_,\[Mu]_, symbols_, z_, EdMode_] := Module[
 		{f*L,f*L}
 		];
 		G = Table[
-			InverseElement[SparseArray[z*IdentityMatrix[f*L]-H], {i,j}]
+			InverseElement[SparseArray[z*IdentityMatrix[f*L] - H], {i,j}]
 		,{i,1,2},{j,1,2}];(* the IMPURITY part of the Green function is the 2x2 top left block *)
 	];
 G
+];
+
+(* Weiss field: non-interacting inverse of the Green function *)
+WeissField[L_, f_, \[Mu]_, symbols_, z_, EdMode_] := With[
+	{G0 = GreenFunction0[L, f, \[Mu], symbols, z, EdMode]},
+	Which[
+		EdMode == "Normal", FullSimplify[1/G0],
+		EdMode == "Superc", FullSimplify[Inverse[G0]]
+	]
 ];
 
 
@@ -1381,6 +1399,84 @@ GreenFunctionImpurityNambu[L_, f_, Norb_, orb_, Egs_, Gs_, GsQns_, Hsectors_, Se
 	(* return a list with NMatsubara 2x2 matrices, each of them being the G.F. at that specific frequency *)
 	Partition[#,2]&/@({GFA,GF12,GF21,GFB}\[Transpose])
 ];
+
+InverseGreenFunction[L_, f_, Norb_, \[Sigma]_, orb_, Egs_, gs_, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, EdMode_, zlist_] := With[{
+	G = Which[
+		EdMode == "Normal", GreenFunctionImpurity[L, f, Norb, \[Sigma], orb, Egs, gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, zlist],
+		EdMode == "Superc", GreenFunctionImpurityNambu[L, f, Norb, orb, Egs, gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, zlist]
+	]},
+	Which[
+		EdMode == "Normal", 1/G,
+		EdMode == "Superc", Inverse/@G
+	]
+];
+
+(* density of states of the infinite dimensional Bethe lattice *)
+DoSBethe = Compile[
+	{{\[Epsilon], _Real}, {DBethe, _Real}},
+	(2./(Pi*DBethe^2))*Sqrt[DBethe^2-\[Epsilon]^2], 
+	CompilationTarget->"C", RuntimeAttributes->{Listable}
+];
+
+(* dispersion relation for a d-dimensional hypercubic lattice *)
+DispersionHypercubic = Compile[
+	{{k,_Real,1}, {t,_Real}},
+	-2.*t*Sum[Cos[ka], {ka, k}]
+];
+
+(* Local Green Function *)
+LocalGreenFunction[DBethe_, \[CapitalSigma]_, EdMode_, z_, OptionsPattern[]] := Module[
+	{Gloc, Floc, zero, d\[Epsilon], LocalGF, BrillouinZone, dk,
+	Lattice = OptionValue[Lattice], d = OptionValue[LatticeDimension], LE = OptionValue[NumberOfPoints]},
+	d\[Epsilon] = 2.*DBethe/LE;
+	Which[
+		EdMode == "Normal" && Lattice == "Bethe",
+		Gloc = d\[Epsilon]*Total@Table[
+			DoSBethe[\[Epsilon], DBethe]/(z - \[Epsilon] - \[CapitalSigma])
+		, {\[Epsilon], -DBethe, DBethe, d\[Epsilon]}],
+	(* -------------------------------------------------------- *)	
+		EdMode == "Normal" && Lattice == "Hypercubic",
+		LE = Floor[LE^(1/d)]; (* number of lattice points per size of the BZ *)
+		dk = 2.Pi/LE; 
+		BrillouinZone = Flatten[
+			Outer[{##}&,##]&@@
+				ConstantArray[
+					Table[k, {k, -1.*Pi, 1.*Pi-dk, dk}],
+					d
+				], d-1];
+		Gloc = (1./LE^d)*Total@Table[
+			1./(z - DispersionHypercubic[k, DBethe] - \[CapitalSigma])
+		, {k, BrillouinZone}],
+	(* --------------------------------------------------- *)	
+		EdMode == "Superc" && Lattice == "Bethe",
+		Gloc = d\[Epsilon]*Total@Table[
+				DoSBethe[\[Epsilon], DBethe]*(-z - Conjugate@\[CapitalSigma][[All,1,1]] - \[Epsilon])/(Abs[z - \[CapitalSigma][[All,1,1]] - \[Epsilon]]^2 + Abs[\[CapitalSigma][[All,1,2]]]^2)
+			,{\[Epsilon], -DBethe, DBethe, d\[Epsilon]}];
+		Floc = -\[CapitalSigma][[All,1,2]]*d\[Epsilon]*Total@Table[
+				DoSBethe[\[Epsilon], DBethe]*(1./(Abs[z-\[CapitalSigma][[All,1,1]] - \[Epsilon]]^2 + Abs[\[CapitalSigma][[All,1,2]]]^2))
+			,{\[Epsilon], -DBethe, DBethe, d\[Epsilon]}];
+		LocalGF = Partition[#,2]&/@({Gloc, Floc, Conjugate@Floc, -Conjugate@Gloc}\[Transpose]),
+	(* --------------------------------------------------- *)
+		EdMode == "Superc" && Lattice == "Hypercubic",
+		LE = Floor[LE^(1/d)]; (* number of lattice points per size of the BZ *)
+		dk = 2.Pi/LE; 
+		BrillouinZone = Flatten[
+			Outer[{##}&,##]&@@
+			ConstantArray[
+				Table[k, {k, -1.*Pi, 1.*Pi-dk, dk}],
+				d
+			], d-1];
+		Gloc = (1./LE^d)*Total@Table[
+			-(z + Conjugate@\[CapitalSigma][[All,1,1]] + DispersionHypercubic[k, DBethe])/(Abs[z - \[CapitalSigma][[All,1,1]] - DispersionHypercubic[k, DBethe]]^2 + Abs[\[CapitalSigma][[All,1,2]]]^2)
+		,{k, BrillouinZone}];
+		Floc = -\[CapitalSigma][[All,1,2]]*(1./LE^d)*Total@Table[
+			DispersionHypercubic[k, DBethe]*(1./(Abs[z-\[CapitalSigma][[All,1,1]] - DispersionHypercubic[k, DBethe]]^2 + Abs[\[CapitalSigma][[All,1,2]]]^2))
+		,{k, BrillouinZone}];
+		LocalGF = Partition[#,2]&/@({Gloc, Floc, Conjugate@Floc, -Conjugate@Gloc}\[Transpose])
+	]
+];
+Options[LocalGreenFunction] = {Lattice -> "Bethe", LatticeDimension -> 2, NumberOfPoints -> 1000};
+
 
 
 End[];

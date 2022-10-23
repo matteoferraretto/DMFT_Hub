@@ -23,8 +23,10 @@ Nimp = 1; (* number of impurity sites *)
 L = Nimp + Nbath; (* total number of sites: bath+impurity *)
 f = 2; (* number of spin states *)
 EdMode = "Normal"; (* call the function EdModeInfo[EdMode] to get details *)
+OrbitalSymmetry = True; (* set True to enforce orbital symmetry and avoid repeating calculations *)
 
 (*      INPUT PHYSICAL PARAMETERS        *)
+DBethe = ConstantArray[1., Norb]; (* list of half-bandwidths for all the orbitals *)
 U = ConstantArray[-0.3, Norb]; (* interaction energy in units of DBethe = 1.0. You have to provide a list of U values in the orbitals *)
 JH = 0.0; (* Hund's J. It's used only when HundMode = True to enforce rotation invariance of the Kanamori model. *)
 Ust = 0.0; (* density-density opposite spin coupling. It is set automatically if HundMode = True. *)
@@ -121,11 +123,7 @@ symbols = Which[
 		Table[Symbol["\[CapitalDelta]"<>ToString[i]], {i, L-1}]
 	]
 ];(* define a suitable list of symbols depending on EdMode *)
-G0 = GreenFunction0[L, f, \[Mu], symbols, z, EdMode];
-Weiss = Which[
-	EdMode == "Normal", FullSimplify[1/G0],
-	EdMode == "Superc", FullSimplify[Inverse[G0]]
-];
+Weiss = WeissField[L, f, \[Mu], symbols, z, EdMode];
 Print["The Weiss field for the given impurity problem is  \!\(\*SuperscriptBox[SubscriptBox[\(G\), \(0\)], \(-1\)]\)(z) = ", Weiss];
 
 (* GET SECTORS *)
@@ -139,7 +137,7 @@ Print["Nsectors: ", Length[QnsSectorList], ". Dim. of the largest sector: ", Max
 (* EXPORT EFFECTIVELY USED INPUT *)
 Export[
 	FolderPath<>"used_input.dat",{
-	{"Nbath =",Nbath}, {"Norb =",Norb}, {"Nimp =",Nimp}, {"f =",f}, {"EdMode =",EdMode}
+	{"Nbath =",Nbath}, {"Norb =",Norb}, {"Nimp =",Nimp}, {"f =",f}, {"EdMode =",EdMode}, {"U =",U}
 }];
 FilePrint[FolderPath<>"used_input.dat"]
 
@@ -180,13 +178,33 @@ FilePrint[FolderPath<>"used_input.dat"]
 		Gs = MapApply[GsSectorList[[##]]&, GsSectorIndex];(* list of all the degenerate ground states *)
 		GsQns = QnsSectorList[[GsSectorIndex[[All, 1]]]];(* list of quantum numbers of the degenerate ground states *)	
 		Print["\t\t Ground state info:\n", "Egs = ", Egs, "   Quantum numbers = ", GsQns];(* print relevant information about the ground state *)
-	
-		g = Mean[
-			MapApply[
-				GreenFunctionImpurity[L, f, Norb, 1, 1, Egs, ##, Hsectors, Sectors, SectorsDispatch, EdMode, i\[Omega]]&,
+		
+		If[OrbitalSymmetry,
+			(* G^-1(i\[Omega]) *)
+			InverseG = Mean[MapApply[
+				InverseGreenFunction[L, f, Norb, 1, 1, Egs, ##, Hsectors, Sectors, SectorsDispatch, EdMode, i\[Omega]]&,
 				{Gs, GsQns}\[Transpose]
-			]
+			]];
+			(* Subscript[G, 0]^-1(i\[Omega]) *)
+			InverseG0 = (Weiss/.Thread[symbols -> Join[e[[1]],V[[1]]]])/.{z -> i\[Omega]};
+			(* \[CapitalSigma](i\[Omega]) *)
+			\[CapitalSigma] = InverseG0 - InverseG;,
+		(* else, if no orbital symmetry: *)
+			(* { G^-1Subscript[(i\[Omega]), orb=1] , G^-1Subscript[(i\[Omega]), orb=2] , ...} *)
+			InverseG = Table[
+				Mean[MapApply[
+					GreenFunctionImpurity[L, f, Norb, 1, orb, Egs, ##, Hsectors, Sectors, SectorsDispatch, EdMode, i\[Omega]]&,
+					{Gs, GsQns}\[Transpose]
+				]], {orb, Norb}];
+			(* { Subscript[G, 0]^-1Subscript[(i\[Omega]), orb=1] , Subscript[G, 0]^-1Subscript[(i\[Omega]), orb=2] , ...} *)
+			InverseG0 = Table[
+				(Weiss/.Thread[symbols -> Join[e[[f*orb]],V[[f*orb]]]])/.{z -> i\[Omega]},
+				{orb, Norb}];
+			(* { \[CapitalSigma]Subscript[(i\[Omega]), orb=1] , \[CapitalSigma]Subscript[(i\[Omega]), orb=2] , ...} *)
+			\[CapitalSigma] = InverseG0 - InverseG;		
 		];
+		
+		
 	];
 	
 	(* FINITE TEMPERATURE CALCULATIONS *)
@@ -195,13 +213,12 @@ FilePrint[FolderPath<>"used_input.dat"]
 		Break[];
 	];
 	
-	
-	Dimensions[g]
-	ListPlot[Re[g]]
-	ListPlot[Im[g]]
-	Gs
-	GsQns
 (*];*)
+
+ListPlot[Re[\[CapitalSigma]], Joined->True, PlotStyle->{Thick, Dashing[.1]}]
+ListPlot[Im[\[CapitalSigma]], Joined->True, PlotStyle->{Thick, Dashing[.1]}]
+
+
 
 
 
