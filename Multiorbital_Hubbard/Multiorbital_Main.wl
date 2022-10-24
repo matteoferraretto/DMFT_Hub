@@ -18,16 +18,16 @@ FolderPath = NotebookDirectory[];
 
 (*             GENERAL INPUT              *)
 Nbath = 2; (* number of bath sites *)
-Norb = 1; (* number of orbitals *)
+Norb = 2; (* number of orbitals *)
 Nimp = 1; (* number of impurity sites *)
 L = Nimp + Nbath; (* total number of sites: bath+impurity *)
 f = 2; (* number of spin states *)
 EdMode = "Normal"; (* call the function EdModeInfo[EdMode] to get details *)
-OrbitalSymmetry = True; (* set True to enforce orbital symmetry and avoid repeating calculations *)
+OrbitalSymmetry = False; (* set True to enforce orbital symmetry and avoid repeating calculations *)
 
 (*      INPUT PHYSICAL PARAMETERS        *)
 DBethe = ConstantArray[1., Norb]; (* list of half-bandwidths for all the orbitals *)
-U = ConstantArray[-0.3, Norb]; (* interaction energy in units of DBethe = 1.0. You have to provide a list of U values in the orbitals *)
+U = ConstantArray[0.01, Norb]; (* interaction energy in units of DBethe = 1.0. You have to provide a list of U values in the orbitals *)
 JH = 0.0; (* Hund's J. It's used only when HundMode = True to enforce rotation invariance of the Kanamori model. *)
 Ust = 0.0; (* density-density opposite spin coupling. It is set automatically if HundMode = True. *)
 Usec = 0.0; (* density-density same spin coupling. It is set automatically if HundMode = True. *)
@@ -54,8 +54,8 @@ d\[Omega] = (\[Omega]max - \[Omega]min)/NReal; (* real frequency step *)
 
 (* OPTIONAL VARIABLES *)
 LoadHamiltonianQ = False;(* load Hamiltonian from a file? *)
-HnonlocFile = FolderPath<>"Hnonloc_L="<>ToString[L]<>".mx";(* file name for import / export of nonlocal Hamiltonian blocks *)
-HlocFile = FolderPath<>"Hloc_L="<>ToString[L]<>".mx";(* file name for import / export of local Hamiltonian blocks *)
+HnonlocFile = FolderPath<>"Hnonloc_L="<>ToString[L]<>"_f="<>ToString[f]<>"_Norb="<>ToString[Norb]<>"_EdMode="<>EdMode<>".mx";(* file name for import / export of nonlocal Hamiltonian blocks *)
+HlocFile = FolderPath<>"Hloc_L="<>ToString[L]<>"_f="<>ToString[f]<>"_Norb="<>ToString[Norb]<>"_EdMode="<>EdMode<>".mx";(* file name for import / export of local Hamiltonian blocks *)
 
 
 (* ::Subtitle:: *)
@@ -188,20 +188,26 @@ FilePrint[FolderPath<>"used_input.dat"]
 			(* Subscript[G, 0]^-1(i\[Omega]) *)
 			InverseG0 = (Weiss/.Thread[symbols -> Join[e[[1]],V[[1]]]])/.{z -> i\[Omega]};
 			(* \[CapitalSigma](i\[Omega]) *)
-			\[CapitalSigma] = InverseG0 - InverseG;,
+			\[CapitalSigma] = InverseG0 - InverseG;
+			(* Subscript[G, loc](i\[Omega]) *)
+			LocalG = LocalGreenFunction[DBethe[[1]], \[CapitalSigma], EdMode, i\[Omega], Lattice -> "Bethe", NumberOfPoints -> 1000];,
 		(* else, if no orbital symmetry: *)
 			(* { G^-1Subscript[(i\[Omega]), orb=1] , G^-1Subscript[(i\[Omega]), orb=2] , ...} *)
 			InverseG = Table[
 				Mean[MapApply[
-					GreenFunctionImpurity[L, f, Norb, 1, orb, Egs, ##, Hsectors, Sectors, SectorsDispatch, EdMode, i\[Omega]]&,
+					InverseGreenFunction[L, f, Norb, 1, orb, Egs, ##, Hsectors, Sectors, SectorsDispatch, EdMode, i\[Omega]]&,
 					{Gs, GsQns}\[Transpose]
 				]], {orb, Norb}];
 			(* { Subscript[G, 0]^-1Subscript[(i\[Omega]), orb=1] , Subscript[G, 0]^-1Subscript[(i\[Omega]), orb=2] , ...} *)
 			InverseG0 = Table[
-				(Weiss/.Thread[symbols -> Join[e[[f*orb]],V[[f*orb]]]])/.{z -> i\[Omega]},
+				(Weiss/.Thread[symbols -> Join[e[[f*orb]], V[[f*orb]]]])/.{z -> i\[Omega]},
 				{orb, Norb}];
 			(* { \[CapitalSigma]Subscript[(i\[Omega]), orb=1] , \[CapitalSigma]Subscript[(i\[Omega]), orb=2] , ...} *)
-			\[CapitalSigma] = InverseG0 - InverseG;		
+			\[CapitalSigma] = InverseG0 - InverseG;
+			(* { Subscript[G, loc]Subscript[(i\[Omega]), orb=1] , Subscript[G, loc]Subscript[(i\[Omega]), orb=2] , ...} *)
+			LocalG = Table[
+				LocalGreenFunction[DBethe[[orb]], \[CapitalSigma][[orb]], EdMode, i\[Omega], Lattice -> "Bethe", NumberOfPoints -> 1000];
+			, {orb, Norb}];	
 		];
 		
 		
@@ -215,8 +221,8 @@ FilePrint[FolderPath<>"used_input.dat"]
 	
 (*];*)
 
-ListPlot[Re[\[CapitalSigma]], Joined->True, PlotStyle->{Thick, Dashing[.1]}]
-ListPlot[Im[\[CapitalSigma]], Joined->True, PlotStyle->{Thick, Dashing[.1]}]
+ListPlot[{Re[InverseG[[1]]], Re[InverseG[[2]]]}, Joined->True, PlotStyle->{Thick, Dashing[.1]}]
+ListPlot[{Im[InverseG[[1]]], Im[InverseG[[2]]]}, Joined->True, PlotStyle->{Thick, Dashing[.1]}]
 
 
 

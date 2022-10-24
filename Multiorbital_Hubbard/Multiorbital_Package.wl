@@ -710,10 +710,11 @@ HLocal[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 		rules = Flatten[MapIndexed[{#1->#2[[1]]}&,\[Psi]],1];
 		dispatch = Dispatch[rules];
 		Do[
-			Hblock = SparseArray[{},{dim,dim}];
+			(**)
 			Which[
 				flag == "Hubbard",
 				Do[
+					Hblock = SparseArray[{},{dim,dim}];
 					Do[
 						num = Sum[
 							n[L, f, Norb, j, \[Sigma], orb, \[Psi]]
@@ -741,6 +742,7 @@ HLocal[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 				AppendTo[Hsector,Hblock];,
 			(* ---------------------------------- *)
 				flag == "Pair_Hopping" && Norb > 1 && (EdMode == "InterorbNormal" || EdMode == "InterorbSuperc" || EdMode == "Superc" || EdMode == "FullSuperc"),
+				Hblock = SparseArray[{},{dim,dim}];
 				Do[
 					If[orb2 > orb1,
 						\[Psi]1 = PairHoppingSelect[L, f, 1, orb1, orb2, \[Psi]];
@@ -755,6 +757,7 @@ HLocal[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 				AppendTo[Hsector,Hblock];,
 			(* ----------------------------------- *)
 				flag == "Spin_Exchange" && Norb > 1 && (EdMode == "InterorbNormal" || EdMode == "InterorbSuperc" || EdMode == "FullSuperc"),
+				Hblock = SparseArray[{},{dim,dim}];
 				Do[
 					If[orb2 > orb1,
 						\[Psi]1 = SpinExchangeSelect[L, f, 1, orb1, orb2, \[Psi]];
@@ -1406,7 +1409,7 @@ InverseGreenFunction[L_, f_, Norb_, \[Sigma]_, orb_, Egs_, gs_, GsQns_, Hsectors
 		EdMode == "Superc", GreenFunctionImpurityNambu[L, f, Norb, orb, Egs, gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, zlist]
 	]},
 	Which[
-		EdMode == "Normal", 1/G,
+		EdMode == "Normal", 1./G,
 		EdMode == "Superc", Inverse/@G
 	]
 ];
@@ -1421,7 +1424,8 @@ DoSBethe = Compile[
 (* dispersion relation for a d-dimensional hypercubic lattice *)
 DispersionHypercubic = Compile[
 	{{k,_Real,1}, {t,_Real}},
-	-2.*t*Sum[Cos[ka], {ka, k}]
+	-2.*t*Sum[Cos[ka], {ka, k}],
+	CompilationTarget -> "C", RuntimeAttributes -> {Listable}
 ];
 
 (* Local Green Function *)
