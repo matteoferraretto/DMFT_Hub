@@ -33,8 +33,6 @@ Ust = 0.0; (* density-density opposite spin coupling. It is set automatically if
 Usec = 0.0; (* density-density same spin coupling. It is set automatically if HundMode = True. *)
 Jph = 0.0; (* pair-hopping coupling. It is set automatically if HundMode = True. *)
 Jse = 0.0; (* spin-exchange coupling. It is set automatically if HundMode = True. *)
-\[CapitalDelta]0 = 0.2; (* starting value of intraorbital symmetry breaking field if EdMode="Superc" *)
-\[CapitalXi]0 = 0.2; (* starting value of interorbital symmetry breaking field if EdMode="InterorbSuperc" or "FullSuperc". *)
 \[Mu] = 0; (* chemical potential. It is set automatically if HFMode = True (so you can actually tune it ONLY IF HFMode = False). *)
 T = 0; (* temperature *)
 InitializeBathMode = "Default"; (* path to input file of bath parameters or "Default" *)
@@ -67,44 +65,18 @@ LastIteration = False;(*allows to do one more iteration after convergence thresh
 Converged = False;(*True if DMFT has converged, false otherwise*)
 ErrorList = {};(*list of DMFT errors*) 
 
-(* GET BATH AND INTERACTION PARAMETERS *)
-Which[
-	EdMode == "Normal" || EdMode == "InterorbNormal",
-	{e,V} = StartingBath[L, f, Norb, InitializeBathMode, EdMode];
-	BathParameters = Flatten@{e,V},
-(* ----------------------------------------------------------------- *)
-	EdMode == "Superc", 
-	{e,V,\[CapitalDelta]} = StartingBath[L, f, Norb, InitializeBathMode, EdMode]; 
-	\[CapitalDelta] = \[CapitalDelta]0*\[CapitalDelta]; 
-	BathParameters = Flatten@{e, V, \[CapitalDelta]},
-(* ----------------------------------------------------------------- *)
-	EdMode == "InterorbSuperc",
-	{e,V,\[CapitalXi]} = StartingBath[L, f, Norb, InitializeBathMode, EdMode];
-	\[CapitalXi] = \[CapitalXi]0*\[CapitalXi];
-	BathParameters = Flatten@{e,V,\[CapitalXi]};,
-(* ----------------------------------------------------------------- *)
-	EdMode == "FullSuperc",
-	{e,V,\[CapitalDelta],\[CapitalXi]} = StartingBath[L, f, Norb, InitializeBathMode, EdMode];
-	\[CapitalDelta] = \[CapitalDelta]0*\[CapitalDelta]; 
-	\[CapitalXi] = \[CapitalXi]0*\[CapitalXi];
-	BathParameters = Flatten@{e,V,\[CapitalDelta],\[CapitalXi]};
-];
+(* GET BATH PARAMETERS *)
+BathParameters = StartingBath[L, f, Norb, InitializeBathMode, EdMode];
 Nparams = Length[BathParameters];(* total number of parameters *)
 
 (* GET INTERACTION PARAMETERS *)
-If[
-	Norb == 1,
+If[Norb == 1,
 	HundMode = False; Ust = 0.0; Usec = 0.0; Jph = 0.0; Jse = 0.0; JH = 0.0;
 ];(* avoid stupid bugs: if Norb = 1 set all interorbital couplings to 0 *)
-If[
-	HundMode,
-	Ust = U[[1]] - 2*JH;
-	Usec = U[[1]] - 3*JH;
-	Jph = JH;
-	Jse = -JH;
+If[HundMode,
+	Ust = U[[1]] - 2*JH; Usec = U[[1]] - 3*JH; Jph = JH; Jse = -JH;
 ];(* reset couplings if HundMode = True to enforce rotational invariance *)
-If[
-	HFMode, 
+If[HFMode, 
 	\[Mu] = \[Mu] + U[[1]]/2 + (Ust + Usec)*(Norb - 1)/2.;
 ];(* reset chemical potential if HFMode = True *)
 InteractionParameters = Flatten[{U, Ust, Usec, Jph, Jse, \[Mu]}];
@@ -152,15 +124,13 @@ FilePrint[FolderPath<>"used_input.dat"]
 	Print[Style["DMFT Loop n. ", 20, Bold, Red], Style[DMFTiterator, 20, Bold, Red]];
 	Print["----------------------------------------------------------------------------------------"];
 	Print[Style["        Exact Diagonalization start", 16, Bold, Orange]];
-	Print["e = ", e];
-	Print["V = ", V];
-	If[EdMode=="Superc", Print["\[CapitalDelta] = ", \[CapitalDelta]]];
+	Print["Bath parameters: ", BathParameters];
 
 	(* Build and diagonalize the AIM Hamiltonian + print timing *)
 	Print["E.D. time: ", AbsoluteTiming[
 	
 		Hsectors = HImp[Norb, HnonlocBlocks, HlocBlocks, BathParameters, InteractionParameters, EdMode];
-		eigs = Map[Eigs[#, "Temperature" -> T]&, Hsectors];
+		eigs = Map[Eigs[#, "Temperature" -> T, "MinLanczosDim"->100]&, Hsectors];
 		EgsSectorList = eigs[[All, 1]];
 		GsSectorList = eigs[[All, 2]];
 	
@@ -186,7 +156,7 @@ FilePrint[FolderPath<>"used_input.dat"]
 				{Gs, GsQns}\[Transpose]
 			]];
 			(* Subscript[G, 0]^-1(i\[Omega]) *)
-			InverseG0 = (Weiss/.Thread[symbols -> Join[e[[1]],V[[1]]]])/.{z -> i\[Omega]};
+			InverseG0 = (Weiss/.Thread[symbols -> TakeIndependentParameters[L, f, Norb, 1, 1, BathParameters, EdMode]])/.{z -> i\[Omega]};
 			(* \[CapitalSigma](i\[Omega]) *)
 			\[CapitalSigma] = InverseG0 - InverseG;
 			(* Subscript[G, loc](i\[Omega]) *)
@@ -200,13 +170,13 @@ FilePrint[FolderPath<>"used_input.dat"]
 				]], {orb, Norb}];
 			(* { Subscript[G, 0]^-1Subscript[(i\[Omega]), orb=1] , Subscript[G, 0]^-1Subscript[(i\[Omega]), orb=2] , ...} *)
 			InverseG0 = Table[
-				(Weiss/.Thread[symbols -> Join[e[[f*orb]], V[[f*orb]]]])/.{z -> i\[Omega]},
+				(Weiss/.Thread[symbols -> TakeIndependentParameters[L, f, Norb, 1, orb, BathParameters, EdMode]])/.{z -> i\[Omega]},
 				{orb, Norb}];
 			(* { \[CapitalSigma]Subscript[(i\[Omega]), orb=1] , \[CapitalSigma]Subscript[(i\[Omega]), orb=2] , ...} *)
 			\[CapitalSigma] = InverseG0 - InverseG;
 			(* { Subscript[G, loc]Subscript[(i\[Omega]), orb=1] , Subscript[G, loc]Subscript[(i\[Omega]), orb=2] , ...} *)
 			LocalG = Table[
-				LocalGreenFunction[DBethe[[orb]], \[CapitalSigma][[orb]], EdMode, i\[Omega], Lattice -> "Bethe", NumberOfPoints -> 1000];
+				LocalGreenFunction[DBethe[[orb]], \[CapitalSigma][[orb]], EdMode, i\[Omega], Lattice -> "Bethe", NumberOfPoints -> 1000]
 			, {orb, Norb}];	
 		];
 		
@@ -221,9 +191,11 @@ FilePrint[FolderPath<>"used_input.dat"]
 	
 (*];*)
 
-ListPlot[{Re[InverseG[[1]]], Re[InverseG[[2]]]}, Joined->True, PlotStyle->{Thick, Dashing[.1]}]
-ListPlot[{Im[InverseG[[1]]], Im[InverseG[[2]]]}, Joined->True, PlotStyle->{Thick, Dashing[.1]}]
+ListPlot[{Re[LocalG[[1]]], Re[LocalG[[2]]]}, Joined->True, PlotStyle->{Thick, Dashing[.1]}]
+ListPlot[{Im[LocalG[[1]]], Im[LocalG[[2]]]}, Joined->True, PlotStyle->{Thick, Dashing[.1]}]
 
+
+TakeIndependentParameters[L, f, Norb, 1, 1, BathParameters, EdMode]
 
 
 

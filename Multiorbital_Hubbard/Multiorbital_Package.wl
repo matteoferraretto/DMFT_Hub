@@ -17,6 +17,14 @@ If EdMode = ''Superc'' then the output has the form {e,V,\[CapitalDelta]}, where
 If EdMode = ''InterorbSuperc'' then the output has the form {e,V,\[CapitalDelta],\[CapitalXi]}, where e, V, \[CapitalDelta] are as above, and \[CapitalXi] is the Nbath - dimensional list of interorbital pairs creation (annihilation) amplitudes
 InitializeBathMode is a string with the path to the file containing the bath parameters; if it is set to ''Default'', default parameters are dropped."
 
+TakeIndependentParameters::usage = "TakeIndependentParameters[L, f, Norb, \[Sigma], orb, BathParameters, EdMode] returns a flat list of independent bath parameters depending on EdMode.
+The word ''independent'' means that in case there is some symmetry, for example orbital and spin symmetry, we just extract a representative subset of the bath parameters with labels 
+\[Sigma] and orb, namely e_\[Sigma],orb ; V_\[Sigma],orb, etc. This is useful in two cases: to compute the numerical Weiss field from the symbolic expression, and to perform the self consistency minimization
+with the smallest possible number of variables. "
+
+ReshapeBathParameters::usage = "ReshapeBathParameters[L, f, Norb, IndependentParameters, EdMode] takes a list of independent bath parameters and returns a reshaped version of it which is 
+consistent with the conventionally chosen shape. "
+
 
 (* sector defining functions *)
 SectorList::usage = "SectorList[L, f, Norb, EdMode] returns a list of quantum numbers labeling the sectors which divide the full Hilbert space. 
@@ -69,6 +77,10 @@ symmetry, then symbols = {e1, e2, V1, V2} [do not provide the whole list of 2*L*
 
 (* Fermionic ladder Hamiltonian defining functions *)
 Hnonint::usage = "Hnonint[L, f, Norb, Sectors, EdMode]. Optional arguments: RealPBC -> True (default)/ False; SyntheticPBC -> True / False (default), RealPhase -> {0}, SyntheticPhase -> 0  "
+
+
+(* Self consistency *)
+SelfConsistency::usage = "SelfConsistency[DBethe_, \[Mu]_, Weiss_, symbols_, StartingParameters_, LocalG_, zlist_, EdMode_]"
 
 
 Begin["`Private`"];
@@ -129,8 +141,8 @@ Eigs[H_, OptionsPattern[]] := Module[
 Options[Eigs] = {"Temperature" -> 0, "MinLanczosDim" -> 32, "DegeneracyThreshold" -> 10^(-9), "BoltzmannThreshold" -> 10^(-9)};
 
 (* Initialize starting bath *)
-StartingBath[L_, f_, Norb_, InitializeBathMode_, EdMode_] := Module[
-	{e,V,\[CapitalDelta],\[CapitalXi],Nbath},
+StartingBath[L_, f_, Norb_, InitializeBathMode_, EdMode_, OptionsPattern[]] := Module[
+	{e, V, \[CapitalDelta], \[CapitalXi], Nbath},
 	Nbath = L - 1;
 	Which[
 		EdMode == "Normal" || EdMode == "InterorbNormal",
@@ -156,7 +168,7 @@ StartingBath[L_, f_, Norb_, InitializeBathMode_, EdMode_] := Module[
 			V = ConstantArray[
 				Table[1.,{k,1,Nbath}],
 			f*Norb];
-			\[CapitalDelta] = ConstantArray[
+			\[CapitalDelta] = OptionValue[\[CapitalDelta]0] *ConstantArray[
 				Table[1.,{k,1,Nbath}],
 			Norb],
 		(*else*)
@@ -173,7 +185,7 @@ StartingBath[L_, f_, Norb_, InitializeBathMode_, EdMode_] := Module[
 			V = ConstantArray[
 				Table[1., {k,1,Nbath}],
 			f*Norb];
-	        \[CapitalXi] = Table[1., {k,1,Nbath}],
+	        \[CapitalXi] = OptionValue[\[CapitalXi]0] * Table[1., {k,1,Nbath}],
 		(*else*)
 			{e,V,\[CapitalXi]} = Import[InitializeBathMode,"Table"];
 		];
@@ -188,16 +200,17 @@ StartingBath[L_, f_, Norb_, InitializeBathMode_, EdMode_] := Module[
 			V = ConstantArray[
 				Table[1.,{k,1,Nbath}],
 			f*Norb];
-			\[CapitalDelta] = ConstantArray[
+			\[CapitalDelta] = OptionValue[\[CapitalDelta]0] * ConstantArray[
 				Table[1.,{k,1,Nbath}],
 			Norb];
-	        \[CapitalXi] = Table[1.,{k,1,Nbath}],
+	        \[CapitalXi] = OptionValue[\[CapitalXi]0] * Table[1.,{k,1,Nbath}],
 		(*else*)
 			{e,V,\[CapitalDelta],\[CapitalXi]} = Import[InitializeBathMode,"Table"];
 		];
 	   Return[{e,V,\[CapitalDelta],\[CapitalXi]}];
 	]
 ];
+Options[StartingBath] = {\[CapitalDelta]0 -> 1., \[CapitalXi]0 -> 1.};
 
 EdModeInfo[EdMode_] := Which[
 	EdMode == "Normal",
@@ -710,7 +723,6 @@ HLocal[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 		rules = Flatten[MapIndexed[{#1->#2[[1]]}&,\[Psi]],1];
 		dispatch = Dispatch[rules];
 		Do[
-			(**)
 			Which[
 				flag == "Hubbard",
 				Do[
@@ -809,7 +821,7 @@ GetHamiltonian[L_, f_, Norb_, Sectors_, LoadHamiltonianQ_, HnonlocFile_, HlocFil
 
 (* build the impurity Hamiltonian from the local and nonlocal blocks and the respective parameters *)
 HImp[Norb_, HnonlocBlocks_, HlocBlocks_, BathParameters_, InteractionParameters_, EdMode_] := Module[
-	{EffectiveInteractionParameters, Hloc, Hnonloc},
+	{EffectiveInteractionParameters, FlatBathParameters = Flatten[BathParameters], Hloc, Hnonloc},
 	EffectiveInteractionParameters = Which[
 		Norb == 1,
 		(* with 1 orbital, delete Jse, Jph, Usec, Ust, at positions -2, -3, -4, -5 *)
@@ -830,8 +842,8 @@ HImp[Norb_, HnonlocBlocks_, HlocBlocks_, BathParameters_, InteractionParameters_
 	(* build non local Hamiltonian -> avoid Dot[] as it returns dense array *)
 	Hnonloc = SparseArray[#]&/@(
 		Sum[
-			BathParameters[[i]]*#[[i]],
-		{i, 1, Length@BathParameters}]&/@HnonlocBlocks
+			FlatBathParameters[[i]]*#[[i]],
+		{i, 1, Length@FlatBathParameters}]&/@HnonlocBlocks
 	);
 	(* build local Hamiltonian -> avoid Dot[] as it returns dense array *)
 	Hloc = SparseArray[#]&/@(
@@ -1429,14 +1441,14 @@ DispersionHypercubic = Compile[
 ];
 
 (* Local Green Function *)
-LocalGreenFunction[DBethe_, \[CapitalSigma]_, EdMode_, z_, OptionsPattern[]] := Module[
+LocalGreenFunction[DBethe_, \[CapitalSigma]_, EdMode_, zlist_, OptionsPattern[]] := Module[
 	{Gloc, Floc, zero, d\[Epsilon], LocalGF, BrillouinZone, dk,
 	Lattice = OptionValue[Lattice], d = OptionValue[LatticeDimension], LE = OptionValue[NumberOfPoints]},
 	d\[Epsilon] = 2.*DBethe/LE;
 	Which[
 		EdMode == "Normal" && Lattice == "Bethe",
 		Gloc = d\[Epsilon]*Total@Table[
-			DoSBethe[\[Epsilon], DBethe]/(z - \[Epsilon] - \[CapitalSigma])
+			DoSBethe[\[Epsilon], DBethe]/(zlist - \[Epsilon] - \[CapitalSigma])
 		, {\[Epsilon], -DBethe, DBethe, d\[Epsilon]}],
 	(* -------------------------------------------------------- *)	
 		EdMode == "Normal" && Lattice == "Hypercubic",
@@ -1449,15 +1461,15 @@ LocalGreenFunction[DBethe_, \[CapitalSigma]_, EdMode_, z_, OptionsPattern[]] := 
 					d
 				], d-1];
 		Gloc = (1./LE^d)*Total@Table[
-			1./(z - DispersionHypercubic[k, DBethe] - \[CapitalSigma])
+			1./(zlist - DispersionHypercubic[k, DBethe] - \[CapitalSigma])
 		, {k, BrillouinZone}],
 	(* --------------------------------------------------- *)	
 		EdMode == "Superc" && Lattice == "Bethe",
 		Gloc = d\[Epsilon]*Total@Table[
-				DoSBethe[\[Epsilon], DBethe]*(-z - Conjugate@\[CapitalSigma][[All,1,1]] - \[Epsilon])/(Abs[z - \[CapitalSigma][[All,1,1]] - \[Epsilon]]^2 + Abs[\[CapitalSigma][[All,1,2]]]^2)
+				DoSBethe[\[Epsilon], DBethe]*(-zlist - Conjugate@\[CapitalSigma][[All,1,1]] - \[Epsilon])/(Abs[zlist - \[CapitalSigma][[All,1,1]] - \[Epsilon]]^2 + Abs[\[CapitalSigma][[All,1,2]]]^2)
 			,{\[Epsilon], -DBethe, DBethe, d\[Epsilon]}];
 		Floc = -\[CapitalSigma][[All,1,2]]*d\[Epsilon]*Total@Table[
-				DoSBethe[\[Epsilon], DBethe]*(1./(Abs[z-\[CapitalSigma][[All,1,1]] - \[Epsilon]]^2 + Abs[\[CapitalSigma][[All,1,2]]]^2))
+				DoSBethe[\[Epsilon], DBethe]*(1./(Abs[zlist - \[CapitalSigma][[All,1,1]] - \[Epsilon]]^2 + Abs[\[CapitalSigma][[All,1,2]]]^2))
 			,{\[Epsilon], -DBethe, DBethe, d\[Epsilon]}];
 		LocalGF = Partition[#,2]&/@({Gloc, Floc, Conjugate@Floc, -Conjugate@Gloc}\[Transpose]),
 	(* --------------------------------------------------- *)
@@ -1471,15 +1483,89 @@ LocalGreenFunction[DBethe_, \[CapitalSigma]_, EdMode_, z_, OptionsPattern[]] := 
 				d
 			], d-1];
 		Gloc = (1./LE^d)*Total@Table[
-			-(z + Conjugate@\[CapitalSigma][[All,1,1]] + DispersionHypercubic[k, DBethe])/(Abs[z - \[CapitalSigma][[All,1,1]] - DispersionHypercubic[k, DBethe]]^2 + Abs[\[CapitalSigma][[All,1,2]]]^2)
+			-(zlist + Conjugate@\[CapitalSigma][[All,1,1]] + DispersionHypercubic[k, DBethe])/(Abs[zlist - \[CapitalSigma][[All,1,1]] - DispersionHypercubic[k, DBethe]]^2 + Abs[\[CapitalSigma][[All,1,2]]]^2)
 		,{k, BrillouinZone}];
 		Floc = -\[CapitalSigma][[All,1,2]]*(1./LE^d)*Total@Table[
-			DispersionHypercubic[k, DBethe]*(1./(Abs[z-\[CapitalSigma][[All,1,1]] - DispersionHypercubic[k, DBethe]]^2 + Abs[\[CapitalSigma][[All,1,2]]]^2))
+			DispersionHypercubic[k, DBethe]*(1./(Abs[zlist - \[CapitalSigma][[All,1,1]] - DispersionHypercubic[k, DBethe]]^2 + Abs[\[CapitalSigma][[All,1,2]]]^2))
 		,{k, BrillouinZone}];
 		LocalGF = Partition[#,2]&/@({Gloc, Floc, Conjugate@Floc, -Conjugate@Gloc}\[Transpose])
 	]
 ];
 Options[LocalGreenFunction] = {Lattice -> "Bethe", LatticeDimension -> 2, NumberOfPoints -> 1000};
+
+
+
+(* extract independent bath parameters depending on EdMode *)
+TakeIndependentParameters[L_, f_, Norb_, \[Sigma]_, orb_, BathParameters_, EdMode_] :=
+	Which[
+		EdMode == "Normal",
+		Join[
+			BathParameters[[1]][[f*(orb-1)+\[Sigma]]], (* e1, e2, e3, ... *)
+			BathParameters[[2]][[f*(orb-1)+\[Sigma]]] (* V1, V2, V3, ... *)
+		],
+	(* ---------------------------------------- *)
+		EdMode == "Superc",
+		Join[
+			BathParameters[[1]][[f*(orb-1)+\[Sigma]]], (* e1, e2, e3, ... *)
+			BathParameters[[2]][[f*(orb-1)+\[Sigma]]], (* V1, V2, V3, ... *)
+			BathParameters[[3]][[f*(orb-1)+\[Sigma]]] (* \[CapitalDelta]1, \[CapitalDelta]2, \[CapitalDelta]3, ... *)
+		],
+	(* --------------------------------------- *)
+		EdMode == "InterorbNormal" || EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
+		Flatten[BathParameters]
+	];
+
+(* correctly reshape the flat list of independent bath parameters *)
+ReshapeBathParameters[L_, f_, Norb_, IndependentParameters_, EdMode_] := 
+	Which[
+		EdMode == "Normal",
+		{ConstantArray[Take[IndependentParameters, L-1], f*Norb], (* e *)
+		ConstantArray[Take[IndependentParameters, {L, 2(L-1)}], f*Norb]}, (* V *)
+	(* ----------------------------------------- *)
+		EdMode == "Superc",
+		{ConstantArray[Take[IndependentParameters, L-1], f*Norb], (* e *)
+		ConstantArray[Take[IndependentParameters, {L, 2(L-1)}], f*Norb], (* V *)
+		ConstantArray[Take[IndependentParameters, {2L-1, 3(L-1)}], Norb]}, (* \[CapitalDelta] *)
+	(* ----------------------------------------- *)
+		EdMode == "InterorbNormal",
+		{Partition[Take[IndependentParameters, (L-1)*f*Norb], L-1], (* e *)
+		Partition[Take[IndependentParameters, {1+(L-1)*f*Norb, 2*(L-1)*f*Norb}], L-1]}, (* V *)
+	(* ----------------------------------------- *)
+		EdMode == "InterorbSuperc",
+		{Partition[Take[IndependentParameters, (L-1)*f*Norb], L-1], (* e *)
+		Partition[Take[IndependentParameters, {1+(L-1)*f*Norb, 2*(L-1)*f*Norb}], L-1], (* V *)
+		Take[IndependentParameters, {1+2*(L-1)*f*Norb, 2*(L-1)*f*Norb + L-1}]}, (* \[CapitalXi] *)
+	(* ----------------------------------------- *)
+		EdMode == "FullSuperc",
+		{Partition[Take[IndependentParameters, (L-1)*f*Norb], L-1], (* e *)
+		Partition[Take[IndependentParameters, {1+(L-1)*f*Norb, 2*(L-1)*f*Norb}], L-1], (* V *)
+		Partition[Take[IndependentParameters, {1+2*(L-1)*f*Norb, 1+2*(L-1)*f*Norb + (L-1)*Norb}], L-1], (* \[CapitalDelta] *)
+		IndependentParameters[[1+2*(L-1)*f*Norb + (L-1)*Norb;;]]} (* \[CapitalXi] *)
+	];
+
+(* Perform minimization according to the self consistency condition *)
+SelfConsistency[DBethe_, \[Mu]_, Weiss_, symbols_, z_, IndependentParameters_, LocalG_, zlist_, EdMode_, OptionsPattern[]] := Module[
+	{Lattice = OptionValue[Lattice],
+	LFit = Min[Length[zlist], OptionValue[NumberOfFrequencies]],
+	residue, newparameters, \[Chi]},
+	(* define the target function to minimize depending on the Lattice and EdMode (if Lattice = Bethe there is a shortcut) *)
+	Which[
+		Lattice == "Bethe",
+		\[Chi][symbols] = Mean[Abs[
+			((Weiss - z - \[Mu])/.{z -> Take[zlist, LFit]}) + (DBethe^2/4.)*Take[LocalG, LFit]
+		]^2]
+	];
+	{residue, newparameters} =
+		FindMinimum[
+			\[Chi][symbols],
+			{symbols, StartingParameters}\[Transpose],
+			Method -> "ConjugateGradient",
+			MaxIterations -> 700,
+			AccuracyGoal -> 5
+		];
+	symbols/.newparameters
+];
+Options[SelfConsistency] = {Lattice -> "Bethe", NumberOfFrequencies -> 2000};
 
 
 
