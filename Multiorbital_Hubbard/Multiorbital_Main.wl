@@ -6,6 +6,7 @@
 
 ClearAll["Global`*"];
 ClearAll["DMFT`*"];
+$HistoryLength = 2;
 
 FolderPath = NotebookDirectory[];
 <<(FolderPath<>"Multiorbital_Package.wl");
@@ -17,7 +18,7 @@ FolderPath = NotebookDirectory[];
 
 
 (*             GENERAL INPUT              *)
-Nbath = 2; (* number of bath sites *)
+Nbath = 4; (* number of bath sites *)
 Norb = 2; (* number of orbitals *)
 Nimp = 1; (* number of impurity sites *)
 L = Nimp + Nbath; (* total number of sites: bath+impurity *)
@@ -26,8 +27,8 @@ EdMode = "Normal"; (* call the function EdModeInfo[EdMode] to get details *)
 OrbitalSymmetry = False; (* set True to enforce orbital symmetry and avoid repeating calculations *)
 
 (*      INPUT PHYSICAL PARAMETERS        *)
-DBethe = ConstantArray[1., Norb]; (* list of half-bandwidths for all the orbitals *)
-U = ConstantArray[0.01, Norb]; (* interaction energy in units of DBethe = 1.0. You have to provide a list of U values in the orbitals *)
+DBethe = ConstantArray[0.1, Norb]; (* list of half-bandwidths for all the orbitals *)
+U = ConstantArray[8., Norb]; (* interaction energy in units of DBethe = 1.0. You have to provide a list of U values in the orbitals *)
 JH = 0.0; (* Hund's J. It's used only when HundMode = True to enforce rotation invariance of the Kanamori model. *)
 Ust = 0.0; (* density-density opposite spin coupling. It is set automatically if HundMode = True. *)
 Usec = 0.0; (* density-density same spin coupling. It is set automatically if HundMode = True. *)
@@ -50,8 +51,14 @@ d\[Omega] = (\[Omega]max - \[Omega]min)/NReal; (* real frequency step *)
 \[Omega] = Table[\[Omega]min + n*d\[Omega], {n, 0, NReal}]; (* list of real frequencies *)
 \[Eta] = 0.025;(* small shift of the pole in the imaginary axis: this avoids singularities, but introduces an artificial broadening of the spectrum *)
 
+(* NUMERICAL DETAILS OF THE ALGORITHM *)
+DMFTMinIterations = 2; (* minimum number of DMFT loops *)
+DMFTMaxIterations = 20; (* maximum number of DMFT loops *)
+DMFTerror = 1.0 * 10^(-5); (* threshold for DMFT loop convergence *)
+Mixing = 0.75; (* Mixing * BathParameters + (1 - Mixing) * NewBathParameters *)
+
 (* OPTIONAL VARIABLES *)
-LoadHamiltonianQ = False;(* load Hamiltonian from a file? *)
+LoadHamiltonianQ = True;(* load Hamiltonian from a file? *)
 HnonlocFile = FolderPath<>"Hnonloc_L="<>ToString[L]<>"_f="<>ToString[f]<>"_Norb="<>ToString[Norb]<>"_EdMode="<>EdMode<>".mx";(* file name for import / export of nonlocal Hamiltonian blocks *)
 HlocFile = FolderPath<>"Hloc_L="<>ToString[L]<>"_f="<>ToString[f]<>"_Norb="<>ToString[Norb]<>"_EdMode="<>EdMode<>".mx";(* file name for import / export of local Hamiltonian blocks *)
 
@@ -61,9 +68,9 @@ HlocFile = FolderPath<>"Hloc_L="<>ToString[L]<>"_f="<>ToString[f]<>"_Norb="<>ToS
 
 
 (* GENERAL VARIABLES *)
-LastIteration = False;(*allows to do one more iteration after convergence threshold is reached*)
-Converged = False;(*True if DMFT has converged, false otherwise*)
-ErrorList = {};(*list of DMFT errors*) 
+LastIteration = False; (* allows to do one more iteration after convergence threshold is reached *)
+Converged = False; (* True if DMFT has converged, false otherwise *)
+ErrorList = {}; (* list of DMFT errors *) 
 
 (* GET BATH PARAMETERS *)
 BathParameters = StartingBath[L, f, Norb, InitializeBathMode, EdMode];
@@ -79,7 +86,7 @@ If[HundMode,
 If[HFMode, 
 	\[Mu] = \[Mu] + U[[1]]/2 + (Ust + Usec)*(Norb - 1)/2.;
 ];(* reset chemical potential if HFMode = True *)
-InteractionParameters = Flatten[{U, Ust, Usec, Jph, Jse, \[Mu]}];
+InteractionParameters = Flatten[{U, Ust, Usec, Jph, Jse, -U[[1]]/2}];
 
 (* GET SYMBOLIC GREEN FUNCTION AND WEISS FIELD *)
 symbols = Which[
@@ -95,7 +102,7 @@ symbols = Which[
 		Table[Symbol["\[CapitalDelta]"<>ToString[i]], {i, L-1}]
 	]
 ];(* define a suitable list of symbols depending on EdMode *)
-Weiss = WeissField[L, f, \[Mu], symbols, z, EdMode];
+Weiss = Apart[WeissField[L, f, \[Mu], symbols, z, EdMode]];
 Print["The Weiss field for the given impurity problem is  \!\(\*SuperscriptBox[SubscriptBox[\(G\), \(0\)], \(-1\)]\)(z) = ", Weiss];
 
 (* GET SECTORS *)
@@ -118,12 +125,12 @@ FilePrint[FolderPath<>"used_input.dat"]
 
 
 (*                   DMFT LOOP                     *)
-(*Do[*)
-
+Do[
+	ClearAll[Hsectors, EgsSectorList, GsSectorList];
+	
 	(* First print *)
 	Print[Style["DMFT Loop n. ", 20, Bold, Red], Style[DMFTiterator, 20, Bold, Red]];
-	Print["----------------------------------------------------------------------------------------"];
-	Print[Style["        Exact Diagonalization start", 16, Bold, Orange]];
+	Print[Style["\t\t Exact Diagonalization start", 16, Bold, Orange]];
 	Print["Bath parameters: ", BathParameters];
 
 	(* Build and diagonalize the AIM Hamiltonian + print timing *)
@@ -133,8 +140,10 @@ FilePrint[FolderPath<>"used_input.dat"]
 		eigs = Map[Eigs[#, "Temperature" -> T, "MinLanczosDim"->100]&, Hsectors];
 		EgsSectorList = eigs[[All, 1]];
 		GsSectorList = eigs[[All, 2]];
-	
+		ClearAll[eigs];
+		
 	]," sec.\n"];
+	Print["memory in use: ", MemoryInUse[]];
 	
 	(* ZERO TEMPERATURE CALCULATIONS *)
 	If[T == 0,
@@ -149,19 +158,34 @@ FilePrint[FolderPath<>"used_input.dat"]
 		GsQns = QnsSectorList[[GsSectorIndex[[All, 1]]]];(* list of quantum numbers of the degenerate ground states *)	
 		Print["\t\t Ground state info:\n", "Egs = ", Egs, "   Quantum numbers = ", GsQns];(* print relevant information about the ground state *)
 		
+		
 		If[OrbitalSymmetry,
+			IndependentParameters = TakeIndependentParameters[L, f, Norb, 1, 1, BathParameters, EdMode];
 			(* G^-1(i\[Omega]) *)
 			InverseG = Mean[MapApply[
 				InverseGreenFunction[L, f, Norb, 1, 1, Egs, ##, Hsectors, Sectors, SectorsDispatch, EdMode, i\[Omega]]&,
 				{Gs, GsQns}\[Transpose]
 			]];
 			(* Subscript[G, 0]^-1(i\[Omega]) *)
-			InverseG0 = (Weiss/.Thread[symbols -> TakeIndependentParameters[L, f, Norb, 1, 1, BathParameters, EdMode]])/.{z -> i\[Omega]};
+			InverseG0old = If[DMFTiterator == 1, 0*InverseG, InverseG0];
+			InverseG0 = (Weiss/.Thread[symbols -> IndependentParameters])/.{z -> i\[Omega]};
 			(* \[CapitalSigma](i\[Omega]) *)
 			\[CapitalSigma] = InverseG0 - InverseG;
 			(* Subscript[G, loc](i\[Omega]) *)
-			LocalG = LocalGreenFunction[DBethe[[1]], \[CapitalSigma], EdMode, i\[Omega], Lattice -> "Bethe", NumberOfPoints -> 1000];,
+			LocalG = LocalGreenFunction[DBethe[[1]], \[CapitalSigma], EdMode, i\[Omega], Lattice -> "Bethe", NumberOfPoints -> 1000];
+			(* Self consistency *)
+			Print[Style["\t\t Self Consistency start", 16, Bold, Magenta]];
+			Print["S.C. time: ", First@AbsoluteTiming[
+				NewBathParameters = ReshapeBathParameters[L, f, Norb,	
+					SelfConsistency[DBethe[[1]], \[Mu], Weiss, symbols, z, IndependentParameters, LocalG, i\[Omega], EdMode, Minimum -> "Local", MaxIterations -> 2000, AccuracyGoal -> 7],
+				OrbitalSymmetry, EdMode];
+			], " sec." ];
+			error = DMFTError[InverseG0, InverseG0old, EdMode];,
+		(* --------------------------  *)	
 		(* else, if no orbital symmetry: *)
+			IndependentParameters = Table[
+				TakeIndependentParameters[L, f, Norb, 1, orb, BathParameters, EdMode],
+			{orb, Norb}];
 			(* { G^-1Subscript[(i\[Omega]), orb=1] , G^-1Subscript[(i\[Omega]), orb=2] , ...} *)
 			InverseG = Table[
 				Mean[MapApply[
@@ -169,6 +193,7 @@ FilePrint[FolderPath<>"used_input.dat"]
 					{Gs, GsQns}\[Transpose]
 				]], {orb, Norb}];
 			(* { Subscript[G, 0]^-1Subscript[(i\[Omega]), orb=1] , Subscript[G, 0]^-1Subscript[(i\[Omega]), orb=2] , ...} *)
+			InverseG0old = If[DMFTiterator == 1, 0*InverseG, InverseG0];
 			InverseG0 = Table[
 				(Weiss/.Thread[symbols -> TakeIndependentParameters[L, f, Norb, 1, orb, BathParameters, EdMode]])/.{z -> i\[Omega]},
 				{orb, Norb}];
@@ -177,10 +202,20 @@ FilePrint[FolderPath<>"used_input.dat"]
 			(* { Subscript[G, loc]Subscript[(i\[Omega]), orb=1] , Subscript[G, loc]Subscript[(i\[Omega]), orb=2] , ...} *)
 			LocalG = Table[
 				LocalGreenFunction[DBethe[[orb]], \[CapitalSigma][[orb]], EdMode, i\[Omega], Lattice -> "Bethe", NumberOfPoints -> 1000]
-			, {orb, Norb}];	
+			, {orb, Norb}];
+			(* Self consistency *)
+			Print[Style["\t\t Self Consistency start", 16, Bold, Magenta]];
+			Print["S.C. time: ", First@AbsoluteTiming[
+				NewBathParameters = ReshapeBathParameters[L, f, Norb,	
+					Table[
+						SelfConsistency[DBethe[[orb]], \[Mu], Weiss, symbols, z, IndependentParameters[[orb]], LocalG[[orb]], i\[Omega], EdMode, Minimum -> "Local", MaxIterations -> 2000, AccuracyGoal -> 7]
+					, {orb, Norb}],
+				OrbitalSymmetry, EdMode];
+			], " sec." ];
+			error = (1./Norb)*Sum[
+				DMFTError[InverseG0[[orb]], InverseG0old[[orb]], EdMode],
+			{orb, Norb}];
 		];
-		
-		
 	];
 	
 	(* FINITE TEMPERATURE CALCULATIONS *)
@@ -189,14 +224,54 @@ FilePrint[FolderPath<>"used_input.dat"]
 		Break[];
 	];
 	
-(*];*)
+	(* update bath parameters *)
+	BathParameters = Mixing * BathParameters + (1 - Mixing) * NewBathParameters;
+	Print["DMFT error: ", error];
+	
+	(*Print*)
+	Print[Style["\t\t Self Consistency completed", 16, Bold, Magenta]];
+	Print["----------------------------------------------------------------------------------------"];
+	Print["----------------------------------------------------------------------------------------"];
+	Print["----------------------------------------------------------------------------------------"];
 
-ListPlot[{Re[LocalG[[1]]], Re[LocalG[[2]]]}, Joined->True, PlotStyle->{Thick, Dashing[.1]}]
-ListPlot[{Im[LocalG[[1]]], Im[LocalG[[2]]]}, Joined->True, PlotStyle->{Thick, Dashing[.1]}]
+	(* Exit DMFT Loop if convengerce is reached *)
+	If[DMFTiterator > DMFTMinIterations && error < DMFTerror && LastIteration, Break[];];
+	If[error < DMFTerror, LastIteration = True, (*else*) LastIteration = False];
 
 
-TakeIndependentParameters[L, f, Norb, 1, 1, BathParameters, EdMode]
+, {DMFTiterator, DMFTMaxIterations}]
 
 
 
+ListPlot[Table[Im[\[CapitalSigma][[orb]]],{orb,Norb}], Joined->True, PlotStyle->{Thick, Dashing[.05]}, PlotRange->Automatic]
 
+ListPlot[{Im[LocalG[[2]]], Im[1./InverseG[[2]]]}, Joined->True, PlotStyle->{Thick, Dashing[.05]}]
+ListPlot[{Im[LocalG[[1]]], Im[1./InverseG[[1]]]}, Joined->True, PlotStyle->{Thick, Dashing[.05]}]
+
+spectralfunction = Mean[MapApply[
+	GreenFunctionImpurity[L, f, Norb, 1, 2, Egs, ##, Hsectors, Sectors, SectorsDispatch, EdMode, \[Omega]+I*\[Eta]]&,
+	{Gs, GsQns}\[Transpose]
+]];
+
+ListPlot[{\[Omega], -(1./Pi)*Im[spectralfunction]}\[Transpose], Joined->True, PlotRange->All]
+d\[Omega] * Total[-(1./Pi)*Im[spectralfunction]]
+
+
+
+BathPlot[L_, BathParameters_] := Module[
+	{coordinates, rules, edgeweights},
+	coordinates = Join[
+		{{0, 0.2}}, (* impurity *)
+		{BathParameters[[1,1]], ConstantArray[0, L-1]}\[Transpose]
+	];
+	edgeweights = BathParameters[[2,1]];
+	rules = Thread[ConstantArray[0, L-1] \[UndirectedEdge] Table[n, {n, L-1}]];
+	Graph[
+		rules,
+		VertexCoordinates -> coordinates,
+		EdgeStyle -> Thickness[#]&/@Abs[0.25*edgeweights],
+		VertexStyle -> Orange
+	]
+];
+
+BathPlot[L, BathParameters]

@@ -22,7 +22,7 @@ The word ''independent'' means that in case there is some symmetry, for example 
 \[Sigma] and orb, namely e_\[Sigma],orb ; V_\[Sigma],orb, etc. This is useful in two cases: to compute the numerical Weiss field from the symbolic expression, and to perform the self consistency minimization
 with the smallest possible number of variables. "
 
-ReshapeBathParameters::usage = "ReshapeBathParameters[L, f, Norb, IndependentParameters, EdMode] takes a list of independent bath parameters and returns a reshaped version of it which is 
+ReshapeBathParameters::usage = "ReshapeBathParameters[L, f, Norb, IndependentParameters, OrbitalSymmetry, EdMode] takes a list of independent bath parameters and returns a reshaped version of it which is 
 consistent with the conventionally chosen shape. "
 
 
@@ -80,7 +80,9 @@ Hnonint::usage = "Hnonint[L, f, Norb, Sectors, EdMode]. Optional arguments: Real
 
 
 (* Self consistency *)
-SelfConsistency::usage = "SelfConsistency[DBethe_, \[Mu]_, Weiss_, symbols_, StartingParameters_, LocalG_, zlist_, EdMode_]"
+SelfConsistency::usage = "SelfConsistency[DBethe, \[Mu], Weiss, symbols, StartingParameters, LocalG, zlist, EdMode]"
+
+DMFTError::usage = "DMFTError[Xnew, Xold, EdMode]"
 
 
 Begin["`Private`"];
@@ -1516,16 +1518,45 @@ TakeIndependentParameters[L_, f_, Norb_, \[Sigma]_, orb_, BathParameters_, EdMod
 	];
 
 (* correctly reshape the flat list of independent bath parameters *)
-ReshapeBathParameters[L_, f_, Norb_, IndependentParameters_, EdMode_] := 
+ReshapeBathParameters[L_, f_, Norb_, IndependentParameters_, OrbitalSymmetry_, EdMode_] := 
 	Which[
-		EdMode == "Normal",
+		EdMode == "Normal" && OrbitalSymmetry,
 		{ConstantArray[Take[IndependentParameters, L-1], f*Norb], (* e *)
 		ConstantArray[Take[IndependentParameters, {L, 2(L-1)}], f*Norb]}, (* V *)
 	(* ----------------------------------------- *)
-		EdMode == "Superc",
+		EdMode == "Normal" && !OrbitalSymmetry,
+		{Join[Flatten[
+			Table[
+				ConstantArray[IndependentParameters[[orb]][[;;L-1]], f],
+			{orb, Norb}]
+		, 1]],
+		Join[Flatten[
+			Table[
+				ConstantArray[IndependentParameters[[orb]][[L;;]], f],
+			{orb, Norb}]
+		, 1]]},
+	(* ----------------------------------------- *)
+		EdMode == "Superc" && OrbitalSymmetry,
 		{ConstantArray[Take[IndependentParameters, L-1], f*Norb], (* e *)
 		ConstantArray[Take[IndependentParameters, {L, 2(L-1)}], f*Norb], (* V *)
 		ConstantArray[Take[IndependentParameters, {2L-1, 3(L-1)}], Norb]}, (* \[CapitalDelta] *)
+	(* ----------------------------------------- *)
+		EdMode == "Superc" && !OrbitalSymmetry,
+		{Join[Flatten[
+			Table[
+				ConstantArray[IndependentParameters[[orb]][[;;L-1]], f],
+			{orb, Norb}]
+		, 1]],
+		Join[Flatten[
+			Table[
+				ConstantArray[IndependentParameters[[orb]][[L;;2(L-1)]], f],
+			{orb, Norb}]
+		, 1]],
+		Join[Flatten[
+			Table[
+				ConstantArray[IndependentParameters[[orb]][[2L-1;;]], f],
+			{orb, Norb}]
+		, 1]]},
 	(* ----------------------------------------- *)
 		EdMode == "InterorbNormal",
 		{Partition[Take[IndependentParameters, (L-1)*f*Norb], L-1], (* e *)
@@ -1544,7 +1575,7 @@ ReshapeBathParameters[L_, f_, Norb_, IndependentParameters_, EdMode_] :=
 	];
 
 (* Perform minimization according to the self consistency condition *)
-SelfConsistency[DBethe_, \[Mu]_, Weiss_, symbols_, z_, IndependentParameters_, LocalG_, zlist_, EdMode_, OptionsPattern[]] := Module[
+SelfConsistency[DBethe_, \[Mu]_, Weiss_, symbols_, z_, IndependentParameters_, LocalG_, zlist_, EdMode_, OptionsPattern[{SelfConsistency, FindMinimum}]] := Module[
 	{Lattice = OptionValue[Lattice],
 	LFit = Min[Length[zlist], OptionValue[NumberOfFrequencies]],
 	residue, newparameters, \[Chi]},
@@ -1553,20 +1584,64 @@ SelfConsistency[DBethe_, \[Mu]_, Weiss_, symbols_, z_, IndependentParameters_, L
 		Lattice == "Bethe",
 		\[Chi][symbols] = Mean[Abs[
 			((Weiss - z - \[Mu])/.{z -> Take[zlist, LFit]}) + (DBethe^2/4.)*Take[LocalG, LFit]
-		]^2]
+		]^2],
+	(* ------------------------------------ *)
+		Lattice != "Bethe",
+		Return[0];
 	];
-	{residue, newparameters} =
-		FindMinimum[
-			\[Chi][symbols],
-			{symbols, StartingParameters}\[Transpose],
-			Method -> "ConjugateGradient",
-			MaxIterations -> 700,
-			AccuracyGoal -> 5
-		];
+	Which[
+		OptionValue[Minimum] == "Local",
+		{residue, newparameters} =
+			FindMinimum[
+				\[Chi][symbols],
+				{symbols, IndependentParameters}\[Transpose],
+				Method -> "ConjugateGradient",
+				MaxIterations -> OptionValue[MaxIterations],
+				AccuracyGoal -> OptionValue[AccuracyGoal]
+			];,
+	(* -------------------------------------- *)
+		OptionValue[Minimum] == "Global",
+		{residue, newparameters} =
+			NMinimize[
+				\[Chi][symbols],
+				symbols,
+				Method -> OptionValue[Method],
+				MaxIterations -> OptionValue[MaxIterations],
+				AccuracyGoal -> OptionValue[AccuracyGoal]
+			];
+	];
+	Print["Fit residue: ", residue];
 	symbols/.newparameters
 ];
-Options[SelfConsistency] = {Lattice -> "Bethe", NumberOfFrequencies -> 2000};
+Options[SelfConsistency] = {Lattice -> "Bethe", NumberOfFrequencies -> 2000, Minimum -> "Local"};
 
+(* DMFT error *)
+DMFTError[Xnew_, Xold_, EdMode_] := Module[
+	{error},
+	Which[
+		EdMode == "Normal",
+		error = Total[Abs[
+			Xnew - Xold
+		]]/Max[
+			Total[Abs[Xnew]], Total[Abs[Xold]]
+		],
+(* ------------------------------- *)
+		EdMode == "Superc",
+		error = Mean[{
+			Total[Abs[
+				Xnew[[All, 1, 1]] - Xold[[All, 1, 1]]
+			]]/Max[
+				Total[Abs[Xnew[[All, 1, 1]]]], Total[Abs[Xold[[All, 1, 1]]]]		
+			],
+			Total[Abs[
+				Xnew[[All, 1, 2]] - Xold[[All, 1, 2]]
+			]]/Max[
+				Total[Abs[Xnew[[All, 1, 2]]]], Total[Abs[Xold[[All, 1, 2]]]]		
+			]
+		}]
+	];
+	error
+];
 
 
 End[];
