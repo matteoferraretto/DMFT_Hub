@@ -6,7 +6,6 @@
 
 ClearAll["Global`*"];
 ClearAll["DMFT`*"];
-$HistoryLength = 2;
 
 FolderPath = NotebookDirectory[];
 <<(FolderPath<>"Multiorbital_Package.wl");
@@ -18,17 +17,17 @@ FolderPath = NotebookDirectory[];
 
 
 (*             GENERAL INPUT              *)
-Nbath = 4; (* number of bath sites *)
-Norb = 2; (* number of orbitals *)
+Nbath = 2; (* number of bath sites *)
+Norb = 1; (* number of orbitals *)
 Nimp = 1; (* number of impurity sites *)
 L = Nimp + Nbath; (* total number of sites: bath+impurity *)
 f = 2; (* number of spin states *)
-EdMode = "Normal"; (* call the function EdModeInfo[EdMode] to get details *)
-OrbitalSymmetry = False; (* set True to enforce orbital symmetry and avoid repeating calculations *)
+EdMode = "Superc"; (* call the function EdModeInfo[EdMode] to get details *)
+OrbitalSymmetry = True; (* set True to enforce orbital symmetry and avoid repeating calculations *)
 
 (*      INPUT PHYSICAL PARAMETERS        *)
-DBethe = ConstantArray[0.1, Norb]; (* list of half-bandwidths for all the orbitals *)
-U = ConstantArray[8., Norb]; (* interaction energy in units of DBethe = 1.0. You have to provide a list of U values in the orbitals *)
+DBethe = ConstantArray[1., Norb]; (* list of half-bandwidths for all the orbitals *)
+U = ConstantArray[-0.3, Norb]; (* interaction energy in units of DBethe = 1.0. You have to provide a list of U values in the orbitals *)
 JH = 0.0; (* Hund's J. It's used only when HundMode = True to enforce rotation invariance of the Kanamori model. *)
 Ust = 0.0; (* density-density opposite spin coupling. It is set automatically if HundMode = True. *)
 Usec = 0.0; (* density-density same spin coupling. It is set automatically if HundMode = True. *)
@@ -58,7 +57,7 @@ DMFTerror = 1.0 * 10^(-5); (* threshold for DMFT loop convergence *)
 Mixing = 0.75; (* Mixing * BathParameters + (1 - Mixing) * NewBathParameters *)
 
 (* OPTIONAL VARIABLES *)
-LoadHamiltonianQ = True;(* load Hamiltonian from a file? *)
+LoadHamiltonianQ = False;(* load Hamiltonian from a file? *)
 HnonlocFile = FolderPath<>"Hnonloc_L="<>ToString[L]<>"_f="<>ToString[f]<>"_Norb="<>ToString[Norb]<>"_EdMode="<>EdMode<>".mx";(* file name for import / export of nonlocal Hamiltonian blocks *)
 HlocFile = FolderPath<>"Hloc_L="<>ToString[L]<>"_f="<>ToString[f]<>"_Norb="<>ToString[Norb]<>"_EdMode="<>EdMode<>".mx";(* file name for import / export of local Hamiltonian blocks *)
 
@@ -168,11 +167,12 @@ Do[
 			]];
 			(* Subscript[G, 0]^-1(i\[Omega]) *)
 			InverseG0old = If[DMFTiterator == 1, 0*InverseG, InverseG0];
-			InverseG0 = (Weiss/.Thread[symbols -> IndependentParameters])/.{z -> i\[Omega]};
+			InverseG0 = (Weiss/.Thread[symbols -> IndependentParameters])/.{z -> #}&/@i\[Omega];
 			(* \[CapitalSigma](i\[Omega]) *)
 			\[CapitalSigma] = InverseG0 - InverseG;
 			(* Subscript[G, loc](i\[Omega]) *)
 			LocalG = LocalGreenFunction[DBethe[[1]], \[CapitalSigma], EdMode, i\[Omega], Lattice -> "Bethe", NumberOfPoints -> 1000];
+			Print[Dimensions[InverseG0], " ", Dimensions[InverseG], " ", Dimensions[LocalG]];
 			(* Self consistency *)
 			Print[Style["\t\t Self Consistency start", 16, Bold, Magenta]];
 			Print["S.C. time: ", First@AbsoluteTiming[
@@ -195,7 +195,7 @@ Do[
 			(* { Subscript[G, 0]^-1Subscript[(i\[Omega]), orb=1] , Subscript[G, 0]^-1Subscript[(i\[Omega]), orb=2] , ...} *)
 			InverseG0old = If[DMFTiterator == 1, 0*InverseG, InverseG0];
 			InverseG0 = Table[
-				(Weiss/.Thread[symbols -> TakeIndependentParameters[L, f, Norb, 1, orb, BathParameters, EdMode]])/.{z -> i\[Omega]},
+				(Weiss/.Thread[symbols -> TakeIndependentParameters[L, f, Norb, 1, orb, BathParameters, EdMode]])/.{z -> #}&/@i\[Omega],
 				{orb, Norb}];
 			(* { \[CapitalSigma]Subscript[(i\[Omega]), orb=1] , \[CapitalSigma]Subscript[(i\[Omega]), orb=2] , ...} *)
 			\[CapitalSigma] = InverseG0 - InverseG;
@@ -243,19 +243,19 @@ Do[
 
 
 
-ListPlot[Table[Im[\[CapitalSigma][[orb]]],{orb,Norb}], Joined->True, PlotStyle->{Thick, Dashing[.05]}, PlotRange->Automatic]
-
+ListPlot[Im[\[CapitalSigma][[All,1,1]]], Joined->True, PlotStyle->{Thick}, PlotRange->Automatic]
+ListPlot[Re[\[CapitalSigma][[All,1,2]]], Joined->True, PlotStyle->{Thick}, PlotRange->Automatic]
+(*
 ListPlot[{Im[LocalG[[2]]], Im[1./InverseG[[2]]]}, Joined->True, PlotStyle->{Thick, Dashing[.05]}]
 ListPlot[{Im[LocalG[[1]]], Im[1./InverseG[[1]]]}, Joined->True, PlotStyle->{Thick, Dashing[.05]}]
-
+*)
 spectralfunction = Mean[MapApply[
-	GreenFunctionImpurity[L, f, Norb, 1, 2, Egs, ##, Hsectors, Sectors, SectorsDispatch, EdMode, \[Omega]+I*\[Eta]]&,
+	GreenFunctionImpurity[L, f, Norb, 1, 1, Egs, ##, Hsectors, Sectors, SectorsDispatch, EdMode, \[Omega]+I*\[Eta]]&,
 	{Gs, GsQns}\[Transpose]
 ]];
 
 ListPlot[{\[Omega], -(1./Pi)*Im[spectralfunction]}\[Transpose], Joined->True, PlotRange->All]
 d\[Omega] * Total[-(1./Pi)*Im[spectralfunction]]
-
 
 
 BathPlot[L_, BathParameters_] := Module[

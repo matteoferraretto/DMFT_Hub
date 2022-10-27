@@ -1024,7 +1024,7 @@ WeissField[L_, f_, \[Mu]_, symbols_, z_, EdMode_] := With[
 	{G0 = GreenFunction0[L, f, \[Mu], symbols, z, EdMode]},
 	Which[
 		EdMode == "Normal", FullSimplify[1/G0],
-		EdMode == "Superc", FullSimplify[Inverse[G0]]
+		EdMode == "Superc", Inverse[G0]
 	]
 ];
 
@@ -1581,10 +1581,16 @@ SelfConsistency[DBethe_, \[Mu]_, Weiss_, symbols_, z_, IndependentParameters_, L
 	residue, newparameters, \[Chi]},
 	(* define the target function to minimize depending on the Lattice and EdMode (if Lattice = Bethe there is a shortcut) *)
 	Which[
-		Lattice == "Bethe",
+		EdMode == "Normal" && Lattice == "Bethe",
 		\[Chi][symbols] = Mean[Abs[
-			((Weiss - z - \[Mu])/.{z -> Take[zlist, LFit]}) + (DBethe^2/4.)*Take[LocalG, LFit]
+			((Weiss - z - \[Mu])/.{z -> #}&/@Take[zlist, LFit]) + (DBethe^2/4.)*Take[LocalG, LFit]
 		]^2],
+	(* ------------------------------------ *)
+		EdMode == "Superc" && Lattice == "Bethe",
+		\[Chi][symbols] = Mean@First@
+			Mean[Abs[
+				((Weiss - z - \[Mu])/.{z -> #}&/@Take[zlist, LFit]) + (DBethe^2/4.)*Take[LocalG, LFit]
+			]^2],
 	(* ------------------------------------ *)
 		Lattice != "Bethe",
 		Return[0];
