@@ -17,7 +17,7 @@ FolderPath = NotebookDirectory[];
 
 
 (*             GENERAL INPUT              *)
-Nbath = 2; (* number of bath sites *)
+Nbath = 3; (* number of bath sites *)
 Norb = 1; (* number of orbitals *)
 Nimp = 1; (* number of impurity sites *)
 L = Nimp + Nbath; (* total number of sites: bath+impurity *)
@@ -54,7 +54,7 @@ d\[Omega] = (\[Omega]max - \[Omega]min)/NReal; (* real frequency step *)
 DMFTMinIterations = 2; (* minimum number of DMFT loops *)
 DMFTMaxIterations = 20; (* maximum number of DMFT loops *)
 DMFTerror = 1.0 * 10^(-5); (* threshold for DMFT loop convergence *)
-Mixing = 0.75; (* Mixing * BathParameters + (1 - Mixing) * NewBathParameters *)
+Mixing = 0.2; (* Mixing * BathParameters + (1 - Mixing) * NewBathParameters *)
 
 (* OPTIONAL VARIABLES *)
 LoadHamiltonianQ = False;(* load Hamiltonian from a file? *)
@@ -101,7 +101,7 @@ symbols = Which[
 		Table[Symbol["\[CapitalDelta]"<>ToString[i]], {i, L-1}]
 	]
 ];(* define a suitable list of symbols depending on EdMode *)
-Weiss = Apart[WeissField[L, f, \[Mu], symbols, z, EdMode]];
+Weiss = Apart[WeissField[L, f, \[Mu], symbols, z, EdMode], z];
 Print["The Weiss field for the given impurity problem is  \!\(\*SuperscriptBox[SubscriptBox[\(G\), \(0\)], \(-1\)]\)(z) = ", Weiss];
 
 (* GET SECTORS *)
@@ -172,7 +172,6 @@ Do[
 			\[CapitalSigma] = InverseG0 - InverseG;
 			(* Subscript[G, loc](i\[Omega]) *)
 			LocalG = LocalGreenFunction[DBethe[[1]], \[CapitalSigma], EdMode, i\[Omega], Lattice -> "Bethe", NumberOfPoints -> 1000];
-			Print[Dimensions[InverseG0], " ", Dimensions[InverseG], " ", Dimensions[LocalG]];
 			(* Self consistency *)
 			Print[Style["\t\t Self Consistency start", 16, Bold, Magenta]];
 			Print["S.C. time: ", First@AbsoluteTiming[
@@ -245,6 +244,9 @@ Do[
 
 ListPlot[Im[\[CapitalSigma][[All,1,1]]], Joined->True, PlotStyle->{Thick}, PlotRange->Automatic]
 ListPlot[Re[\[CapitalSigma][[All,1,2]]], Joined->True, PlotStyle->{Thick}, PlotRange->Automatic]
+
+ListPlot[{Im[InverseG0[[All,1,1]]], Im[InverseG0old[[All,1,1]]]}, Joined->True, PlotStyle->{Thick, Dashing[.05]}, PlotRange->Automatic]
+ListPlot[{Re[InverseG0[[All,1,2]]], Re[InverseG0old[[All,1,2]]]}, Joined->True, PlotStyle->{Thick, Dashing[.05]}, PlotRange->Automatic]
 (*
 ListPlot[{Im[LocalG[[2]]], Im[1./InverseG[[2]]]}, Joined->True, PlotStyle->{Thick, Dashing[.05]}]
 ListPlot[{Im[LocalG[[1]]], Im[1./InverseG[[1]]]}, Joined->True, PlotStyle->{Thick, Dashing[.05]}]
@@ -275,3 +277,17 @@ BathPlot[L_, BathParameters_] := Module[
 ];
 
 BathPlot[L, BathParameters]
+
+
+Total[Abs[
+	Abs@InverseG0[[All, 1, 2]] - Abs@InverseG0old[[All, 1, 2]]
+]]/
+Max[
+	Total[Abs@InverseG0[[All, 1, 2]]], Total[Abs@InverseG0old[[All, 1, 2]]]		
+]
+
+Dimensions@InverseG
+
+
+
+

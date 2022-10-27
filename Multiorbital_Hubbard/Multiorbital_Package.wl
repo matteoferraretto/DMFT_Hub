@@ -1578,7 +1578,7 @@ ReshapeBathParameters[L_, f_, Norb_, IndependentParameters_, OrbitalSymmetry_, E
 SelfConsistency[DBethe_, \[Mu]_, Weiss_, symbols_, z_, IndependentParameters_, LocalG_, zlist_, EdMode_, OptionsPattern[{SelfConsistency, FindMinimum}]] := Module[
 	{Lattice = OptionValue[Lattice],
 	LFit = Min[Length[zlist], OptionValue[NumberOfFrequencies]],
-	residue, newparameters, \[Chi]},
+	residue, newparameters, \[Chi], \[Sigma]3 = PauliMatrix[3]},
 	(* define the target function to minimize depending on the Lattice and EdMode (if Lattice = Bethe there is a shortcut) *)
 	Which[
 		EdMode == "Normal" && Lattice == "Bethe",
@@ -1589,7 +1589,8 @@ SelfConsistency[DBethe_, \[Mu]_, Weiss_, symbols_, z_, IndependentParameters_, L
 		EdMode == "Superc" && Lattice == "Bethe",
 		\[Chi][symbols] = Mean@First@
 			Mean[Abs[
-				((Weiss - z - \[Mu])/.{z -> #}&/@Take[zlist, LFit]) + (DBethe^2/4.)*Take[LocalG, LFit]
+				((Weiss - z - \[Mu]*\[Sigma]3)/.{z -> #}&/@Take[zlist, LFit]) 
+				+ (DBethe^2/4.)*Map[Dot[\[Sigma]3, #, \[Sigma]3]&, Take[LocalG, LFit]]
 			]^2],
 	(* ------------------------------------ *)
 		Lattice != "Bethe",
