@@ -49,6 +49,8 @@ DrawState::usage = "DrawState[L, f, Norb] draws a graphic representation of a Fo
 (* Impurity Hamiltonian defining functions *)
 HNonlocal::usage = "HNonlocal[L, f, Norb, Sectors, EdMode]"
 
+HNonlocalRaman::usage = "HNonlocalRaman[L, f, Norb, Sectors, EdMode]"
+
 HNonlocalInfo::usage = "HNonlocalInfo[L, f, Norb, EdMode] prints useful info about the order of non local Hamiltonian blocks."
 
 HLocal::usage = "HLocal[L, f, Norb, Sectors, EdMode] "
@@ -653,12 +655,12 @@ HNonlocal[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 		Do[
 			Hblock = SparseArray[{}, {dim,dim}];
 			Which[
-				flag == "Bath",
+				flag == "Bath" && EdMode != "Raman",
 				num = n[L, f, Norb, j, \[Sigma], orb, \[Psi]];(*local density*)
 				Hblock += SparseArray@DiagonalMatrix[num];
 				AppendTo[Hsector, Hblock];,
 			(* --------------------------------------------------------------- *)
-				flag == "Hopping",
+				flag == "Hopping" && EdMode != "Raman",
 				\[Psi]1 = HopSelect[L, f, 1, j, \[Sigma], \[Sigma], orb, orb, \[Psi]];
 				If[Length[\[Psi]1] != 0, 
 					\[Chi] = Hop[L, f, 1, j, \[Sigma], \[Sigma], orb, orb, \[Psi]1];
@@ -706,6 +708,49 @@ HNonlocal[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 	H
 ];
 Options[HNonlocal] = {Nimp -> 1};
+
+(* non local part of impurity Hamiltonian for Raman processes *)
+HNonlocalRaman[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
+	{\[Psi]1,\[Chi],H,Hblock,Hsector,dim,rules,dispatch,cols,rows,pos,\[CapitalSigma],num},
+	H = {};
+	Do[
+		Hsector = {};
+		dim = Length[\[Psi]];
+		rules = Flatten[MapIndexed[{#1->#2[[1]]}&,\[Psi]],1];
+		dispatch = Dispatch[rules];
+		Do[
+			Hblock = SparseArray[{}, {dim,dim}];
+			Which[
+				flag == "Bath" && EdMode == "Raman",
+				(*Print["flag=",flag,". orb=", orb,". {\[Rho],\[Sigma]}=",{\[Rho],\[Sigma]},". j=",j];*)
+				\[Psi]1 = HopSelect[L, f, j, j, \[Rho], \[Sigma], orb, orb, \[Psi]];
+				If[Length[\[Psi]1] != 0, 
+					\[Chi] = Hop[L, f, j, j, \[Rho], \[Sigma], orb, orb, \[Psi]1];
+					rows = \[Chi]/.dispatch;(* *)cols=\[Psi]1/.dispatch;(* *)pos={rows,cols}\[Transpose];
+					\[CapitalSigma] = CCSign[L, f, {j,j}, {\[Rho],\[Sigma]}, {orb,orb}, \[Psi]1];
+					Hblock += SparseArray[pos->\[CapitalSigma],{dim,dim}];
+					Hblock = Hblock + Hblock\[ConjugateTranspose];
+				];
+				AppendTo[Hsector, Hblock];,
+			(* --------------------------------------------------------------- *)
+				flag == "Hopping" && EdMode == "Raman",
+				(*Print["flag=",flag,". orb=", orb,". {\[Rho],\[Sigma]}=",{\[Rho],\[Sigma]},". j=",j];*)
+				\[Psi]1 = HopSelect[L, f, 1, j, \[Rho], \[Sigma], orb, orb, \[Psi]];
+				If[Length[\[Psi]1] != 0, 
+					\[Chi] = Hop[L, f, 1, j, \[Rho], \[Sigma], orb, orb, \[Psi]1];
+					rows = \[Chi]/.dispatch;(* *)cols=\[Psi]1/.dispatch;(* *)pos={rows,cols}\[Transpose];
+					\[CapitalSigma] = CCSign[L, f, {1,j}, {\[Rho],\[Sigma]}, {orb,orb}, \[Psi]1];
+					Hblock += SparseArray[pos->\[CapitalSigma],{dim,dim}];
+					Hblock = Hblock + Hblock\[ConjugateTranspose];
+				];
+				AppendTo[Hsector, Hblock];
+			];
+		,{flag, {"Bath", "Hopping"}}, {orb, 1, Norb}, {j, OptionValue[Nimp]+1, L}, {\[Rho], 1, f}, {\[Sigma], 1, f}];
+		AppendTo[H, Hsector];
+	,{\[Psi], Sectors}];
+	H
+];
+Options[HNonlocalRaman] = {Nimp -> 1};
 
 (* prints useful info about the order of Hamiltonian blocks *)
 HNonlocalInfo[L_, f_, Norb_, EdMode_] := Module[{},
