@@ -161,11 +161,30 @@ StartingBath[L_, f_, Norb_, InitializeBathMode_, EdMode_, OptionsPattern[]] := M
 		];
 		Return[{e, V}],
 (* ---------------------------------------------- *)
+		EdMode == "Raman",
+		If[
+			InitializeBathMode == "Default",
+			e = ConstantArray[
+				Table[
+					ConstantArray[OptionValue[\[CapitalOmega]0], {f, f}] + 
+					(-OptionValue[\[CapitalOmega]0]-(Nbath-1)/2.+k)*IdentityMatrix[f]
+				, {k, 0, Nbath-1}]
+			, Norb];
+			V = ConstantArray[
+				Table[
+					ConstantArray[1., {f, f}]
+				, {k, Nbath}]
+			, Norb],
+		(*else*)
+			{e, V} = Import[InitializeBathMode, "Table"];
+		];
+		Return[{e, V}],
+(* ---------------------------------------------- *)
 		EdMode == "Superc",
 		If[
 			InitializeBathMode == "Default",
 			e = ConstantArray[
-				Table[-(Nbath-1)/2.+k,{k,0,Nbath-1}],
+				Table[-(Nbath-1)/2.+k, {k, 0, Nbath-1}],
 			f*Norb];
 			V = ConstantArray[
 				Table[1.,{k,1,Nbath}],
@@ -212,7 +231,7 @@ StartingBath[L_, f_, Norb_, InitializeBathMode_, EdMode_, OptionsPattern[]] := M
 	   Return[{e,V,\[CapitalDelta],\[CapitalXi]}];
 	]
 ];
-Options[StartingBath] = {\[CapitalDelta]0 -> 1., \[CapitalXi]0 -> 1.};
+Options[StartingBath] = {\[CapitalDelta]0 -> 1., \[CapitalXi]0 -> 1., \[CapitalOmega]0 -> 1.};
 
 EdModeInfo[EdMode_] := Which[
 	EdMode == "Normal",
