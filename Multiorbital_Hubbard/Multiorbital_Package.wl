@@ -71,6 +71,7 @@ GreenFunctionED::usage = "GreenFunctionED[L, f, Norb, {i,j}, \[Sigma], orb, Sect
 GreenFunctionImpurity::usage = "GreenFunctionImpurity[L_, f_, Norb_, \[Sigma]_, orb_, Egs_, gs_, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, EdMode_, zlist_]"
 GreenFunctionImpurityNambu::usage = "GreenFunctionImpurityNambu[L_, f_, Norb_, orb_, Egs_, Gs_, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, EdMode_, zlist_]"
 LocalGreenFunction::usage = "."
+SpectralFunction::usage = "SpectralFunction[L, f, Norb, \[Sigma], orb, Egs, Gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, \[Omega], \[Eta]]"
 InverseGreenFunction::usage = "InverseGreenFunction[L, f, Norb, \[Sigma], orb, Egs, gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, zlist] evaluates numerically the inverse Green function 
 of the fully interacting impurity problem. This function returns a list of either numbers when EdMode = Normal, or matrices in the suitable Nambu basis depending on EdMode. The input 
 spin and orbital indexes are completely ignored when the Nambu basis mixes up spin / orbital degrees of freedom. "
@@ -1601,6 +1602,25 @@ LocalGreenFunction[DBethe_, \[Mu]_, \[CapitalSigma]_, EdMode_, zlist_, OptionsPa
 ];
 Options[LocalGreenFunction] = {Lattice -> "Bethe", LatticeDimension -> 2, NumberOfPoints -> 1000};
 
+(* Spectral function *)
+SpectralFunction[L_, f_, Norb_, \[Sigma]_, orb_, Egs_, Gs_, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, EdMode_, \[Omega]_, \[Eta]_] := Module[
+	{spectralfunction},
+	Which[
+		EdMode == "Normal",
+		spectralfunction = -(1./Pi) * Im[Mean[MapApply[
+			GreenFunctionImpurity[L, f, Norb, \[Sigma], orb, Egs, ##, Hsectors, Sectors, SectorsDispatch, EdMode, \[Omega]+I*\[Eta]]&,
+			{Gs, GsQns}\[Transpose]
+		]]],
+(* ---------------------------------------------- *)
+		EdMode == "Superc",
+		spectralfunction = -(1./Pi) * Im[ Tr[#] &/@ 
+			Mean[MapApply[
+				GreenFunctionImpurityNambu[L, f, Norb, orb, Egs, ##, Hsectors, Sectors, SectorsDispatch, EdMode, \[Omega]+I*\[Eta]]&,
+				{Gs, GsQns}\[Transpose]
+			]]]
+	];
+	{\[Omega], spectralfunction}\[Transpose]
+];
 
 
 (* extract independent bath parameters depending on EdMode *)

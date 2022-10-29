@@ -23,14 +23,14 @@ Norb = 1; (* number of orbitals *)
 Nimp = 1; (* number of impurity sites *)
 L = Nimp + Nbath; (* total number of sites: bath+impurity *)
 f = 2; (* number of spin states *)
-EdMode = "Superc"; (* call the function EdModeInfo[EdMode] to get details *)
+EdMode = "Normal"; (* call the function EdModeInfo[EdMode] to get details *)
 LatticeType = "Hypercubic"; (* lattice crystal structure: "Bethe", "Hypercubic", etc. *)
-LatticeDim = 2; (* lattice dimensionality *)
+LatticeDim = 1; (* lattice dimensionality *)
 OrbitalSymmetry = True; (* set True to enforce orbital symmetry and avoid repeating calculations *)
 
 (*      INPUT PHYSICAL PARAMETERS        *)
 DBethe = ConstantArray[1., Norb]; (* list of half-bandwidths for all the orbitals *)
-U = ConstantArray[-5., Norb]; (* interaction energy in units of DBethe = 1.0. You have to provide a list of U values in the orbitals *)
+U = ConstantArray[5., Norb]; (* interaction energy in units of DBethe = 1.0. You have to provide a list of U values in the orbitals *)
 JH = 0.0; (* Hund's J. It's used only when HundMode = True to enforce rotation invariance of the Kanamori model. *)
 Ust = 0.0; (* density-density opposite spin coupling. It is set automatically if HundMode = True. *)
 Usec = 0.0; (* density-density same spin coupling. It is set automatically if HundMode = True. *)
@@ -239,16 +239,14 @@ Do[
 
 PlotMatsubara[Im[\[CapitalSigma]], i\[Omega], EdMode]
 PlotMatsubara[Re[\[CapitalSigma]], i\[Omega], EdMode]
-
+(*
 ListPlot[{Abs[i\[Omega]],Re[\[CapitalSigma][[All,1,2]]]}\[Transpose],Joined->True, PlotRange->{0,4}]
+*)
+spectralfunction = SpectralFunction[L, f, Norb, 1, 1, Egs, Gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, \[Omega], \[Eta]];
+ListPlot[spectralfunction, Joined->True, PlotRange->All]
+d\[Omega] * Total[spectralfunction[[All,2]]]
 
-spectralfunction = Mean[MapApply[
-	GreenFunctionImpurity[L, f, Norb, 1, 1, Egs, ##, Hsectors, Sectors, SectorsDispatch, EdMode, \[Omega]+I*\[Eta]]&,
-	{Gs, GsQns}\[Transpose]
-]];
 
-ListPlot[{\[Omega], -(1./Pi)*Im[spectralfunction]}\[Transpose], Joined->True, PlotRange->All]
-d\[Omega] * Total[-(1./Pi)*Im[spectralfunction]]
 
 
 ListPlot[{
