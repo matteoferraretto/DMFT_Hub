@@ -1549,14 +1549,14 @@ DispersionHypercubic = Compile[
 ];
 
 (* Local Green Function *)
-LocalGreenFunction[DBethe_, \[CapitalSigma]_, EdMode_, zlist_, OptionsPattern[]] := Module[
+LocalGreenFunction[DBethe_, \[Mu]_, \[CapitalSigma]_, EdMode_, zlist_, OptionsPattern[]] := Module[
 	{Gloc, Floc, zero, d\[Epsilon], LocalGF, BrillouinZone, dk,
 	Lattice = OptionValue[Lattice], d = OptionValue[LatticeDimension], LE = OptionValue[NumberOfPoints]},
 	d\[Epsilon] = 2.*DBethe/LE;
 	Which[
 		EdMode == "Normal" && Lattice == "Bethe",
 		Gloc = d\[Epsilon]*Total@Table[
-			DoSBethe[\[Epsilon], DBethe]/(zlist - \[Epsilon] - \[CapitalSigma])
+			DoSBethe[\[Epsilon], DBethe]/(zlist + \[Mu] - \[Epsilon] - \[CapitalSigma])
 		, {\[Epsilon], -DBethe, DBethe, d\[Epsilon]}],
 	(* -------------------------------------------------------- *)	
 		EdMode == "Normal" && Lattice == "Hypercubic",
@@ -1569,15 +1569,15 @@ LocalGreenFunction[DBethe_, \[CapitalSigma]_, EdMode_, zlist_, OptionsPattern[]]
 					d
 				], d-1];
 		Gloc = (1./LE^d)*Total@Table[
-			1./(zlist - DispersionHypercubic[k, DBethe] - \[CapitalSigma])
+			1./(zlist + \[Mu] - DispersionHypercubic[k, DBethe] - \[CapitalSigma])
 		, {k, BrillouinZone}],
 	(* --------------------------------------------------- *)	
 		EdMode == "Superc" && Lattice == "Bethe",
 		Gloc = d\[Epsilon]*Total@Table[
-				DoSBethe[\[Epsilon], DBethe]*(-zlist - Conjugate@\[CapitalSigma][[All,1,1]] - \[Epsilon])/(Abs[zlist - \[CapitalSigma][[All,1,1]] - \[Epsilon]]^2 + Abs[\[CapitalSigma][[All,1,2]]]^2)
+				DoSBethe[\[Epsilon], DBethe]*(-zlist + \[Mu] - Conjugate@\[CapitalSigma][[All,1,1]] - \[Epsilon])/(Abs[zlist + \[Mu] - \[CapitalSigma][[All,1,1]] - \[Epsilon]]^2 + Abs[\[CapitalSigma][[All,1,2]]]^2)
 			,{\[Epsilon], -DBethe, DBethe, d\[Epsilon]}];
 		Floc = -\[CapitalSigma][[All,1,2]]*d\[Epsilon]*Total@Table[
-				DoSBethe[\[Epsilon], DBethe]*(1./(Abs[zlist - \[CapitalSigma][[All,1,1]] - \[Epsilon]]^2 + Abs[\[CapitalSigma][[All,1,2]]]^2))
+				DoSBethe[\[Epsilon], DBethe]*(1./(Abs[zlist + \[Mu] - \[CapitalSigma][[All,1,1]] - \[Epsilon]]^2 + Abs[\[CapitalSigma][[All,1,2]]]^2))
 			,{\[Epsilon], -DBethe, DBethe, d\[Epsilon]}];
 		LocalGF = Partition[#,2]&/@({Gloc, Floc, Conjugate@Floc, -Conjugate@Gloc}\[Transpose]),
 	(* --------------------------------------------------- *)
@@ -1591,10 +1591,10 @@ LocalGreenFunction[DBethe_, \[CapitalSigma]_, EdMode_, zlist_, OptionsPattern[]]
 				d
 			], d-1];
 		Gloc = (1./LE^d)*Total@Table[
-			-(zlist + Conjugate@\[CapitalSigma][[All,1,1]] + DispersionHypercubic[k, DBethe])/(Abs[zlist - \[CapitalSigma][[All,1,1]] - DispersionHypercubic[k, DBethe]]^2 + Abs[\[CapitalSigma][[All,1,2]]]^2)
+			(- zlist + \[Mu] - Conjugate@\[CapitalSigma][[All,1,1]] - DispersionHypercubic[k, DBethe])/(Abs[zlist + \[Mu] - \[CapitalSigma][[All,1,1]] - DispersionHypercubic[k, DBethe]]^2 + Abs[\[CapitalSigma][[All,1,2]]]^2)
 		,{k, BrillouinZone}];
 		Floc = -\[CapitalSigma][[All,1,2]]*(1./LE^d)*Total@Table[
-			DispersionHypercubic[k, DBethe]*(1./(Abs[zlist - \[CapitalSigma][[All,1,1]] - DispersionHypercubic[k, DBethe]]^2 + Abs[\[CapitalSigma][[All,1,2]]]^2))
+			1./(Abs[zlist + \[Mu] - \[CapitalSigma][[All,1,1]] - DispersionHypercubic[k, DBethe]]^2 + Abs[\[CapitalSigma][[All,1,2]]]^2)
 		,{k, BrillouinZone}];
 		LocalGF = Partition[#,2]&/@({Gloc, Floc, Conjugate@Floc, -Conjugate@Gloc}\[Transpose])
 	]

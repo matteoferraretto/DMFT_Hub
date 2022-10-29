@@ -9,6 +9,7 @@ ClearAll["DMFT`*"];
 
 FolderPath = NotebookDirectory[];
 <<(FolderPath<>"Multiorbital_Package.wl");
+<<(FolderPath<>"Facilities.wl");
 ?"DMFT`*"
 
 
@@ -22,14 +23,14 @@ Norb = 1; (* number of orbitals *)
 Nimp = 1; (* number of impurity sites *)
 L = Nimp + Nbath; (* total number of sites: bath+impurity *)
 f = 2; (* number of spin states *)
-EdMode = "Normal"; (* call the function EdModeInfo[EdMode] to get details *)
+EdMode = "Superc"; (* call the function EdModeInfo[EdMode] to get details *)
 LatticeType = "Hypercubic"; (* lattice crystal structure: "Bethe", "Hypercubic", etc. *)
 LatticeDim = 2; (* lattice dimensionality *)
 OrbitalSymmetry = True; (* set True to enforce orbital symmetry and avoid repeating calculations *)
 
 (*      INPUT PHYSICAL PARAMETERS        *)
 DBethe = ConstantArray[1., Norb]; (* list of half-bandwidths for all the orbitals *)
-U = ConstantArray[0.3, Norb]; (* interaction energy in units of DBethe = 1.0. You have to provide a list of U values in the orbitals *)
+U = ConstantArray[-5., Norb]; (* interaction energy in units of DBethe = 1.0. You have to provide a list of U values in the orbitals *)
 JH = 0.0; (* Hund's J. It's used only when HundMode = True to enforce rotation invariance of the Kanamori model. *)
 Ust = 0.0; (* density-density opposite spin coupling. It is set automatically if HundMode = True. *)
 Usec = 0.0; (* density-density same spin coupling. It is set automatically if HundMode = True. *)
@@ -161,7 +162,7 @@ Do[
 			(* \[CapitalSigma](i\[Omega]) *)
 			\[CapitalSigma] = InverseG0 - InverseG;
 			(* Subscript[G, loc](i\[Omega]) *)
-			LocalG = LocalGreenFunction[DBethe[[1]], \[CapitalSigma], EdMode, i\[Omega], Lattice -> LatticeType, LatticeDimension -> LatticeDim, NumberOfPoints -> 2000];
+			LocalG = LocalGreenFunction[DBethe[[1]], \[Mu], \[CapitalSigma], EdMode, i\[Omega], Lattice -> LatticeType, LatticeDimension -> LatticeDim, NumberOfPoints -> 3000];
 			(* Self consistency *)
 			Print[Style["\t\t Self Consistency start", 16, Bold, Magenta]];
 			Print["S.C. time: ", First@AbsoluteTiming[
@@ -193,7 +194,7 @@ Do[
 			\[CapitalSigma] = InverseG0 - InverseG;
 			(* { Subscript[G, loc]Subscript[(i\[Omega]), orb=1] , Subscript[G, loc]Subscript[(i\[Omega]), orb=2] , ...} *)
 			LocalG = Table[
-				LocalGreenFunction[DBethe[[orb]], \[CapitalSigma][[orb]], EdMode, i\[Omega], Lattice -> LatticeType, LatticeDimension -> LatticeDim, NumberOfPoints -> 1000]
+				LocalGreenFunction[DBethe[[orb]], \[Mu], \[CapitalSigma][[orb]], EdMode, i\[Omega], Lattice -> LatticeType, LatticeDimension -> LatticeDim, NumberOfPoints -> 3000]
 			, {orb, Norb}];
 			(* Self consistency *)
 			Print[Style["\t\t Self Consistency start", 16, Bold, Magenta]];
@@ -236,15 +237,11 @@ Do[
 
 
 
-ListPlot[Im[\[CapitalSigma][[All,1,1]]], Joined->True, PlotStyle->{Thick}, PlotRange->Automatic]
-ListPlot[Re[\[CapitalSigma][[All,1,2]]], Joined->True, PlotStyle->{Thick}, PlotRange->Automatic]
+PlotMatsubara[Im[\[CapitalSigma]], i\[Omega], EdMode]
+PlotMatsubara[Re[\[CapitalSigma]], i\[Omega], EdMode]
 
-ListPlot[{Im[InverseG0[[All,1,1]]], Im[InverseG0old[[All,1,1]]]}, Joined->True, PlotStyle->{Thick, Dashing[.05]}, PlotRange->Automatic]
-ListPlot[{Re[InverseG0[[All,1,2]]], Re[InverseG0old[[All,1,2]]]}, Joined->True, PlotStyle->{Thick, Dashing[.05]}, PlotRange->Automatic]
-(*
-ListPlot[{Im[LocalG[[2]]], Im[1./InverseG[[2]]]}, Joined->True, PlotStyle->{Thick, Dashing[.05]}]
-ListPlot[{Im[LocalG[[1]]], Im[1./InverseG[[1]]]}, Joined->True, PlotStyle->{Thick, Dashing[.05]}]
-*)
+ListPlot[{Abs[i\[Omega]],Re[\[CapitalSigma][[All,1,2]]]}\[Transpose],Joined->True, PlotRange->{0,4}]
+
 spectralfunction = Mean[MapApply[
 	GreenFunctionImpurity[L, f, Norb, 1, 1, Egs, ##, Hsectors, Sectors, SectorsDispatch, EdMode, \[Omega]+I*\[Eta]]&,
 	{Gs, GsQns}\[Transpose]
@@ -252,39 +249,6 @@ spectralfunction = Mean[MapApply[
 
 ListPlot[{\[Omega], -(1./Pi)*Im[spectralfunction]}\[Transpose], Joined->True, PlotRange->All]
 d\[Omega] * Total[-(1./Pi)*Im[spectralfunction]]
-
-
-BathPlot[L_, BathParameters_] := Module[
-	{coordinates, rules, edgeweights},
-	coordinates = Join[
-		{{0, 0.2}}, (* impurity *)
-		{BathParameters[[1,1]], ConstantArray[0, L-1]}\[Transpose]
-	];
-	edgeweights = BathParameters[[2,1]];
-	rules = Thread[ConstantArray[0, L-1] \[UndirectedEdge] Table[n, {n, L-1}]];
-	Graph[
-		rules,
-		VertexCoordinates -> coordinates,
-		EdgeStyle -> Thickness[#]&/@Abs[0.25*edgeweights],
-		VertexStyle -> Orange
-	]
-];
-
-BathPlot[L, BathParameters]
-
-
-Total[Abs[
-	Abs@InverseG0[[All, 1, 2]] - Abs@InverseG0old[[All, 1, 2]]
-]]/
-Max[
-	Total[Abs@InverseG0[[All, 1, 2]]], Total[Abs@InverseG0old[[All, 1, 2]]]		
-]
-
-Dimensions@InverseG
-
-
-
-
 
 
 ListPlot[{
