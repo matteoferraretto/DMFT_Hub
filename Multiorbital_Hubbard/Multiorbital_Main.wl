@@ -22,7 +22,7 @@ Norb = 1; (* number of orbitals *)
 Nimp = 1; (* number of impurity sites *)
 L = Nimp + Nbath; (* total number of sites: bath+impurity *)
 f = 2; (* number of spin states *)
-EdMode = "Superc"; (* call the function EdModeInfo[EdMode] to get details *)
+EdMode = "Raman"; (* call the function EdModeInfo[EdMode] to get details *)
 OrbitalSymmetry = True; (* set True to enforce orbital symmetry and avoid repeating calculations *)
 
 (*      INPUT PHYSICAL PARAMETERS        *)
@@ -88,19 +88,7 @@ If[HFMode,
 InteractionParameters = Flatten[{U, Ust, Usec, Jph, Jse, -U[[1]]/2}];
 
 (* GET SYMBOLIC GREEN FUNCTION AND WEISS FIELD *)
-symbols = Which[
-	EdMode == "Normal", 
-	Join[
-		Table[Symbol["e"<>ToString[i]], {i, L-1}],
-		Table[Symbol["V"<>ToString[i]], {i, L-1}]
-	],
-	EdMode == "Superc",
-	Join[
-		Table[Symbol["e"<>ToString[i]], {i, L-1}],
-		Table[Symbol["V"<>ToString[i]], {i, L-1}],
-		Table[Symbol["\[CapitalDelta]"<>ToString[i]], {i, L-1}]
-	]
-];(* define a suitable list of symbols depending on EdMode *)
+symbols = Symbols[L, f, EdMode]; (* define a suitable list of symbols depending on EdMode *)
 Weiss = Apart[WeissField[L, f, \[Mu], symbols, z, EdMode], z];
 Print["The Weiss field for the given impurity problem is  \!\(\*SuperscriptBox[SubscriptBox[\(G\), \(0\)], \(-1\)]\)(z) = ", Weiss];
 
@@ -288,6 +276,17 @@ Max[
 
 Dimensions@InverseG
 
+
+
+
+
+
+{e, V} = StartingBath[4, 2, 2, "Default", "Raman"]
+
+MatrixForm/@e[[1]]
+MatrixForm/@e[[2]]
+MatrixForm/@V[[1]]
+MatrixForm/@V[[2]]
 
 
 

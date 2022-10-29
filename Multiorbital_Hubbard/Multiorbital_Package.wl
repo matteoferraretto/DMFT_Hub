@@ -17,6 +17,9 @@ If EdMode = ''Superc'' then the output has the form {e,V,\[CapitalDelta]}, where
 If EdMode = ''InterorbSuperc'' then the output has the form {e,V,\[CapitalDelta],\[CapitalXi]}, where e, V, \[CapitalDelta] are as above, and \[CapitalXi] is the Nbath - dimensional list of interorbital pairs creation (annihilation) amplitudes
 InitializeBathMode is a string with the path to the file containing the bath parameters; if it is set to ''Default'', default parameters are dropped."
 
+Symbols::usage = "Symbols[L, f, EdMode] returns a list of symbols representing the independent bath parameters. 
+The word ''independent'' means that in case there is some symmetry, for example orbital and spin symmetry, we just extract a representative subset of the bath parameters. "
+
 TakeIndependentParameters::usage = "TakeIndependentParameters[L, f, Norb, \[Sigma], orb, BathParameters, EdMode] returns a flat list of independent bath parameters depending on EdMode.
 The word ''independent'' means that in case there is some symmetry, for example orbital and spin symmetry, we just extract a representative subset of the bath parameters with labels 
 \[Sigma] and orb, namely e_\[Sigma],orb ; V_\[Sigma],orb, etc. This is useful in two cases: to compute the numerical Weiss field from the symbolic expression, and to perform the self consistency minimization
@@ -248,6 +251,35 @@ EdModeInfo[EdMode_] := Which[
 	Print["The sectors' quantum numbers are the total spin_z operators (NOT orbital-wise). The bath can exchange pairs with a reservoir, but pairs are inherently interorbital."],
 	EdMode == "FullSuperc",
 	Print["The sectors' quantum numbers are the total spin_z operators (NOT orbital-wise). The bath can exchange pairs with a reservoir, but pairs are both intraorbital and interorbital."]
+];
+
+Symbols[L_, f_, EdMode_] := Which[
+	EdMode == "Normal", 
+	Join[
+		Table[Symbol["e"<>ToString[i]], {i, L-1}],
+		Table[Symbol["V"<>ToString[i]], {i, L-1}]
+	],
+(* ------------------------------------------------ *)
+	EdMode == "Superc",
+	Join[
+		Table[Symbol["e"<>ToString[i]], {i, L-1}],
+		Table[Symbol["V"<>ToString[i]], {i, L-1}],
+		Table[Symbol["\[CapitalDelta]"<>ToString[i]], {i, L-1}]
+	],
+(* ------------------------------------------------ *)
+	EdMode == "Raman",
+	Join[
+		Flatten[
+			Table[
+				Symbol["e"<>ToString[i]<>ToString[n]<>ToString[m]]
+			, {i, 1, L-1}, {m, 1, f}, {n, m, f}]
+		, 3],
+		Flatten[
+			Table[
+				Symbol["V"<>ToString[i]<>ToString[n]<>ToString[m]]
+			, {i, 1, L-1}, {m, 1, f}, {n, m, f}]
+		, 3]
+	]
 ];
 
 
@@ -854,9 +886,18 @@ HLocal[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 					n[L,f,Norb,j,\[Sigma],orb,\[Psi]]
 				,{\[Sigma],1,f}, {orb,1,Norb}, {j,1,OptionValue[Nimp]}];
 				Hblock = SparseArray@DiagonalMatrix[num];
-				AppendTo[Hsector, Hblock];
+				AppendTo[Hsector, Hblock];,
+			(* ----------------------------------- *)
+				flag == "Magnetic_Field" && EdMode == "Raman", (* <--- can be extended easily to other EdModes upon changing Main accordingly *)
+				Do[
+					num = Sum[
+						n[L, f, Norb, j, \[Sigma], orb, \[Psi]]
+					, {j, 1, OptionValue[Nimp]}];
+					Hblock = SparseArray@DiagonalMatrix[num];
+					AppendTo[Hsector, Hblock];
+				, {orb, Norb}, {\[Sigma], f}]
 			];
-		,{flag, {"Hubbard","Interorb_Hubbard_Opposite_Spin","Interorb_Hubbard_Same_Spin","Pair_Hopping","Spin_Exchange","Energy_Shift"}}];
+		,{flag, {"Hubbard","Interorb_Hubbard_Opposite_Spin","Interorb_Hubbard_Same_Spin","Pair_Hopping","Spin_Exchange","Energy_Shift","Magnetic_Field"}}];
 		AppendTo[H, Hsector];
 	,{\[Psi],Sectors}];
 	H
