@@ -17,17 +17,19 @@ FolderPath = NotebookDirectory[];
 
 
 (*             GENERAL INPUT              *)
-Nbath = 3; (* number of bath sites *)
+Nbath = 4; (* number of bath sites *)
 Norb = 1; (* number of orbitals *)
 Nimp = 1; (* number of impurity sites *)
 L = Nimp + Nbath; (* total number of sites: bath+impurity *)
 f = 2; (* number of spin states *)
-EdMode = "Raman"; (* call the function EdModeInfo[EdMode] to get details *)
+EdMode = "Normal"; (* call the function EdModeInfo[EdMode] to get details *)
+LatticeType = "Hypercubic"; (* lattice crystal structure: "Bethe", "Hypercubic", etc. *)
+LatticeDim = 2; (* lattice dimensionality *)
 OrbitalSymmetry = True; (* set True to enforce orbital symmetry and avoid repeating calculations *)
 
 (*      INPUT PHYSICAL PARAMETERS        *)
 DBethe = ConstantArray[1., Norb]; (* list of half-bandwidths for all the orbitals *)
-U = ConstantArray[-0.3, Norb]; (* interaction energy in units of DBethe = 1.0. You have to provide a list of U values in the orbitals *)
+U = ConstantArray[0.3, Norb]; (* interaction energy in units of DBethe = 1.0. You have to provide a list of U values in the orbitals *)
 JH = 0.0; (* Hund's J. It's used only when HundMode = True to enforce rotation invariance of the Kanamori model. *)
 Ust = 0.0; (* density-density opposite spin coupling. It is set automatically if HundMode = True. *)
 Usec = 0.0; (* density-density same spin coupling. It is set automatically if HundMode = True. *)
@@ -130,7 +132,7 @@ Do[
 		ClearAll[eigs];
 		
 	]," sec.\n"];
-	Print["memory in use: ", MemoryInUse[]];
+	
 	
 	(* ZERO TEMPERATURE CALCULATIONS *)
 	If[T == 0,
@@ -159,15 +161,18 @@ Do[
 			(* \[CapitalSigma](i\[Omega]) *)
 			\[CapitalSigma] = InverseG0 - InverseG;
 			(* Subscript[G, loc](i\[Omega]) *)
-			LocalG = LocalGreenFunction[DBethe[[1]], \[CapitalSigma], EdMode, i\[Omega], Lattice -> "Bethe", NumberOfPoints -> 1000];
+			LocalG = LocalGreenFunction[DBethe[[1]], \[CapitalSigma], EdMode, i\[Omega], Lattice -> LatticeType, LatticeDimension -> LatticeDim, NumberOfPoints -> 2000];
 			(* Self consistency *)
 			Print[Style["\t\t Self Consistency start", 16, Bold, Magenta]];
 			Print["S.C. time: ", First@AbsoluteTiming[
-				NewBathParameters = ReshapeBathParameters[L, f, Norb,	
-					SelfConsistency[DBethe[[1]], \[Mu], Weiss, symbols, z, IndependentParameters, LocalG, i\[Omega], EdMode, Minimum -> "Local", MaxIterations -> 2000, AccuracyGoal -> 7],
-				OrbitalSymmetry, EdMode];
+			
+			NewBathParameters = ReshapeBathParameters[L, f, Norb,	
+				SelfConsistency[DBethe[[1]], \[Mu], Weiss, symbols, z, IndependentParameters, LocalG, \[CapitalSigma], i\[Omega], EdMode, 
+				Lattice -> LatticeType, LatticeDimension -> LatticeDim, Minimum -> "Local", NumberOfFrequencies -> 500, MaxIterations -> 2000, AccuracyGoal -> 7],
+			OrbitalSymmetry, EdMode];
+			
 			], " sec." ];
-			error = DMFTError[InverseG0, InverseG0old, EdMode];,
+			error = DMFTError[InverseG0[[;;2000]], InverseG0old[[;;2000]], EdMode];,
 		(* --------------------------  *)	
 		(* else, if no orbital symmetry: *)
 			IndependentParameters = Table[
@@ -188,16 +193,17 @@ Do[
 			\[CapitalSigma] = InverseG0 - InverseG;
 			(* { Subscript[G, loc]Subscript[(i\[Omega]), orb=1] , Subscript[G, loc]Subscript[(i\[Omega]), orb=2] , ...} *)
 			LocalG = Table[
-				LocalGreenFunction[DBethe[[orb]], \[CapitalSigma][[orb]], EdMode, i\[Omega], Lattice -> "Bethe", NumberOfPoints -> 1000]
+				LocalGreenFunction[DBethe[[orb]], \[CapitalSigma][[orb]], EdMode, i\[Omega], Lattice -> LatticeType, LatticeDimension -> LatticeDim, NumberOfPoints -> 1000]
 			, {orb, Norb}];
 			(* Self consistency *)
 			Print[Style["\t\t Self Consistency start", 16, Bold, Magenta]];
 			Print["S.C. time: ", First@AbsoluteTiming[
-				NewBathParameters = ReshapeBathParameters[L, f, Norb,	
-					Table[
-						SelfConsistency[DBethe[[orb]], \[Mu], Weiss, symbols, z, IndependentParameters[[orb]], LocalG[[orb]], i\[Omega], EdMode, Minimum -> "Local", MaxIterations -> 2000, AccuracyGoal -> 7]
-					, {orb, Norb}],
-				OrbitalSymmetry, EdMode];
+			
+			NewBathParameters = ReshapeBathParameters[L, f, Norb, Table[
+				SelfConsistency[DBethe[[orb]], \[Mu], Weiss, symbols, z, IndependentParameters[[orb]], LocalG[[orb]], \[CapitalSigma][[orb]], i\[Omega], EdMode,
+				Lattice -> LatticeType, LatticeDimension -> LatticeDim, Minimum -> "Local", NumberOfFrequencies -> 500, MaxIterations -> 2000, AccuracyGoal -> 7]
+			, {orb, Norb}], OrbitalSymmetry, EdMode];
+			
 			], " sec." ];
 			error = (1./Norb)*Sum[
 				DMFTError[InverseG0[[orb]], InverseG0old[[orb]], EdMode],
@@ -281,12 +287,31 @@ Dimensions@InverseG
 
 
 
-{e, V} = StartingBath[4, 2, 2, "Default", "Raman"]
+ListPlot[{
+	Im[1./LocalG],
+	Im[InverseG]
+	}, Joined->True, PlotRange->{{0,5000},Automatic}, PlotStyle->{Thick, Dashing[.05]}]
 
-MatrixForm/@e[[1]]
-MatrixForm/@e[[2]]
-MatrixForm/@V[[1]]
-MatrixForm/@V[[2]]
+ListPlot[Im[\[CapitalSigma]], Joined->True]
+
+\[Eta] = 0.005
+SelfEnergyRealFreq = (Weiss/.Thread[symbols -> IndependentParameters])/.{z -> #}&/@(\[Omega]+I*\[Eta]) - 1./Mean[MapApply[
+	GreenFunctionImpurity[L, f, Norb, 1, 1, Egs, ##, Hsectors, Sectors, SectorsDispatch, EdMode, \[Omega]+I*\[Eta]]&,
+	{Gs, GsQns}\[Transpose]
+]]
+
+ListPlot[{\[Omega], Re[SelfEnergyRealFreq]}\[Transpose], Joined->True]
 
 
+\[Epsilon][kx_, ky_] := -2(Cos[kx] + Cos[ky]);
+(*pos[\[Omega]_] := Floor[(\[Omega] - \[Omega]min)/d\[Omega]] + 1;*)
+spectralWeight[kx_, ky_, pos_] := 1./(\[Omega][[pos]] + I*\[Eta] - \[Epsilon][kx,ky] - SelfEnergyRealFreq[[pos]])
 
+spectraldata = Table[{k, \[Omega][[pos]], -(1./Pi)*Im[spectralWeight[k, 0, pos]]}, {k,-Pi,Pi,0.05Pi}, {pos, Range[1, NReal-4000]}];
+Dimensions[spectraldata]
+
+
+Show[
+ListDensityPlot[Transpose@Partition[Flatten[spectraldata,1], 21]],
+Plot[\[Epsilon][k,0], {k,-Pi,Pi}]
+]

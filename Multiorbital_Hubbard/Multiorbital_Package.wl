@@ -1678,6 +1678,12 @@ ReshapeBathParameters[L_, f_, Norb_, IndependentParameters_, OrbitalSymmetry_, E
 			{orb, Norb}]
 		, 1]]},
 	(* ----------------------------------------- *)
+		EdMode == "Raman" && OrbitalSymmetry,
+		Return[0],
+	(* ----------------------------------------- *)
+		EdMode == "Raman" && !OrbitalSymmetry,
+		Return[0],	
+	(* ----------------------------------------- *)
 		EdMode == "InterorbNormal",
 		{Partition[Take[IndependentParameters, (L-1)*f*Norb], L-1], (* e *)
 		Partition[Take[IndependentParameters, {1+(L-1)*f*Norb, 2*(L-1)*f*Norb}], L-1]}, (* V *)
@@ -1695,16 +1701,17 @@ ReshapeBathParameters[L_, f_, Norb_, IndependentParameters_, OrbitalSymmetry_, E
 	];
 
 (* Perform minimization according to the self consistency condition *)
-SelfConsistency[DBethe_, \[Mu]_, Weiss_, symbols_, z_, IndependentParameters_, LocalG_, zlist_, EdMode_, OptionsPattern[{SelfConsistency, FindMinimum}]] := Module[
+SelfConsistency[DBethe_, \[Mu]_, Weiss_, symbols_, z_, IndependentParameters_, LocalG_, \[CapitalSigma]_, zlist_, EdMode_, OptionsPattern[{SelfConsistency, FindMinimum}]] := Module[
 	{Lattice = OptionValue[Lattice],
 	LFit = Min[Length[zlist], OptionValue[NumberOfFrequencies]],
+	weight = OptionValue[FitWeight],
 	residue, newparameters, \[Chi], \[Sigma]3 = PauliMatrix[3]},
 	(* define the target function to minimize depending on the Lattice and EdMode (if Lattice = Bethe there is a shortcut) *)
 	Which[
 		EdMode == "Normal" && Lattice == "Bethe",
-		\[Chi][symbols] = Mean[Abs[
+		\[Chi][symbols] = Mean[Abs[ weight[[;;LFit]] * (
 			((Weiss - z - \[Mu])/.{z -> #}&/@Take[zlist, LFit]) + (DBethe^2/4.)*Take[LocalG, LFit]
-		]^2],
+		)]^2],
 	(* ------------------------------------ *)
 		EdMode == "Superc" && Lattice == "Bethe",
 		\[Chi][symbols] = Mean@First@
@@ -1713,8 +1720,16 @@ SelfConsistency[DBethe_, \[Mu]_, Weiss_, symbols_, z_, IndependentParameters_, L
 				+ (DBethe^2/4.)*Map[Dot[\[Sigma]3, #, \[Sigma]3]&, Take[LocalG, LFit]]
 			]^2],
 	(* ------------------------------------ *)
-		Lattice != "Bethe",
-		Return[0];
+		EdMode == "Normal" && Lattice != "Bethe",
+		\[Chi][symbols] = Mean[Abs[ weight[[;;LFit]] * (
+			(Weiss/.{z -> #}&/@zlist[[;;LFit]]) - (1./LocalG + \[CapitalSigma])[[;;LFit]]
+		)]^2],
+	(* ------------------------------------ *)
+		EdMode == "Superc" && Lattice != "Bethe",
+		\[Chi][symbols] = Mean@First@
+			Mean[Abs[
+				(Weiss/.{z -> #}& /@ zlist[[;;LFit]]) - (Inverse/@(LocalG[[;;LFit]]) + \[CapitalSigma][[;;LFit]])
+			]^2]
 	];
 	Which[
 		OptionValue[Minimum] == "Local",
@@ -1740,7 +1755,7 @@ SelfConsistency[DBethe_, \[Mu]_, Weiss_, symbols_, z_, IndependentParameters_, L
 	Print["Fit residue: ", residue];
 	symbols/.newparameters
 ];
-Options[SelfConsistency] = {Lattice -> "Bethe", NumberOfFrequencies -> 2000, Minimum -> "Local"};
+Options[SelfConsistency] = {Lattice -> "Bethe", LatticeDimension -> 2, NumberOfFrequencies -> 2000, Minimum -> "Local", FitWeight -> ConstantArray[1., 2000]};
 
 (* DMFT error *)
 DMFTError[Xnew_, Xold_, EdMode_] := Module[
