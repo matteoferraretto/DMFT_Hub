@@ -238,6 +238,7 @@ StartingBath[L_, f_, Norb_, InitializeBathMode_, EdMode_, OptionsPattern[]] := M
 ];
 Options[StartingBath] = {\[CapitalDelta]0 -> 1., \[CapitalXi]0 -> 1., \[CapitalOmega]0 -> 1.};
 
+(* info on the EdMode value *)
 EdModeInfo[EdMode_] := Which[
 	EdMode == "Normal",
 	Print["The sectors' quantum numbers are the number of fermions for each flavor and each orbital."],
@@ -1616,6 +1617,20 @@ TakeIndependentParameters[L_, f_, Norb_, \[Sigma]_, orb_, BathParameters_, EdMod
 			BathParameters[[1]][[f*(orb-1)+\[Sigma]]], (* e1, e2, e3, ... *)
 			BathParameters[[2]][[f*(orb-1)+\[Sigma]]], (* V1, V2, V3, ... *)
 			BathParameters[[3]][[f*(orb-1)+\[Sigma]]] (* \[CapitalDelta]1, \[CapitalDelta]2, \[CapitalDelta]3, ... *)
+		],
+	(* --------------------------------------- *)
+		EdMode == "Raman",
+		Flatten @ Join[
+			Table[
+				Join @@ Pick[
+					BathParameters[[1]][[orb]][[i]]
+				, UpperTriangularize[ConstantArray[1, {f, f}]], 1] (* upper triangular part of e_orb,i *)
+			, {i, L-1}],
+			Table[
+				Join @@ Pick[
+					BathParameters[[2]][[orb]][[i]]
+				, UpperTriangularize[ConstantArray[1, {f, f}]], 1] (* upper triangular part of V_orb,i *)
+			, {i, L-1}]
 		],
 	(* --------------------------------------- *)
 		EdMode == "InterorbNormal" || EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
