@@ -23,14 +23,14 @@ Norb = 1; (* number of orbitals *)
 Nimp = 1; (* number of impurity sites *)
 L = Nimp + Nbath; (* total number of sites: bath+impurity *)
 f = 2; (* number of spin states *)
-EdMode = "Normal"; (* call the function EdModeInfo[EdMode] to get details *)
-LatticeType = "Hypercubic"; (* lattice crystal structure: "Bethe", "Hypercubic", etc. *)
-LatticeDim = 1; (* lattice dimensionality *)
+EdMode = "Superc"; (* call the function EdModeInfo[EdMode] to get details *)
+LatticeType = "Bethe"; (* lattice crystal structure: "Bethe", "Hypercubic", etc. *)
+LatticeDim = Infinity; (* lattice dimensionality *)
 OrbitalSymmetry = True; (* set True to enforce orbital symmetry and avoid repeating calculations *)
 
 (*      INPUT PHYSICAL PARAMETERS        *)
 DBethe = ConstantArray[1., Norb]; (* list of half-bandwidths for all the orbitals *)
-U = ConstantArray[5., Norb]; (* interaction energy in units of DBethe = 1.0. You have to provide a list of U values in the orbitals *)
+U = ConstantArray[-0.5, Norb]; (* interaction energy in units of DBethe = 1.0. You have to provide a list of U values in the orbitals *)
 JH = 0.0; (* Hund's J. It's used only when HundMode = True to enforce rotation invariance of the Kanamori model. *)
 Ust = 0.0; (* density-density opposite spin coupling. It is set automatically if HundMode = True. *)
 Usec = 0.0; (* density-density same spin coupling. It is set automatically if HundMode = True. *)
@@ -148,6 +148,11 @@ Do[
 		GsQns = QnsSectorList[[GsSectorIndex[[All, 1]]]];(* list of quantum numbers of the degenerate ground states *)	
 		Print["\t\t Ground state info:\n", "Egs = ", Egs, "   Quantum numbers = ", GsQns];(* print relevant information about the ground state *)
 		
+		Do[
+			Print["impurity density [orb="<>ToString[orb]<>"] = ", Sum[Density[L, f, Norb, 1, \[Sigma], orb, Sectors, EgsSectorList, GsSectorList, T], {\[Sigma], f}] ];
+			Print["impurity double occupancy [orb="<>ToString[orb]<>"] = ", SquareDensity[L, f, Norb, {1,1}, {1,2}, {orb,orb}, Sectors, EgsSectorList, GsSectorList, T] ];
+			If[EdMode=="Superc", Print["order parameter [orb="<>ToString[orb]<>"] = ", CdgCdg[L, f, Norb, {1,1}, {1,2}, {orb,orb}, Sectors, EgsSectorList, GsSectorList, T] ];]
+		, {orb, Norb}];
 		
 		If[OrbitalSymmetry,
 			IndependentParameters = TakeIndependentParameters[L, f, Norb, 1, 1, BathParameters, EdMode];
@@ -246,7 +251,10 @@ spectralfunction = SpectralFunction[L, f, Norb, 1, 1, Egs, Gs, GsQns, Hsectors, 
 ListPlot[spectralfunction, Joined->True, PlotRange->All]
 d\[Omega] * Total[spectralfunction[[All,2]]]
 
-
+With[
+	{G = Inverse[#] &/@ InverseG},
+	- TMats * Total[G[[All, 1, 2]]]
+]
 
 
 ListPlot[{
@@ -277,3 +285,6 @@ Show[
 ListDensityPlot[Transpose@Partition[Flatten[spectraldata,1], 21]],
 Plot[\[Epsilon][k,0], {k,-Pi,Pi}]
 ]
+
+
+GsSectorList[[##]]&@@{16,1}

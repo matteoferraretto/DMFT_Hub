@@ -85,6 +85,12 @@ symmetry, then symbols = {e1, e2, V1, V2} [do not provide the whole list of 2*L*
 Hnonint::usage = "Hnonint[L, f, Norb, Sectors, EdMode]. Optional arguments: RealPBC -> True (default)/ False; SyntheticPBC -> True / False (default), RealPhase -> {0}, SyntheticPhase -> 0  "
 
 
+(* Observables *)
+Density::usage = "Density[L, f, Norb, j, \[Sigma], orb, Sectors, EgsSectorList, GsSectorList, T]"
+SquareDensity::usage = "SquareDensity[L, f, Norb, {i, j}, {\[Sigma]1, \[Sigma]2}, {orb1, orb2}, Sectors, EgsSectorList, GsSectorList, T]"
+CdgCdg::usage = "CdgCdg[L, f, Norb, {i,j}, {\[Sigma]1,\[Sigma]2}, {orb1,orb2}, Sectors, EgsSectorList, GsSectorList, T]"
+
+
 (* Self consistency *)
 SelfConsistency::usage = "SelfConsistency[DBethe, \[Mu], Weiss, symbols, StartingParameters, LocalG, zlist, EdMode]"
 
@@ -1018,6 +1024,75 @@ Hnonint[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 Options[Hnonint] = {RealPBC -> True, SyntheticPBC -> False, RealPhase -> {0}, SyntheticPhase -> 0};
 
 
+(*                      OPERATORS                      *)
+(* Density *)
+Density[L_, f_, Norb_, j_, \[Sigma]_, orb_, Sectors_, EgsSectorList_, GsSectorList_, T_, OptionsPattern[]] := Module[
+	{Egs, Gs, GsQns, GsSectorIndex, \[Epsilon] = OptionValue[DegeneracyThreshold], num, \[Psi], density},
+	If[T == 0,
+		Egs = Min[Flatten[EgsSectorList]];(* ground state energy (lowest of all the sectors) *)
+		GsSectorIndex = Position[
+			EgsSectorList,
+			_?((Abs[# - Egs] < \[Epsilon])&)
+		]; (* sector index where the lowest energy is obtained: if this list contains more than 1 element, there is a degeneracy *) 
+		density = Sum[
+			\[Psi] = Sectors[[index[[1]]]];
+			num = n[L, f, Norb, j, \[Sigma], orb, \[Psi]]; (* local density *)
+			num . Abs[GsSectorList[[##]]&@@index]^2
+		, {index, GsSectorIndex}]
+	];
+	density/Length[GsSectorIndex]
+];
+Options[Density] = {DegeneracyThreshold -> 1.*10^(-9)}
+
+(* Density-Density *)
+SquareDensity[L_, f_, Norb_, {i_,j_}, {\[Sigma]1_,\[Sigma]2_}, {orb1_,orb2_}, Sectors_, EgsSectorList_, GsSectorList_, T_, OptionsPattern[]] := Module[
+	{Egs, Gs, GsQns, GsSectorIndex, \[Epsilon] = OptionValue[DegeneracyThreshold], num, \[Psi], squaredensity},
+	If[T == 0,
+		Egs = Min[Flatten[EgsSectorList]];(* ground state energy (lowest of all the sectors) *)
+		GsSectorIndex = Position[
+			EgsSectorList,
+			_?((Abs[# - Egs] < \[Epsilon])&)
+		]; (* sector index where the lowest energy is obtained: if this list contains more than 1 element, there is a degeneracy *) 
+		squaredensity = Sum[
+			\[Psi] = Sectors[[index[[1]]]];
+			num = n[L, f, Norb, i, \[Sigma]1, orb1, \[Psi]] * n[L, f, Norb, j, \[Sigma]2, orb2, \[Psi]]; (* n squared *)
+			num . Abs[GsSectorList[[##]]&@@index]^2
+		, {index, GsSectorIndex}]
+	];
+	squaredensity/Length[GsSectorIndex]
+];
+Options[SquareDensity] = {DegeneracyThreshold -> 1.*10^(-9)}
+
+(* < cdg_(i \[Sigma]1 orb1) cdg_(j \[Sigma]2 orb2) > *)
+CdgCdg[L_, f_, Norb_, {i_,j_}, {\[Sigma]1_,\[Sigma]2_}, {orb1_,orb2_}, Sectors_, EgsSectorList_, GsSectorList_, T_, OptionsPattern[]] := Module[
+	{Egs, Gs, GsQns, GsSectorIndex, \[Epsilon] = OptionValue[DegeneracyThreshold], cdgcdg, dim, gs, \[Psi], \[Psi]1, \[Chi], rows, cols, pos, \[CapitalSigma], dispatch, \[Phi]},
+	If[T == 0,
+		Egs = Min[Flatten[EgsSectorList]];(* ground state energy (lowest of all the sectors) *)
+		GsSectorIndex = Position[
+			EgsSectorList,
+			_?((Abs[# - Egs] < \[Epsilon])&)
+		]; (* sector index where the lowest energy is obtained: if this list contains more than 1 element, there is a degeneracy *) 
+		\[Phi] = Sum[
+			gs = GsSectorList[[##]]&@@index;
+			\[Psi] = Sectors[[index[[1]]]];
+			dispatch = Dispatch[Flatten[MapIndexed[{#1->#2[[1]]}&,\[Psi]],1]];
+			dim = Length[\[Psi]];
+			\[Psi]1 = CreatePairSelect[L, f, i, j, \[Sigma]1, \[Sigma]2, orb1, orb2, \[Psi]];
+			cdgcdg = SparseArray[{}, {dim,dim}];
+			If[Length[\[Psi]1] != 0,
+				\[Chi] = CreatePair[L, f, i, j, \[Sigma]1, \[Sigma]2, orb1, orb2, \[Psi]1];
+				rows = \[Chi]/.dispatch;(* *)cols = \[Psi]1/.dispatch;(* *)pos = {rows,cols}\[Transpose];
+				\[CapitalSigma] = CCSign[L, f, {i,j}, {\[Sigma]1,\[Sigma]2}, {orb1,orb2}, \[Psi]1];
+				cdgcdg += SparseArray[pos -> \[CapitalSigma], {dim,dim}];
+			];
+			Conjugate[gs] . (cdgcdg . gs)
+		, {index, GsSectorIndex}]
+	];
+	\[Phi]/Length[GsSectorIndex]
+];
+Options[CdgCdg] = {DegeneracyThreshold -> 1.*10^(-9)}
+
+
 (*                       LANCZOS                       *)
 Lanczos[H_, StartingVector_, OptionsPattern[]] := Module[{
 	miniter = OptionValue[MinIter],
@@ -1613,7 +1688,7 @@ SpectralFunction[L_, f_, Norb_, \[Sigma]_, orb_, Egs_, Gs_, GsQns_, Hsectors_, S
 		]]],
 (* ---------------------------------------------- *)
 		EdMode == "Superc",
-		spectralfunction = -(1./Pi) * Im[ Tr[#] &/@ 
+		spectralfunction = -(1./Pi) * (1./f) * Im[ Tr[#] &/@ 
 			Mean[MapApply[
 				GreenFunctionImpurityNambu[L, f, Norb, orb, Egs, ##, Hsectors, Sectors, SectorsDispatch, EdMode, \[Omega]+I*\[Eta]]&,
 				{Gs, GsQns}\[Transpose]
@@ -1804,6 +1879,8 @@ DMFTError[Xnew_, Xold_, EdMode_] := Module[
 	];
 	error
 ];
+
+
 
 
 End[];
