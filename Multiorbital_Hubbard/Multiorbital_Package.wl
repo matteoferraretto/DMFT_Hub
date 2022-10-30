@@ -46,8 +46,6 @@ If EdMode = ''InterorbSuperc'', then qns = sz is the total spin-z.
 The states are created in the integer represenation. L is the total number of sites, f is the number of flavours and Norb is the number of orbitals. 
 The superconductive EdModes only support f=2 at the moment. "
 
-DrawState::usage = "DrawState[L, f, Norb] draws a graphic representation of a Fock state that can be manipulated. Each box can be filled either with 0 (no particles in that slot) or 1 (a particle in that slot). "
-
 
 (* Impurity Hamiltonian defining functions *)
 HNonlocal::usage = "HNonlocal[L, f, Norb, Sectors, EdMode]"
@@ -62,11 +60,6 @@ GetHamiltonian::usage = "GetHamiltonian[L_, f_, Norb_, Sectors_, LoadHamiltonian
 
 HImp::usage = "HImp[Norb_, HnonlocBlocks_, HlocBlocks_, BathParameters_, InteractionParameters_, EdMode_]"
 
-cdg::usage = "."
-c::usage = "."
-CSign::usage = "."
-CreateParticleSelect::usage = "."
-DestroyParticleSelect::usage = "."
 GreenFunctionED::usage = "GreenFunctionED[L, f, Norb, {i,j}, \[Sigma], orb, Sectors, QnsSectorList, eigs, T, zlist, EdMode]"
 GreenFunctionImpurity::usage = "GreenFunctionImpurity[L_, f_, Norb_, \[Sigma]_, orb_, Egs_, gs_, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, EdMode_, zlist_]"
 GreenFunctionImpurityNambu::usage = "GreenFunctionImpurityNambu[L_, f_, Norb_, orb_, Egs_, Gs_, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, EdMode_, zlist_]"
@@ -89,6 +82,10 @@ Hnonint::usage = "Hnonint[L, f, Norb, Sectors, EdMode]. Optional arguments: Real
 Density::usage = "Density[L, f, Norb, j, \[Sigma], orb, Sectors, EgsSectorList, GsSectorList, T]"
 SquareDensity::usage = "SquareDensity[L, f, Norb, {i, j}, {\[Sigma]1, \[Sigma]2}, {orb1, orb2}, Sectors, EgsSectorList, GsSectorList, T]"
 CdgCdg::usage = "CdgCdg[L, f, Norb, {i,j}, {\[Sigma]1,\[Sigma]2}, {orb1,orb2}, Sectors, EgsSectorList, GsSectorList, T]"
+QuasiparticleWeight::usage = "QuasiparticleWeight[\[CapitalSigma], i\[Omega], EdMode] computes the quasiparticle weight z from the Self-energy. "
+OrderParameter::usage = "OrderParameter[InverseG, TMats] returns the superconductive order parameter computed from the Green function. "
+SuperfluidStiffness::usage = "SuperfluidStiffness[DBethe, \[CapitalSigma], i\[Omega]] returns the superfluid stiffness computed from the Green function. "
+KineticEnergy::usage = "KineticEnergy[DBethe, \[Mu], \[CapitalSigma], i\[Omega], EdMode] computes the Kinetic energy (expectation value of non-local impurity Hamiltonian). "
 
 
 (* Self consistency *)
@@ -245,22 +242,7 @@ StartingBath[L_, f_, Norb_, InitializeBathMode_, EdMode_, OptionsPattern[]] := M
 ];
 Options[StartingBath] = {\[CapitalDelta]0 -> 1., \[CapitalXi]0 -> 1., \[CapitalOmega]0 -> 1.};
 
-(* info on the EdMode value *)
-EdModeInfo[EdMode_] := Which[
-	EdMode == "Normal",
-	Print["The sectors' quantum numbers are the number of fermions for each flavor and each orbital."],
-	EdMode == "Superc",
-	Print["The sectors' quantum numbers are the total spin_z operators for each orbital. The bath can exchange pairs with a reservoir, but pairs have an orbital index."],
-	EdMode == "InterorbNormal",
-	Print["The sectors' quantum numbers are the total number of fermions for each flavor (NOT orbital-wise)."],
-	EdMode == "Raman",
-	Print["The sectors' quantum numbers are the orbital-wise total number of fermions (NOT flavor-wise)"],
-	EdMode == "InterorbSuperc",
-	Print["The sectors' quantum numbers are the total spin_z operators (NOT orbital-wise). The bath can exchange pairs with a reservoir, but pairs are inherently interorbital."],
-	EdMode == "FullSuperc",
-	Print["The sectors' quantum numbers are the total spin_z operators (NOT orbital-wise). The bath can exchange pairs with a reservoir, but pairs are both intraorbital and interorbital."]
-];
-
+(* generate a list of "independent" symbols *)
 Symbols[L_, f_, EdMode_] := Which[
 	EdMode == "Normal", 
 	Join[
@@ -406,28 +388,6 @@ BuildSector[L_, f_, Norb_, qns_, EdMode_] := Module[
 		states = Flatten[BASIS[L,Norb*f,#]&/@QnsList,1]
 	];
 	states
-];
-
-(* Draw a picture of a state to help the user *)
-DrawState[L_, f_, Norb_, j_, \[Sigma]_, orb_] := Module[
-	{impuritycolor, color},
-	impuritycolor[i_]:=If[i==1,Blue,Black];
-	color[i_,index_]:=If[i==j && index==f*(orb-1)+\[Sigma], Red, Black];
-	Table[
-		Graphics[
-			Table[
-				{EdgeForm[{Thick,impuritycolor[i]}],color[i,index],Opacity[.3],Rectangle[{1.1*i,0}]},{i,L}
-			]
-		],
-	{index, f*Norb}]
-];
-DrawState[L_, f_, Norb_] := Module[{},
-	Print[Style["Architecture of a state",16]];
-	Print[Style["Red:",Red]," (site j, spin \[Sigma], orbital orb)"];
-	Print[Style["Blue edge:",Blue]," impurity"];
-	Manipulate[
-		DrawState[L,f,Norb,j,\[Sigma],orb],
-	{j,1,L,1}, {\[Sigma],1,f,1}, {orb,1,Norb,1}]
 ];
 
 
@@ -791,31 +751,6 @@ HNonlocalRaman[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 	H
 ];
 Options[HNonlocalRaman] = {Nimp -> 1};
-
-(* prints useful info about the order of Hamiltonian blocks *)
-HNonlocalInfo[L_, f_, Norb_, EdMode_] := Module[{},
-	Print["The output blocks have the following order:"]
-	Do[
-		Print[flag,",  j=",j,",   \[Sigma]=",\[Sigma],",  orb=",orb]
-	,{flag,{"Bath","Hopping"}}, {orb,1,Norb}, {\[Sigma],1,f}, {j,2,L}];
-	If[
-		EdMode == "Superc" || EdMode == "FullSuperc",
-		Do[
-			Print["Superc,  j=",j,",  orb=",orb]
-		,{orb,1,Norb},{j,2,L}];
-	];
-	If[
-		EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
-		Do[
-			Do[
-				If[
-					orb2>orb,
-					Print["InterorbSuperc,  j=",j,",  orbs=",orb," ",Mod[orb,Norb]+1]
-				]
-			,{orb2,1,Norb}]
-		,{orb,1,Norb},{j,2,L}];
-	];
-];
 
 
 (* Local Hamiltonian blocks *)
@@ -1909,7 +1844,82 @@ DMFTError[Xnew_, Xold_, EdMode_] := Module[
 	error
 ];
 
+(* Quasiparticle weight *)
+\[NonBreakingSpace]QuasiparticleWeight[\[CapitalSigma]_, i\[Omega]_, EdMode_, OptionsPattern[]] := Module[
+	{Selfenergy, data, a, z, cutoff = OptionValue[FitCutoff]},
+	Selfenergy = Which[
+		EdMode == "Normal", \[CapitalSigma], 
+		EdMode == "Superc", \[CapitalSigma][[All,1,1]] 
+	];
+	data = ({Im[i\[Omega]], Im[Selfenergy]}\[Transpose])[[;;cutoff]];
+	a = Fit[data, {x}, x]/x;
+	z = 1./(1.-a)
+];
+Options[QuasiparticleWeight] = {FitCutoff -> 50}
 
+(* \[Phi]: superconductive order parameter computed through the Green function *)
+OrderParameter[InverseG_, TMats_] := With[
+	{G = Inverse[#] &/@ InverseG},
+	(* the factor 2 comes from the fact that we have to account for negative Matsubara frequencies, the Re[] is to suppress a tiny imaginary part *)
+	- 2.0 * TMats * Re @ Total[G[[All, 1, 2]]] 
+];
+
+(* Superfluid Stiffness *)
+SuperfluidStiffness[DBethe_, \[CapitalSigma]_, i\[Omega]_, OptionsPattern[]] := Module[
+	{LE = OptionValue[NumberOfPoints], Lattice = OptionValue[Lattice], dim = OptionValue[LatticeDimension], d\[Epsilon], TMats, Ds},
+	(* initialize parameters *)
+	TMats = (i\[Omega][[2]] - i\[Omega][[1]])/(2*Pi*I);
+	Which[
+		Lattice == "Bethe",
+		d\[Epsilon] = 2.*DBethe/LE;
+		(* compute the stiffness *)
+		Ds = 4. * TMats * d\[Epsilon] * Total @ Table[
+			DoSBethe[\[Epsilon], DBethe] * (* density of states of the Bethe lattice *)
+			((DBethe^2-\[Epsilon]^2)/3.) * (* current vertex function for the Bethe lattice *)
+			Total[Abs[-\[CapitalSigma][[All,1,2]]/(Abs[i\[Omega]-\[CapitalSigma][[All,1,1]]-\[Epsilon]]^2+Abs[\[CapitalSigma][[All,1,2]]]^2)]^2] (* \!\(
+\*SubscriptBox[\(\[Sum]\), \(i\[Omega]\)]\(\(|\)\(F\((i\[Omega])\)\)
+\*SuperscriptBox[\(|\), \(2\)]\)\) *)
+		,{\[Epsilon], -DBethe, DBethe, d\[Epsilon]}];
+	];
+Re[Ds]
+]
+Options[SuperfluidStiffness] = {Lattice -> "Bethe", LatticeDimension -> 2, NumberOfPoints -> 1000};
+
+(* Kinetic energy, i.e. < Subscript[H, non interacting] > *)
+KineticEnergy[DBethe_, \[Mu]_, \[CapitalSigma]_, i\[Omega]_, EdMode_] := Module[
+	{LE = OptionValue[NumberOfPoints], Lattice = OptionValue[Lattice], dim = OptionValue[LatticeDimension],TMats = (i\[Omega][[2]]-i\[Omega][[1]])/(2*Pi*I), d\[Epsilon], Glattice, \[CapitalSigma]0, Ekin = 0},
+	Which[
+		EdMode == "Normal", 
+		\[CapitalSigma]0 = Last@\[CapitalSigma]; (* Self energy at the last Matsubara frequency *)
+		Glattice[\[Epsilon]_] := 1./(i\[Omega] + \[Mu] - \[Epsilon] - \[CapitalSigma]);, (* compute lattice Green function *)
+	(* ----------------------------- *)
+		EdMode == "Superc", 
+		\[CapitalSigma]0 = \[CapitalSigma][[-1,1,1]];
+		Glattice[\[Epsilon]_] := (-i\[Omega]+\[Mu]-Conjugate@\[CapitalSigma][[All,1,1]]-\[Epsilon])/(Abs[i\[Omega]+\[Mu]-\[CapitalSigma][[All,1,1]]-\[Epsilon]]^2+Abs[\[CapitalSigma][[All,1,2]]]^2);
+	];
+	Which[
+		Lattice == "Bethe",
+		d\[Epsilon] = 2.*DBethe/LE;		
+		(* Non vanishing terms of the first row of Eq. 4.12 - KineticEnergy.PDF *)
+		Ekin += 4. * TMats * d\[Epsilon] * Total@Table[
+			DoSBethe[\[Epsilon], DBethe] * \[Epsilon] *
+			Total[Re@Glattice[\[Epsilon]] - (\[Epsilon] + \[CapitalSigma]0)/(i\[Omega]^2)]
+		, {\[Epsilon], -DBethe, DBethe, d\[Epsilon]}];(*  Notice that \!\(
+\*SubscriptBox[\(\[Sum]\), \(n\)]\(G\((k, 
+\*SubscriptBox[\(i\[Omega]\), \(n\)])\)\)\)=2\!\(
+\*SubscriptBox[\(\[Sum]\), \(n \[GreaterEqual] 0\)]\(Re[G\((k, 
+\*SubscriptBox[\(i\[Omega]\), \(n\)])\)]\)\)  *)
+		(* Non vanishing terms of the second row of Eq. 4.12 - KineticEnergy.PDF *)
+		Ekin += (1./(2.*TMats)) * d\[Epsilon] * Total@Table[
+			DoS[\[Epsilon]]*\[Epsilon]*(-\[Epsilon] - \[CapitalSigma]0)
+		,{\[Epsilon], -DBethe, DBethe, d\[Epsilon]}];,
+	(* -------------------------------------------------------- *)
+		Lattice == "Hypercubic",
+		Return[0]
+	];
+	Re[Ekin]
+];
+Options[KineticEnergy] = {Lattice -> "Bethe", LatticeDimension -> 2, NumberOfPoints -> 1000};
 
 
 End[];

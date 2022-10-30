@@ -10,7 +10,6 @@ ClearAll["DMFT`*"];
 FolderPath = NotebookDirectory[];
 <<(FolderPath<>"Multiorbital_Package.wl");
 <<(FolderPath<>"Facilities.wl");
-<<(FolderPath<>"Observables.wl");
 ?"DMFT`*"
 
 
