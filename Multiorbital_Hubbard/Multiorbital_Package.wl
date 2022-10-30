@@ -135,7 +135,7 @@ Eigs[H_, OptionsPattern[]] := Module[
 	(* else *)
 		(* if the matrix is large, apply Lanczos *)
 		Do[
-			eigs = -Eigensystem[-H, n, Method->{"Arnoldi","Criteria"->"RealPart"}];
+			eigs = -Eigensystem[-H, n, Method->{"Arnoldi","Criteria"->"RealPart",MaxIterations->OptionValue["MaxIterations"]}];
 			values = eigs[[1]];
 			(* sometimes if H has degeneracies, eigenvalues are not sorted properly. We fix this by the following code *)
 			If[values[[1]] > values[[2]], values = Sort[values]; eigs = SortBy[eigs\[Transpose], First]\[Transpose];];
@@ -152,7 +152,7 @@ Eigs[H_, OptionsPattern[]] := Module[
 		Return[Drop[#,-1] &/@ eigs]
 	];
 ];
-Options[Eigs] = {"Temperature" -> 0, "MinLanczosDim" -> 32, "DegeneracyThreshold" -> 10^(-9), "BoltzmannThreshold" -> 10^(-9)};
+Options[Eigs] = {"Temperature" -> 0, "MinLanczosDim" -> 32, "DegeneracyThreshold" -> 10^(-9), "BoltzmannThreshold" -> 10^(-9), "MaxIterations" -> 1000};
 
 (* Initialize starting bath *)
 StartingBath[L_, f_, Norb_, InitializeBathMode_, EdMode_, OptionsPattern[]] := Module[
@@ -1091,6 +1091,35 @@ CdgCdg[L_, f_, Norb_, {i_,j_}, {\[Sigma]1_,\[Sigma]2_}, {orb1_,orb2_}, Sectors_,
 	\[Phi]/Length[GsSectorIndex]
 ];
 Options[CdgCdg] = {DegeneracyThreshold -> 1.*10^(-9)}
+
+(* < cdg_(i \[Sigma]1 orb1) c_(j \[Sigma]2 orb2) > *)
+CdgC[L_, f_, Norb_, {i_,j_}, {\[Sigma]1_,\[Sigma]2_}, {orb1_,orb2_}, Sectors_, EgsSectorList_, GsSectorList_, T_, OptionsPattern[]] := Module[
+	{Egs, Gs, GsQns, GsSectorIndex, \[Epsilon] = OptionValue[DegeneracyThreshold], cdgc, dim, gs, \[Psi], \[Psi]1, \[Chi], rows, cols, pos, \[CapitalSigma], dispatch, hop},
+	If[T == 0,
+		Egs = Min[Flatten[EgsSectorList]];(* ground state energy (lowest of all the sectors) *)
+		GsSectorIndex = Position[
+			EgsSectorList,
+			_?((Abs[# - Egs] < \[Epsilon])&)
+		]; (* sector index where the lowest energy is obtained: if this list contains more than 1 element, there is a degeneracy *) 
+		hop = Sum[
+			gs = GsSectorList[[##]]&@@index;
+			\[Psi] = Sectors[[index[[1]]]];
+			dispatch = Dispatch[Flatten[MapIndexed[{#1->#2[[1]]}&,\[Psi]],1]];
+			dim = Length[\[Psi]];
+			\[Psi]1 = HopSelect[L, f, i, j, \[Sigma]1, \[Sigma]2, orb1, orb2, \[Psi]];
+			cdgc = SparseArray[{}, {dim,dim}];
+			If[Length[\[Psi]1] != 0,
+				\[Chi] = Hop[L, f, i, j, \[Sigma]1, \[Sigma]2, orb1, orb2, \[Psi]1];
+				rows = \[Chi]/.dispatch;(* *)cols = \[Psi]1/.dispatch;(* *)pos = {rows,cols}\[Transpose];
+				\[CapitalSigma] = CCSign[L, f, {i,j}, {\[Sigma]1,\[Sigma]2}, {orb1,orb2}, \[Psi]1];
+				cdgc += SparseArray[pos -> \[CapitalSigma], {dim,dim}];
+			];
+			Conjugate[gs] . (cdgc . gs)
+		, {index, GsSectorIndex}]
+	];
+	hop/Length[GsSectorIndex]
+];
+Options[CdgC] = {DegeneracyThreshold -> 1.*10^(-9)}
 
 
 (*                       LANCZOS                       *)

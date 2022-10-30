@@ -10,6 +10,7 @@ ClearAll["DMFT`*"];
 FolderPath = NotebookDirectory[];
 <<(FolderPath<>"Multiorbital_Package.wl");
 <<(FolderPath<>"Facilities.wl");
+<<(FolderPath<>"Observables.wl");
 ?"DMFT`*"
 
 
@@ -19,19 +20,19 @@ FolderPath = NotebookDirectory[];
 
 (*             GENERAL INPUT              *)
 Nbath = 4; (* number of bath sites *)
-Norb = 1; (* number of orbitals *)
+Norb = 2; (* number of orbitals *)
 Nimp = 1; (* number of impurity sites *)
 L = Nimp + Nbath; (* total number of sites: bath+impurity *)
 f = 2; (* number of spin states *)
-EdMode = "Superc"; (* call the function EdModeInfo[EdMode] to get details *)
+EdMode = "Normal"; (* call the function EdModeInfo[EdMode] to get details *)
 LatticeType = "Bethe"; (* lattice crystal structure: "Bethe", "Hypercubic", etc. *)
 LatticeDim = Infinity; (* lattice dimensionality *)
 OrbitalSymmetry = True; (* set True to enforce orbital symmetry and avoid repeating calculations *)
 
 (*      INPUT PHYSICAL PARAMETERS        *)
 DBethe = ConstantArray[1., Norb]; (* list of half-bandwidths for all the orbitals *)
-U = ConstantArray[-0.5, Norb]; (* interaction energy in units of DBethe = 1.0. You have to provide a list of U values in the orbitals *)
-JH = 0.0; (* Hund's J. It's used only when HundMode = True to enforce rotation invariance of the Kanamori model. *)
+U = ConstantArray[0.5, Norb]; (* interaction energy in units of DBethe = 1.0. You have to provide a list of U values in the orbitals *)
+JH = 0.2; (* Hund's J. It's used only when HundMode = True to enforce rotation invariance of the Kanamori model. *)
 Ust = 0.0; (* density-density opposite spin coupling. It is set automatically if HundMode = True. *)
 Usec = 0.0; (* density-density same spin coupling. It is set automatically if HundMode = True. *)
 Jph = 0.0; (* pair-hopping coupling. It is set automatically if HundMode = True. *)
@@ -39,8 +40,9 @@ Jse = 0.0; (* spin-exchange coupling. It is set automatically if HundMode = True
 \[Mu] = 0; (* chemical potential. It is set automatically if HFMode = True (so you can actually tune it ONLY IF HFMode = False). *)
 T = 0; (* temperature *)
 InitializeBathMode = "Default"; (* path to input file of bath parameters or "Default" *)
-HFMode = False; (* if this is True, chemical potential is automatically set to a value that ensures PH symmetry of the Kanamori Hamiltonian *)
-HundMode = False; (* if this is True, interorbital couplings are authomatically set to U-2JH and U-3JH, Jph=JH, Jse=-JH enforcing the rotational invariance *)
+HFMode = True; (* if this is True, chemical potential is automatically set to a value that ensures PH symmetry of the Kanamori Hamiltonian *)
+shift = 0.0; (* energy shift *)
+HundMode = True; (* if this is True, interorbital couplings are authomatically set to U-2JH and U-3JH, Jph=JH, Jse=-JH enforcing the rotational invariance *)
 DegeneracyThreshold = 10^(-9);(* below this threshold, two energy levels are assumed to be degenerate *)
 
 (* INFO ON MATSUBARA AND REAL FREQUENCIES *)
@@ -60,7 +62,7 @@ DMFTerror = 1.0 * 10^(-5); (* threshold for DMFT loop convergence *)
 Mixing = 0.2; (* Mixing * BathParameters + (1 - Mixing) * NewBathParameters *)
 
 (* OPTIONAL VARIABLES *)
-LoadHamiltonianQ = False;(* load Hamiltonian from a file? *)
+LoadHamiltonianQ = True;(* load Hamiltonian from a file? *)
 HnonlocFile = FolderPath<>"Hnonloc_L="<>ToString[L]<>"_f="<>ToString[f]<>"_Norb="<>ToString[Norb]<>"_EdMode="<>EdMode<>".mx";(* file name for import / export of nonlocal Hamiltonian blocks *)
 HlocFile = FolderPath<>"Hloc_L="<>ToString[L]<>"_f="<>ToString[f]<>"_Norb="<>ToString[Norb]<>"_EdMode="<>EdMode<>".mx";(* file name for import / export of local Hamiltonian blocks *)
 
@@ -83,12 +85,12 @@ If[Norb == 1,
 	HundMode = False; Ust = 0.0; Usec = 0.0; Jph = 0.0; Jse = 0.0; JH = 0.0;
 ];(* avoid stupid bugs: if Norb = 1 set all interorbital couplings to 0 *)
 If[HundMode,
-	Ust = U[[1]] - 2*JH; Usec = U[[1]] - 3*JH; Jph = JH; Jse = -JH;
+	Ust = U[[1]] - 2*JH; Usec = U[[1]] - 3*JH; Jph = 0*JH; Jse = -0*JH;
 ];(* reset couplings if HundMode = True to enforce rotational invariance *)
 If[HFMode, 
-	\[Mu] = \[Mu] + U[[1]]/2 + (Ust + Usec)*(Norb - 1)/2.;
+	shift = -U[[1]]/2 - (Ust + Usec)*(Norb - 1)/2.;
 ];(* reset chemical potential if HFMode = True *)
-InteractionParameters = Flatten[{U, Ust, Usec, Jph, Jse, -U[[1]]/2}];
+InteractionParameters = Flatten[{U, Ust, Usec, Jph, Jse, \[Mu] + shift}];
 
 (* GET SYMBOLIC GREEN FUNCTION AND WEISS FIELD *)
 symbols = Symbols[L, f, EdMode]; (* define a suitable list of symbols depending on EdMode *)
@@ -127,7 +129,7 @@ Do[
 	Print["E.D. time: ", AbsoluteTiming[
 	
 		Hsectors = HImp[Norb, HnonlocBlocks, HlocBlocks, BathParameters, InteractionParameters, EdMode];
-		eigs = Map[Eigs[#, "Temperature" -> T, "MinLanczosDim"->100]&, Hsectors];
+		eigs = Map[Eigs[#, "Temperature" -> T, "MinLanczosDim"->100, "MaxIterations" -> 2000]&, Hsectors];
 		EgsSectorList = eigs[[All, 1]];
 		GsSectorList = eigs[[All, 2]];
 		ClearAll[eigs];
@@ -169,6 +171,7 @@ Do[
 			(* Subscript[G, loc](i\[Omega]) *)
 			LocalG = LocalGreenFunction[DBethe[[1]], \[Mu], \[CapitalSigma], EdMode, i\[Omega], Lattice -> LatticeType, LatticeDimension -> LatticeDim, NumberOfPoints -> 3000];
 			(* Self consistency *)
+			Print["Quasiparticle weight z = ", QuasiparticleWeight[\[CapitalSigma], i\[Omega], EdMode] ];
 			Print[Style["\t\t Self Consistency start", 16, Bold, Magenta]];
 			Print["S.C. time: ", First@AbsoluteTiming[
 			
@@ -202,6 +205,7 @@ Do[
 				LocalGreenFunction[DBethe[[orb]], \[Mu], \[CapitalSigma][[orb]], EdMode, i\[Omega], Lattice -> LatticeType, LatticeDimension -> LatticeDim, NumberOfPoints -> 3000]
 			, {orb, Norb}];
 			(* Self consistency *)
+			Print["Quasiparticle weight z = ", Table[QuasiparticleWeight[\[CapitalSigma][[orb]], i\[Omega], EdMode], {orb, Norb}] ];
 			Print[Style["\t\t Self Consistency start", 16, Bold, Magenta]];
 			Print["S.C. time: ", First@AbsoluteTiming[
 			
@@ -250,11 +254,11 @@ ListPlot[{Abs[i\[Omega]],Re[\[CapitalSigma][[All,1,2]]]}\[Transpose],Joined->Tru
 spectralfunction = SpectralFunction[L, f, Norb, 1, 1, Egs, Gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, \[Omega], \[Eta]];
 ListPlot[spectralfunction, Joined->True, PlotRange->All]
 d\[Omega] * Total[spectralfunction[[All,2]]]
-
+(*
 With[
 	{G = Inverse[#] &/@ InverseG},
 	- TMats * Total[G[[All, 1, 2]]]
-]
+]*)
 
 
 ListPlot[{
@@ -285,6 +289,3 @@ Show[
 ListDensityPlot[Transpose@Partition[Flatten[spectraldata,1], 21]],
 Plot[\[Epsilon][k,0], {k,-Pi,Pi}]
 ]
-
-
-GsSectorList[[##]]&@@{16,1}
