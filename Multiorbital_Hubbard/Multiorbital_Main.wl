@@ -18,20 +18,20 @@ FolderPath = NotebookDirectory[];
 
 
 (*             GENERAL INPUT              *)
-Nbath = 4; (* number of bath sites *)
+Nbath = 3; (* number of bath sites *)
 Norb = 2; (* number of orbitals *)
 Nimp = 1; (* number of impurity sites *)
 L = Nimp + Nbath; (* total number of sites: bath+impurity *)
 f = 2; (* number of spin states *)
-EdMode = "Normal"; (* call the function EdModeInfo[EdMode] to get details *)
+EdMode = "Superc"; (* call the function EdModeInfo[EdMode] to get details *)
 LatticeType = "Bethe"; (* lattice crystal structure: "Bethe", "Hypercubic", etc. *)
 LatticeDim = Infinity; (* lattice dimensionality *)
-OrbitalSymmetry = True; (* set True to enforce orbital symmetry and avoid repeating calculations *)
+OrbitalSymmetry = False; (* set True to enforce orbital symmetry and avoid repeating calculations *)
 
 (*      INPUT PHYSICAL PARAMETERS        *)
 DBethe = ConstantArray[1., Norb]; (* list of half-bandwidths for all the orbitals *)
-U = ConstantArray[0.5, Norb]; (* interaction energy in units of DBethe = 1.0. You have to provide a list of U values in the orbitals *)
-JH = 0.2; (* Hund's J. It's used only when HundMode = True to enforce rotation invariance of the Kanamori model. *)
+U = ConstantArray[-0.3, Norb]; (* interaction energy in units of DBethe = 1.0. You have to provide a list of U values in the orbitals *)
+JH = 0.0; (* Hund's J. It's used only when HundMode = True to enforce rotation invariance of the Kanamori model. *)
 Ust = 0.0; (* density-density opposite spin coupling. It is set automatically if HundMode = True. *)
 Usec = 0.0; (* density-density same spin coupling. It is set automatically if HundMode = True. *)
 Jph = 0.0; (* pair-hopping coupling. It is set automatically if HundMode = True. *)
@@ -214,6 +214,7 @@ Do[
 			, {orb, Norb}], OrbitalSymmetry, EdMode];
 			
 			], " sec." ];
+			
 			error = (1./Norb)*Sum[
 				DMFTError[InverseG0[[orb]], InverseG0old[[orb]], EdMode],
 			{orb, Norb}];
@@ -245,8 +246,8 @@ Do[
 
 
 
-PlotMatsubara[Im[\[CapitalSigma]], i\[Omega], EdMode]
-PlotMatsubara[Re[\[CapitalSigma]], i\[Omega], EdMode]
+PlotMatsubara[Im[\[CapitalSigma][[1]]], i\[Omega], EdMode]
+PlotMatsubara[Re[\[CapitalSigma][[1]]], i\[Omega], EdMode]
 (*
 ListPlot[{Abs[i\[Omega]],Re[\[CapitalSigma][[All,1,2]]]}\[Transpose],Joined->True, PlotRange->{0,4}]
 *)
