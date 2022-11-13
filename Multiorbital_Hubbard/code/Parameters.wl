@@ -115,7 +115,7 @@ StartingBath[L_, f_, Norb_, InitializeBathMode_, EdMode_, OptionsPattern[]] := M
 Options[StartingBath] = {\[CapitalDelta]0 -> 1., \[CapitalXi]0 -> 1., \[CapitalOmega]0 -> 1.};
 
 (* generate a list of "independent" symbols *)
-Symbols[L_, f_, EdMode_] := Which[
+Symbols[L_, f_, Norb_, EdMode_] := Which[
 	EdMode == "Normal", 
 	Join[
 		Table[Symbol["e"<>ToString[i]], {i, L-1}],
@@ -141,6 +141,26 @@ Symbols[L_, f_, EdMode_] := Which[
 				Symbol["V"<>ToString[i]<>ToString[n]<>ToString[m]]
 			, {i, 1, L-1}, {m, 1, f}, {n, m, f}]
 		, 3]
+	],
+(* ---------------------------------------------- *)
+	EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
+	Join[
+		(* e11, e12, e13 ... -> orb = 1 site i = 1,2,3... *)
+		Flatten @ Table[
+			Symbol["e"<>ToString[orb]<>ToString[i]]
+		, {orb, Norb}, {i, L-1}],
+		(* V11, V12, V13 ... -> orb = 1 site i = 1,2,3... *)
+		Flatten @ Table[
+			Symbol["V"<>ToString[orb]<>ToString[i]]
+		, {orb, Norb}, {i, L-1}],
+		(* \[CapitalDelta]11, \[CapitalDelta]12, \[CapitalDelta]13 ... -> orb = 1 site i = 1,2,3... *)
+		Flatten @ Table[
+			Symbol["\[CapitalDelta]"<>ToString[orb]<>ToString[i]]
+		, {orb, Norb}, {i, L-1}],
+		(* \[CapitalXi]1, \[CapitalXi]2, \[CapitalXi]3 ... where 1,2,3... are site indexes *)
+		Table[
+			Symbol["\[CapitalXi]"<>ToString[i]]
+		, {i, L-1}]
 	]
 ];
 

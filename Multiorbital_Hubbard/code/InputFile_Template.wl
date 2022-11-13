@@ -12,7 +12,7 @@ L = Nimp + Nbath;
 (* number of spin states *)
 f = 2; 
 (* call the function EdModeInfo[EdMode] to get details *)
-EdMode = "Superc"; 
+EdMode = "Normal"; 
 (* lattice crystal structure: "Bethe", "Hypercubic", etc. *)
 LatticeType = "Bethe"; 
 (* lattice dimensionality *)

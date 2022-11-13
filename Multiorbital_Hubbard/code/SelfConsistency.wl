@@ -4,7 +4,7 @@ BeginPackage["SelfConsistency`", {"MyLinearAlgebra`"}]
 
 
 (* Self consistency *)
-WeissField::usage = "WeissField[L_, f_, \[Mu]_, symbols_, z_, EdMode_]"
+WeissField::usage = "WeissField[L_, f_, Norb_, \[Mu]_, symbols_, z_, EdMode_]"
 
 SelfConsistency::usage = "SelfConsistency[DBethe, \[Mu], Weiss, symbols, StartingParameters, LocalG, zlist, EdMode]"
 
@@ -63,11 +63,66 @@ G
 ];
 
 (* Weiss field: non-interacting inverse of the Green function *)
-WeissField[L_, f_, \[Mu]_, symbols_, z_, EdMode_] := With[
+WeissFieldOld[L_, f_, \[Mu]_, symbols_, z_, EdMode_] := With[
 	{G0 = GreenFunction0[L, f, \[Mu], symbols, z, EdMode]},
 	Which[
 		EdMode == "Normal", FullSimplify[1/G0],
 		EdMode == "Superc", Inverse[G0]
+	]
+];
+
+(* *)
+WeissField[L_, f_, Norb_, \[Mu]_, symbols_, z_, EdMode_] := Module[
+	{e, V, \[CapitalDelta], \[CapitalXi], H0, H, Vmat},
+	Which[
+		EdMode == "Normal", 
+		e = symbols[[1;;L-1]];
+		V = symbols[[L;;2(L-1)]];
+		z + \[Mu] - Sum[V[[k]]^2/(z - e[[k]]), {k, L-1}],
+	(* ---------------------------------------- *)
+		EdMode == "Superc", 
+		e = symbols[[1;;L-1]];
+		V = symbols[[L;;2(L-1)]];
+		\[CapitalDelta] = symbols[[2L-1;;3(L-1)]];
+		(* initialize stuff *)
+		H = ConstantArray[0, {L-1, 2, 2}];
+		Vmat = H;
+		(* define the hamiltonian blocks *)
+		H0 = DiagonalMatrix[{-\[Mu], + \[Mu]}];
+		(H[[#]] = e[[#]]*PauliMatrix[3] + \[CapitalDelta][[#]]*PauliMatrix[1]) &/@ Range[L-1];
+		(Vmat[[#]] = V[[#]]*PauliMatrix[3]) &/@ Range[L-1];
+		(* compute Weiss field *)
+		z*IdentityMatrix[2] - H0 - Sum[Vmat[[k]] . Inverse[z*IdentityMatrix[2] - H[[k]]] . Vmat[[k]] , {k, L-1}],
+	(* ---------------------------------------- *)
+		EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
+		(* split symbols according to their meaning, e, V ... *)
+		e = symbols[[1 ;; Norb*(L-1)]];
+		V = symbols[[Norb*(L-1)+1 ;; 2*Norb*(L-1)]];
+		\[CapitalDelta] = symbols[[2*Norb*(L-1)+1 ;; 3*Norb*(L-1)]];
+		\[CapitalXi] = symbols[[3*Norb*(L-1)+1 ;; (3*Norb+1)*(L-1)]];
+		(* separate into the various orbital parts *)
+		e = Partition[e, L-1]; V = Partition[V, L-1]; \[CapitalDelta] = Partition[\[CapitalDelta], L-1];
+		(* get Hamiltonian blocks *)
+		H0 = DiagonalMatrix[
+			Table[\[Mu]*(-1)^j, {j, 2*Norb}]
+		];
+		H = SparseArray[{}, {L-1, Norb, Norb}];
+		Vmat = SparseArray[{}, {L-1, Norb, Norb}];
+		Do[
+			If[orb1 == orb2,
+				H[[#]][[orb1, orb1]] = e[[orb1]][[#]] * PauliMatrix[3] + \[CapitalDelta][[orb1]][[#]] * PauliMatrix[1];
+				Vmat[[#]][[orb1, orb1]] = V[[orb1]][[#]] * PauliMatrix[3];,
+		(* else, if orb1 != orb2 *)
+				H[[#]][[orb1, orb2]] = \[CapitalXi][[#]] * PauliMatrix[1]
+			];
+		, {orb1, Norb}, {orb2, Norb}] &/@ Range[L-1];
+		(* give a matrix form to the block form above *)
+		Do[
+			H[[k]] = ArrayFlatten[H[[k]]];
+			Vmat[[k]] = ArrayFlatten[Vmat[[k]]];
+		, {k, L-1}];
+		(* compute Weiss field *)
+		z * IdentityMatrix[2Norb] - H0 - Sum[Vmat[[k]] . Inverse[z * IdentityMatrix[2Norb] - H[[k]]] . Vmat[[k]] , {k, L-1}]
 	]
 ];
 

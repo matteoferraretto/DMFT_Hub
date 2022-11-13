@@ -32,9 +32,9 @@ InteractionParameters = Flatten[{U, Ust, Usec, Jph, Jse, \[Mu] + shift}];
 
 (* GET SYMBOLIC GREEN FUNCTION AND WEISS FIELD *)
 (* define a suitable list of symbols depending on EdMode *)
-symbols = Symbols[L, f, EdMode]; 
+symbols = Symbols[L, f, Norb, EdMode]; 
 (* define a symbolic expression for the Weiss field *)
-Weiss = Apart[WeissField[L, f, \[Mu], symbols, z, EdMode], z];
+Weiss = WeissField[L, f, Norb, \[Mu], symbols, z, EdMode];
 (* print it *)
 Print["The Weiss field for the given impurity problem is  \!\(\*SuperscriptBox[SubscriptBox[\(G\), \(0\)], \(-1\)]\)(z) = ", Weiss];
 
