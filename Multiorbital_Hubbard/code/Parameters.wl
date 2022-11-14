@@ -194,8 +194,20 @@ TakeIndependentParameters[L_, f_, Norb_, \[Sigma]_, orb_, BathParameters_, EdMod
 			, {i, L-1}]
 		],
 	(* --------------------------------------- *)
-		EdMode == "InterorbNormal" || EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
-		Flatten[BathParameters]
+		EdMode == "InterorbNormal", 
+		Flatten[BathParameters] (* <- to be fixed *),
+	(* --------------------------------------- *)
+		EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
+		Join[
+			Flatten @ Table[
+				BathParameters[[1]][[f*(o-1)+\[Sigma]]]
+			, {o, Norb}], (* e11, e12, ..., e21, e22, ... *)
+			Flatten @ Table[
+				BathParameters[[2]][[f*(o-1)+\[Sigma]]]
+			, {o, Norb}], (* V11, V12, ..., V21, V22, ... *)
+			Flatten @ BathParameters[[3]], (* \[CapitalDelta]11, \[CapitalDelta]12, ..., \[CapitalDelta]21, \[CapitalDelta]22, ... *)
+			BathParameters[[4]] (* \[CapitalXi]1, \[CapitalXi]2, ... *)
+		]
 	];
 
 (* correctly reshape the flat list of independent bath parameters *)
@@ -254,10 +266,16 @@ ReshapeBathParameters[L_, f_, Norb_, IndependentParameters_, OrbitalSymmetry_, E
 		Take[IndependentParameters, {1+2*(L-1)*f*Norb, 2*(L-1)*f*Norb + L-1}]}, (* \[CapitalXi] *)
 	(* ----------------------------------------- *)
 		EdMode == "FullSuperc",
-		{Partition[Take[IndependentParameters, (L-1)*f*Norb], L-1], (* e *)
-		Partition[Take[IndependentParameters, {1+(L-1)*f*Norb, 2*(L-1)*f*Norb}], L-1], (* V *)
-		Partition[Take[IndependentParameters, {1+2*(L-1)*f*Norb, 1+2*(L-1)*f*Norb + (L-1)*Norb}], L-1], (* \[CapitalDelta] *)
-		IndependentParameters[[1+2*(L-1)*f*Norb + (L-1)*Norb;;]]} (* \[CapitalXi] *)
+		{
+		Join @@ (ConstantArray[#, f] &/@
+			Partition[IndependentParameters[[;;(L-1)*Norb]], L-1]
+		), (* {{e11, e12, ...}, {e11, e12, ...}, ... (f times), {e21, e22, ...}}, {e21, e22, ...}}, ... (f times), ... *)
+		Join @@ (ConstantArray[#, f] &/@
+			Partition[IndependentParameters[[(L-1)*Norb+1 ;; 2*(L-1)*Norb]], L-1]
+		), (* {{V11, V12, ...}, {V11, V12, ...}, ... (f times), {V21, V22, ...}}, {V21, V22, ...}}, ... (f times), ... *)
+		Partition[IndependentParameters[[2*(L-1)*Norb+1 ;; 3*(L-1)*Norb]], L-1], (* {{\[CapitalDelta]11, \[CapitalDelta]12, ...}, {\[CapitalDelta]21, \[CapitalDelta]22, ...}, ... (Norb times)} *)
+		IndependentParameters[[3*(L-1)*Norb+1 ;;]] (* {\[CapitalXi]1, \[CapitalXi]2, ...} *)
+		}
 	];
 
 End[]

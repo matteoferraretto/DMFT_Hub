@@ -7,6 +7,7 @@ BeginPackage["SelfConsistency`", {"MyLinearAlgebra`"}]
 WeissField::usage = "WeissField[L_, f_, Norb_, \[Mu]_, symbols_, z_, EdMode_]"
 
 SelfConsistency::usage = "SelfConsistency[DBethe, \[Mu], Weiss, symbols, StartingParameters, LocalG, zlist, EdMode]"
+SelfConsistencyGeneral::usage = "SelfConsistency[DBethe, \[Mu], Weiss, symbols, StartingParameters, LocalG, zlist, EdMode]"
 
 DMFTError::usage = "DMFTError[Xnew, Xold, EdMode]"
 
@@ -17,7 +18,7 @@ Print["Package SelfConsistency` loaded successfully."];
 
 (* ANALYTIC EVALUATION OF NONINTERACTING IMPURITY GREEN FUNCTION *)
 (* symbolic non-interacting Green function obtained by inverting the full impurity-bath Hamiltonian *)
-GreenFunction0[L_, f_,\[Mu]_, symbols_, z_, EdMode_] := Module[
+(*GreenFunction0[L_, f_,\[Mu]_, symbols_, z_, EdMode_] := Module[
 	{e, V, \[CapitalDelta], H, G},
 	Which[
 		EdMode == "Normal",
@@ -69,7 +70,7 @@ WeissFieldOld[L_, f_, \[Mu]_, symbols_, z_, EdMode_] := With[
 		EdMode == "Normal", FullSimplify[1/G0],
 		EdMode == "Superc", Inverse[G0]
 	]
-];
+];*)
 
 (* *)
 WeissField[L_, f_, Norb_, \[Mu]_, symbols_, z_, EdMode_] := Module[
@@ -121,10 +122,13 @@ WeissField[L_, f_, Norb_, \[Mu]_, symbols_, z_, EdMode_] := Module[
 			H[[k]] = ArrayFlatten[H[[k]]];
 			Vmat[[k]] = ArrayFlatten[Vmat[[k]]];
 		, {k, L-1}];
+		Print[H[[1]]//MatrixForm];
+		Print[Vmat[[1]]//MatrixForm];
 		(* compute Weiss field *)
 		z * IdentityMatrix[2Norb] - H0 - Sum[Vmat[[k]] . Inverse[z * IdentityMatrix[2Norb] - H[[k]]] . Vmat[[k]] , {k, L-1}]
 	]
 ];
+
 
 (* Perform minimization according to the self consistency condition *)
 SelfConsistency[DBethe_, \[Mu]_, Weiss_, symbols_, z_, IndependentParameters_, LocalG_, \[CapitalSigma]_, zlist_, EdMode_, OptionsPattern[{SelfConsistency, FindMinimum}]] := Module[
@@ -152,11 +156,22 @@ SelfConsistency[DBethe_, \[Mu]_, Weiss_, symbols_, z_, IndependentParameters_, L
 		)]^2],
 	(* ------------------------------------ *)
 		EdMode == "Superc" && Lattice != "Bethe",
-		\[Chi][symbols] = Mean@First@
+		\[Chi][symbols] = Mean @ First @
 			Mean[Abs[
 				(Weiss/.{z -> #}& /@ zlist[[;;LFit]]) - (TwoByTwoInverse[LocalG[[;;LFit]]] + \[CapitalSigma][[;;LFit]])
-			]^2]
+			]^2],
+	(* ------------------------------------ *)
+		EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
+		\[Chi][symbols] = Mean[
+			Total[#, 2] &/@ (
+				Abs[
+					weight[[;;LFit]] * (
+					(UpperTriangularize[Weiss/.{z -> #}] &/@ (zlist[[;;LFit]])) 
+					- (UpperTriangularize[#] &/@ (Inverse /@ (LocalG[[;;LFit]]) + \[CapitalSigma][[;;LFit]]))
+				)]^2 
+			)];
 	];
+	(* perform the fit to find the new bath parameters *)
 	Which[
 		OptionValue[Minimum] == "Local",
 		{residue, newparameters} =
@@ -181,7 +196,7 @@ SelfConsistency[DBethe_, \[Mu]_, Weiss_, symbols_, z_, IndependentParameters_, L
 	Print["Fit residue: ", residue];
 	symbols/.newparameters
 ];
-Options[SelfConsistency] = {Lattice -> "Bethe", LatticeDimension -> 2, NumberOfFrequencies -> 2000, Minimum -> "Local", Method -> "ConjugateGradient", FitWeight -> ConstantArray[1., 2000], };
+Options[SelfConsistency] = {Lattice -> "Bethe", LatticeDimension -> 2, NumberOfFrequencies -> 2000, Minimum -> "Local", Method -> "ConjugateGradient", FitWeight -> ConstantArray[1., 2000]};
 
 (* DMFT error *)
 DMFTError[Xnew_, Xold_, EdMode_] := Module[
@@ -193,7 +208,7 @@ DMFTError[Xnew_, Xold_, EdMode_] := Module[
 		]]/Max[
 			Total[Abs[Xnew]], Total[Abs[Xold]]
 		],
-(* ------------------------------- *)
+(* --------------------------------- *)
 		EdMode == "Superc",
 		error = Mean[{
 			Total[Abs[
@@ -206,7 +221,18 @@ DMFTError[Xnew_, Xold_, EdMode_] := Module[
 			]]/Max[
 				Total[Abs[Xnew[[All, 1, 2]]]], Total[Abs[Xold[[All, 1, 2]]]]		
 			]
-		}]
+		}],
+(* ----------------------------------- *)
+		EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
+		error = Mean[
+			Flatten @ Table[
+				Total[Abs[
+					Xnew[[All, \[Alpha], \[Beta]]] - Xold[[All, \[Alpha], \[Beta]]]
+				]]/Max[
+					Total[Abs[Xnew[[All, \[Alpha], \[Beta]]]]], Total[Abs[Xold[[All, \[Alpha], \[Beta]]]]]		
+				]
+			, {\[Alpha], Length[Xnew[[1]]]}, {\[Beta], \[Alpha], Length[Xnew[[1]]]}]
+		]
 	];
 	error
 ];

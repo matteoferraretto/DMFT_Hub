@@ -7,6 +7,8 @@ LastIteration = False;
 Converged = False; 
 (* initialize list of DMFT errors *) 
 ErrorList = {}; 
+(* set OrbitalSymmetry to False in some cases to avoid stupid bugs *)
+If[EdMode == "InterorbNormal", EdMode == "InterorbSuperc" || EdMode == "FullSuperc", OrbitalSymmetry = False];
 
 
 (* GET BATH PARAMETERS *)

@@ -2,7 +2,7 @@
 
 (*             GENERAL INPUT              *)
 (* number of bath sites *)
-Nbath = 3; 
+Nbath = 2; 
 (* number of orbitals *)
 Norb = 2; 
 (* number of impurity sites *)
@@ -12,13 +12,13 @@ L = Nimp + Nbath;
 (* number of spin states *)
 f = 2; 
 (* call the function EdModeInfo[EdMode] to get details *)
-EdMode = "Superc"; 
+EdMode = "FullSuperc"; 
 (* lattice crystal structure: "Bethe", "Hypercubic", etc. *)
 LatticeType = "Hypercubic"; 
 (* lattice dimensionality *)
 LatticeDim = 2; 
 (* lattice points *)
-LatticePoints = 2000;
+LatticePoints = 1600;
 (* set True to enforce orbital symmetry and avoid repeating calculations *)
 OrbitalSymmetry = True; 
 (* list of half-bandwidths for all the orbitals *)

@@ -124,7 +124,37 @@ Do[
 			
 			error = (1./Norb)*Sum[
 				DMFTError[InverseG0[[orb]], InverseG0old[[orb]], EdMode],
-			{orb, Norb}];
+			{orb, Norb}];,
+		
+		(* ------------------ *)
+		(*   Interorb Superc   *)
+		(* ------------------ *)
+			(EdMode == "InterorbSuperc" || EdMode == "FullSuperc") && !OrbitalSymmetry,
+			IndependentParameters = TakeIndependentParameters[L, f, Norb, 1, 1, BathParameters, EdMode];
+			InverseG = Mean[MapApply[
+				InverseGreenFunction[L, f, Norb, 1, 1, Egs, ##, Hsectors, Sectors, SectorsDispatch, EdMode, i\[Omega]]&,
+				{Gs, GsQns}\[Transpose]
+			]];
+			InverseG0old = If[DMFTiterator == 1, 0*InverseG, InverseG0];
+			InverseG0 = (
+				Weiss/.Thread[symbols -> TakeIndependentParameters[L, f, Norb, 1, 1, BathParameters, EdMode]]
+			)/.{z -> #} &/@ i\[Omega];
+			\[CapitalSigma] = InverseG0 - InverseG;
+			LocalG = LocalGreenFunction[LatticeEnergies, LatticeWeights, \[Mu], \[CapitalSigma], i\[Omega], EdMode];
+			
+			(* Self consistency *)
+			(* Print["Quasiparticle weight z = ", QuasiparticleWeight[\[CapitalSigma], i\[Omega], EdMode] ]; *)
+			Print[Style["\t\t Self Consistency start", 16, Bold, Magenta]];
+			Print["S.C. time: ", First@AbsoluteTiming[
+			
+			NewBathParameters = ReshapeBathParameters[L, f, Norb, 
+				SelfConsistency[W, \[Mu], Weiss, symbols, z, IndependentParameters, LocalG, \[CapitalSigma], i\[Omega], EdMode,
+				Lattice -> LatticeType, LatticeDimension -> LatticeDim, Minimum -> "Local", NumberOfFrequencies -> 500, MaxIterations -> 2000, AccuracyGoal -> 7]
+			, OrbitalSymmetry, EdMode];
+			
+			error = DMFTError[InverseG0, InverseG0old, EdMode];
+			
+			], " sec." ];
 		];
 	];
 	
