@@ -154,7 +154,7 @@ SelfConsistency[DBethe_, \[Mu]_, Weiss_, symbols_, z_, IndependentParameters_, L
 		EdMode == "Superc" && Lattice != "Bethe",
 		\[Chi][symbols] = Mean@First@
 			Mean[Abs[
-				(Weiss/.{z -> #}& /@ zlist[[;;LFit]]) - (Inverse/@(LocalG[[;;LFit]]) + \[CapitalSigma][[;;LFit]])
+				(Weiss/.{z -> #}& /@ zlist[[;;LFit]]) - (TwoByTwoInverse[LocalG[[;;LFit]]] + \[CapitalSigma][[;;LFit]])
 			]^2]
 	];
 	Which[
@@ -163,7 +163,7 @@ SelfConsistency[DBethe_, \[Mu]_, Weiss_, symbols_, z_, IndependentParameters_, L
 			FindMinimum[
 				\[Chi][symbols],
 				{symbols, IndependentParameters}\[Transpose],
-				Method -> "ConjugateGradient",
+				Method -> OptionValue[Method],
 				MaxIterations -> OptionValue[MaxIterations],
 				AccuracyGoal -> OptionValue[AccuracyGoal]
 			];,
@@ -181,7 +181,7 @@ SelfConsistency[DBethe_, \[Mu]_, Weiss_, symbols_, z_, IndependentParameters_, L
 	Print["Fit residue: ", residue];
 	symbols/.newparameters
 ];
-Options[SelfConsistency] = {Lattice -> "Bethe", LatticeDimension -> 2, NumberOfFrequencies -> 2000, Minimum -> "Local", FitWeight -> ConstantArray[1., 2000]};
+Options[SelfConsistency] = {Lattice -> "Bethe", LatticeDimension -> 2, NumberOfFrequencies -> 2000, Minimum -> "Local", Method -> "ConjugateGradient", FitWeight -> ConstantArray[1., 2000], };
 
 (* DMFT error *)
 DMFTError[Xnew_, Xold_, EdMode_] := Module[

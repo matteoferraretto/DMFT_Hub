@@ -25,6 +25,3 @@ L = 3; f = 2; Norb = 2; EdMode = "FullSuperc"; \[Mu] = 0;
 symbols = Symbols[L, f, Norb, EdMode]
 
 Apart[WeissField[L, f, Norb, \[Mu], symbols, z, EdMode],z]
-
-
-

@@ -12,11 +12,11 @@ L = Nimp + Nbath;
 (* number of spin states *)
 f = 2; 
 (* call the function EdModeInfo[EdMode] to get details *)
-EdMode = "Normal"; 
+EdMode = "Superc"; 
 (* lattice crystal structure: "Bethe", "Hypercubic", etc. *)
-LatticeType = "Bethe"; 
+LatticeType = "Hypercubic"; 
 (* lattice dimensionality *)
-LatticeDim = Infinity; 
+LatticeDim = 2; 
 (* lattice points *)
 LatticePoints = 2000;
 (* set True to enforce orbital symmetry and avoid repeating calculations *)
@@ -82,7 +82,7 @@ DMFTMaxIterations = 20;
 (* threshold for DMFT loop convergence *)
 DMFTerror = 1.0 * 10^(-5); 
 (* Mixing * BathParameters + (1 - Mixing) * NewBathParameters *)
-Mixing = 0.2; 
+Mixing = 0; 
 
 
 (* INPUT-OUTPUT MANAGEMENT *)

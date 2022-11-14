@@ -51,10 +51,10 @@ Options[BrillouinZone] = {Lattice -> "Hypercubic"};
 (* Return the energy and weight lists for computing local G.F. *)
 GetLatticeEnergies[HalfBandwidths_, LatticeType_, LatticeDim_, NumberOfPoints_] := Module[
 	{energies, weights, Norb = Length[HalfBandwidths], d\[Epsilon], LE, BZ},
-	(* initialize energies list of rank LE x Norb x Norb *)
-	energies = ConstantArray[0, {NumberOfPoints, Norb, Norb}];
 	Which[
 		LatticeType == "Bethe" && LatticeDim == Infinity,
+		(* initialize energies list of rank LE x Norb x Norb *)
+		energies = ConstantArray[0, {NumberOfPoints, Norb, Norb}];
 		d\[Epsilon] = 2.0*HalfBandwidths[[1]]/(NumberOfPoints-1);
 		(* energies are sampled at regular intervals *)
 		energies[[All, 1, 1]] = Table[\[Epsilon], {\[Epsilon], -HalfBandwidths[[1]], HalfBandwidths[[1]], d\[Epsilon]}];
@@ -70,8 +70,10 @@ GetLatticeEnergies[HalfBandwidths_, LatticeType_, LatticeDim_, NumberOfPoints_] 
 		LE = Floor[NumberOfPoints^(1./LatticeDim)];
 		(* get the Brillouin Zone *)
 		BZ = BrillouinZone[LE, LatticeDim, Lattice -> "Hypercubic"];
+		(* initialize energies list of rank LE x Norb x Norb *)
+		energies = ConstantArray[0, {Length[BZ], Norb, Norb}];
 		(* equal weights to all the energies since we are sampling the Brillouin zone *)
-		weights = ConstantArray[1./(LE^LatticeDim), LE];
+		weights = ConstantArray[1./(Length[BZ]), Length[BZ]];
 		Do[
 			energies[[All, orb, orb]] = DispersionHypercubic[BZ, HalfBandwidths[[orb]]];
 		, {orb, Norb}];,

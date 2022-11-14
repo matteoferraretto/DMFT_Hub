@@ -21,7 +21,7 @@ Print["Package MyLinearAlgebra` loaded successfully."];
 InverseElement[m_, {i_,j_}] := (-1)^(i+j)Det[Drop[m,{j},{i}]]/Det[m];
 
 (* listable inversion of 2x2 matrices *)
-TwoByTwoInverse=Compile[{
+TwoByTwoInverse = Compile[{
 	{A, _Complex, 2}
 	},
 	Module[
