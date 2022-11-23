@@ -22,17 +22,19 @@ LatticePoints = 1600;
 (* set True to enforce orbital symmetry and avoid repeating calculations *)
 OrbitalSymmetry = True; 
 (* list of half-bandwidths for all the orbitals *)
-W = ConstantArray[1., Norb]; 
+W = ConstantArray[1., Norb];
+(* Crystal field splitting [not yet implemented] *)
+\[Delta] = 0;
 (* add orbital hybridization options if needed ... *)
 
 
 (*      INPUT PHYSICAL PARAMETERS        *)
 (* interaction energy (list of U values for the orbitals) *)
-U = ConstantArray[-0.3, Norb]; 
+U = ConstantArray[0.0, Norb]; 
 (* Hund's J. It's used only when HundMode = True to enforce rotation invariance of the Kanamori model. *)
 JH = 0.0; 
 (* density-density opposite spin coupling. It is set automatically if HundMode = True. *)
-Ust = 0.0; 
+Ust = -0.30; 
 (* density-density same spin coupling. It is set automatically if HundMode = True. *)
 Usec = 0.0; 
 (* pair-hopping coupling. It is set automatically if HundMode = True. *)
@@ -40,7 +42,7 @@ Jph = 0.0;
 (* spin-exchange coupling. It is set automatically if HundMode = True. *)
 Jse = 0.0; 
 (* if this is True, interorbital couplings are authomatically set to Ust=U-2JH; Usec=U-3JH, Jph=JH, Jse=-JH enforcing the rotational invariance *)
-HundMode = True; 
+HundMode = False; 
 (* chemical potential *)
 \[Mu] = 0; 
 (* temperature *)
@@ -83,6 +85,14 @@ DMFTMaxIterations = 20;
 DMFTerror = 1.0 * 10^(-5); 
 (* Mixing * BathParameters + (1 - Mixing) * NewBathParameters *)
 Mixing = 0; 
+(* Method for the minimization procedure *)
+MinimizationMethod = "ConjugateGradient";
+(* Max number of Conjugate Gradient iterations *)
+CGMax = 1000;
+(* Number of Matsubara frequencies used to perform the fit *)
+CGNMatsubara = 500;
+(* Accuracy goal for minimization procedure *)
+CGAccuracy = 7;
 
 
 (* INPUT-OUTPUT MANAGEMENT *)

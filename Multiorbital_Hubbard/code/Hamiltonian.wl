@@ -72,22 +72,23 @@ HNonlocal[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 				];,
 			(* --------------------------------------------------------------- *)
 				flag == "InterorbSuperc" && (EdMode == "InterorbSuperc" || EdMode == "FullSuperc"),
-				If[\[Sigma] == 1,
+				If[\[Sigma] == 1 && orb == 1, (* <- do NOT provide a block for every spin and orbital index! *)
 				Do[
 					If[
-						orb2 > orb,
-						\[Psi]1 = CreatePairSelect[L, f, j, j, 1, 2, orb, orb2, \[Psi]];
+						orb2 != orb1,
+						\[Psi]1 = CreatePairSelect[L, f, j, j, 1, 2, orb1, orb2, \[Psi]];
 						If[Length[\[Psi]1] != 0,
-							\[Chi] = CreatePair[L, f, j, j, 1, 2, orb, orb2, \[Psi]1];
+							\[Chi] = CreatePair[L, f, j, j, 1, 2, orb1, orb2, \[Psi]1];
 							rows = \[Chi]/.dispatch;(* *)cols = \[Psi]1/.dispatch;(* *)pos = {rows,cols}\[Transpose];
-							\[CapitalSigma] = CCSign[L, f, {j,j}, {1,2}, {orb,orb2}, \[Psi]1];
+							\[CapitalSigma] = CCSign[L, f, {j,j}, {1,2}, {orb1,orb2}, \[Psi]1];
+							If[orb2 < orb1, \[CapitalSigma] = -\[CapitalSigma]]; (* ?? *)
 							Hblock += SparseArray[pos -> \[CapitalSigma], {dim,dim}];
 						];
 					]
-				, {orb2,1,Norb}];
+				, {orb1, Norb}, {orb2, Norb}];
 				Hblock = Hblock + Hblock\[ConjugateTranspose];
 				AppendTo[Hsector, Hblock];
-			];
+				];
 			];
 		,{flag, {"Bath","Hopping","Superc","InterorbSuperc"}}, {orb,1,Norb}, {\[Sigma],1,f}, {j,OptionValue[Nimp]+1,L}];
 		AppendTo[H, Hsector];

@@ -12,7 +12,7 @@ If[EdMode == "InterorbNormal", EdMode == "InterorbSuperc" || EdMode == "FullSupe
 
 
 (* GET BATH PARAMETERS *)
-BathParameters = StartingBath[L, f, Norb, InitializeBathMode, EdMode];
+BathParameters = StartingBath[L, f, Norb, InitializeBathMode, EdMode, \[CapitalXi]0 -> 0.5];
 Nparams = Length[BathParameters];
 
 

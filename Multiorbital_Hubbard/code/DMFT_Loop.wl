@@ -44,10 +44,19 @@ Do[
 		Print["\t\t Ground state info:\n", "Egs = ", Egs, "   Quantum numbers = ", GsQns];
 		(* print some observables *)
 		Do[
-			Print["impurity density [orb="<>ToString[orb]<>"] = ", Sum[Density[L, f, Norb, 1, \[Sigma], orb, Sectors, EgsSectorList, GsSectorList, T], {\[Sigma], f}] ];
-			Print["impurity double occupancy [orb="<>ToString[orb]<>"] = ", SquareDensity[L, f, Norb, {1,1}, {1,2}, {orb,orb}, Sectors, EgsSectorList, GsSectorList, T] ];
-			If[EdMode == "Superc", Print["order parameter [orb="<>ToString[orb]<>"] = ", CdgCdg[L, f, Norb, {1,1}, {1,2}, {orb,orb}, Sectors, EgsSectorList, GsSectorList, T] ];]
+			Print["Impurity density [orb="<>ToString[orb]<>"] = ", Sum[Density[L, f, Norb, 1, \[Sigma], orb, Sectors, EgsSectorList, GsSectorList, T], {\[Sigma], f}] ];
+			Print["Impurity double occupancy [orb="<>ToString[orb]<>"] = ", SquareDensity[L, f, Norb, {1,1}, {1,2}, {orb,orb}, Sectors, EgsSectorList, GsSectorList, T] ];
+			If[EdMode == "Superc" || EdMode == "InterorbSuperc" || EdMode == "FullSuperc", 
+				Print["Order parameter [orb="<>ToString[orb]<>"] = ", CdgCdg[L, f, Norb, {1,1}, {1,2}, {orb,orb}, Sectors, EgsSectorList, GsSectorList, T] ];
+			];
 		, {orb, Norb}];
+		
+		If[EdMode == "InterorbSuperc" || EdMode == "FullSuperc", 
+				Print["Order parameter interorbital = ", 
+				0.5 * (CdgCdg[L, f, Norb, {1,1}, {1,2}, {1,2}, Sectors, EgsSectorList, GsSectorList, T]
+				- CdgCdg[L, f, Norb, {1,1}, {1,2}, {2,1}, Sectors, EgsSectorList, GsSectorList, T])];
+				(* the minus sign is WRONG. it should come from the second CdgCdg, not put explicitly here. *)
+			];
 		
 		
 		(* --------------------------------------- *)
@@ -148,8 +157,12 @@ Do[
 			Print["S.C. time: ", First@AbsoluteTiming[
 			
 			NewBathParameters = ReshapeBathParameters[L, f, Norb, 
-				SelfConsistency[W, \[Mu], Weiss, symbols, z, IndependentParameters, LocalG, \[CapitalSigma], i\[Omega], EdMode,
-				Lattice -> LatticeType, LatticeDimension -> LatticeDim, Minimum -> "Local", NumberOfFrequencies -> 500, MaxIterations -> 2000, AccuracyGoal -> 7]
+				SelfConsistency[
+					W, \[Mu], Weiss, symbols, z, IndependentParameters, LocalG, \[CapitalSigma], i\[Omega], EdMode,
+					Lattice -> LatticeType, LatticeDimension -> LatticeDim, 
+					Minimum -> "Local", Method -> MinimizationMethod,
+					NumberOfFrequencies -> CGNMatsubara, MaxIterations -> CGMax, AccuracyGoal -> CGAccuracy
+				]
 			, OrbitalSymmetry, EdMode];
 			
 			error = DMFTError[InverseG0, InverseG0old, EdMode];

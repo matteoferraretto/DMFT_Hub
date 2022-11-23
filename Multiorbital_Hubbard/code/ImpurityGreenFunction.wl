@@ -305,7 +305,7 @@ GreenFunctionImpurityNambu[L_, f_, Norb_, Egs_, Gs_, GsQns_, Hsectors_, Sectors_
         GF = ConstantArray[0, {NMatsubara, 2*Norb, 2*Norb}];
         If[
         (* general case: NO orbital symmetry *)
-            !OrbitalSymmetry,
+            OrbitalSymmetry,
             (* compute the diagonal part of all the Nambu blocks *)
             Do[{
                 GF[[All, 2(orb1-1)+1, 2(orb2-1)+1]], (* element 11, 13, 15, 33, 35, 55, ... *)
@@ -337,17 +337,16 @@ GreenFunctionImpurityNambu[L_, f_, Norb_, Egs_, Gs_, GsQns_, Hsectors_, Sectors_
             , {i, 2Norb}, {j, i-1}];,
         (* ------------------------------------- *)
         (* else *)
-            OrbitalSymmetry,
+            !OrbitalSymmetry,
             (* compute the diagonal part of (a representative of) the diagonal Nambu block *)
             {GF[[All, 1, 1]], GF[[All, 2, 2]] } = 
             Partition[ 
                 GreenFunctionImpurity[L, f, Norb, {1,1}, Egs, Gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, zlistextended],
             NMatsubara]; 
-            GF[[All, 2, 2]] = -GF[[All, 2, 2]];
             (* possibly GF13 = GF24 = 0 ? For now let's be safe ... *)
             (* compute the diagonal part of (a representative of) the diagonal Nambu block *)
             {GF[[All, 1, 3]], GF[[All, 2, 4]] } = 
-            Partition[ 
+            0*Partition[ 
                 GreenFunctionImpurity[L, f, Norb, {1,2}, Egs, Gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, zlistextended],
             NMatsubara]; 
             GF[[All, 2, 4]] = -GF[[All, 2, 4]];
@@ -368,6 +367,7 @@ GreenFunctionImpurityNambu[L_, f_, Norb_, Egs_, Gs_, GsQns_, Hsectors_, Sectors_
                 (1./2.)*(GFO - I*GFP - 1.*(1 - I)*(GF[[All, 1,1]] + GF[[All, 2, 2]]))
             ];
             (* fill up all the other entries according to the symmetries *)
+            (*
             Do[
                 GF[[All, 2(orb-1)+1, 2(orb-1)+1]] = GF[[All, 1, 1]];
                 GF[[All, 2(orb-1)+2, 2(orb-1)+2]] = GF[[All, 2, 2]];
@@ -382,12 +382,144 @@ GreenFunctionImpurityNambu[L_, f_, Norb_, Egs_, Gs_, GsQns_, Hsectors_, Sectors_
             Do[
                 GF[[All, i, j]] = Conjugate[GF[[All, j, i]]];
             , {i, 2Norb}, {j, i-1}]; (* fill up the lower triangular part by conjugating the upper triangular part *)
+            *)
         ]
     ];
     GF
 ];
 Options[GreenFunctionImpurityNambu] = {Orb -> 1, OrbitalSymmetry -> False}; (* if orbitals are not symmetric and EdMode = "Superc", you can specify the orbital index *)
 
+
+(* --------------- *)
+(* WORK IN PROGRESS *)
+(* --------------- *)
+GreenFunctionImpurityNew[L_, f_, Norb_, {orb1_,orb2_}, Egs_, Gs_, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, EdMode_, zlist_, OptionsPattern[] ] := Module[{
+	(* compute cdg_{s,orb}|gs> and c_{s,orb}|gs> for s = up, dw *)
+	adgup, bdw, aup, bdgdw, bdgup, bup, adgdw, adw,
+	c1 = OptionValue[c1], c2 = OptionValue[c2], c3 = OptionValue[c3], c4 = OptionValue[c4],
+	Odggs, Ogs, newqns, H, E0, a, b, GFOparticle, GFOhole, GFO},	
+	If[c1 != 0,
+		adgup = ApplyCdg[L, f, Norb, 1, 1, orb1, Normalize[Gs], GsQns, Sectors, SectorsDispatch, EdMode];
+		aup = ApplyC[L, f, Norb, 1, 1, orb1, Normalize[Gs], GsQns, Sectors, SectorsDispatch, EdMode];
+	];
+	If[c2 != 0,
+		adw = ApplyC[L, f, Norb, 1, 2, orb1, Normalize[Gs], GsQns, Sectors, SectorsDispatch, EdMode];
+		adgdw = ApplyCdg[L, f, Norb, 1, 2, orb1, Normalize[Gs], GsQns, Sectors, SectorsDispatch, EdMode];
+	];
+	If[c3 != 0,
+		bdgup = ApplyCdg[L, f, Norb, 1, 1, orb2, Normalize[Gs], GsQns, Sectors, SectorsDispatch, EdMode];
+		bup = ApplyC[L, f, Norb, 1, 1, orb2, Normalize[Gs], GsQns, Sectors, SectorsDispatch, EdMode];
+	];
+	If[c4 != 0,
+		bdw = ApplyC[L, f, Norb, 1, 2, orb2, Normalize[Gs], GsQns, Sectors, SectorsDispatch, EdMode];
+		bdgdw = ApplyCdg[L, f, Norb, 1, 2, orb2, Normalize[Gs], GsQns, Sectors, SectorsDispatch, EdMode];
+	];
+(* compute all the main contributions to the Green function *)
+(*          G_O(z) "Particle" contribution             *)
+	Odggs = c1*adgup + c2*adw + c3*bdgup + c4*bdw; 
+	newqns = FinalSector[L, f, Norb, 1, 1, orb1, GsQns, "Creation", EdMode]; (* evaluate the quantum numbers of the final sector *)
+	H = Hsectors[[newqns/.SectorsDispatch]]; (* Hamiltonian on that sector *)
+	{E0,a,b} = Lanczos[H, Normalize[Odggs] ]; (* Apply Lanczos starting from Odg|gs> *)
+	H = SparseArray[DiagonalMatrix[b, 1] + DiagonalMatrix[b, -1] + DiagonalMatrix[a] ]; (* Krylov matrix in the final sector *)
+	GFOparticle = (Norm[Odggs]^2)*(
+		InverseElement[
+			SparseArray[(# + Egs) * IdentityMatrix[Length[a] ] - H]
+		, {1, 1}] &/@ zlist);
+(*           G_O(z) "Hole" contribution               *)
+	Ogs = (c1\[Conjugate])*aup + (c2\[Conjugate])*adgdw + (c3\[Conjugate])*bup + (c4\[Conjugate])*bdgdw; 
+	newqns = FinalSector[L, f, Norb, 1, 1, orb1, GsQns, "Annihilation", EdMode]; (* evaluate the quantum numbers of the final sector *)
+	H = Hsectors[[newqns/.SectorsDispatch]]; (* Hamiltonian on that sector *)
+	{E0,a,b} = Lanczos[H, Normalize[Ogs] ]; (* Apply Lanczos starting from O|gs> *)
+	H = SparseArray[DiagonalMatrix[b, 1] + DiagonalMatrix[b, -1] + DiagonalMatrix[a] ]; (* Krylov matrix in the final sector *)
+	GFOhole = (Norm[Ogs]^2)*(
+		InverseElement[
+			SparseArray[(# - Egs) * IdentityMatrix[Length[a] ] + H]
+		, {1, 1}] &/@ zlist);
+	GFOparticle + GFOhole
+];
+Options[GreenFunctionImpurityNew] = {c1 -> 1.0, c2 -> 0.0, c3 -> 0.0, c4 -> 0.0}; (* by default use Odg = adgup *)
+
+
+
+GreenFunctionImpurityNambuNew[L_, f_, Norb_, Egs_, Gs_, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, EdMode_, zlist_, OptionsPattern[] ] := Module[{
+    NMatsubara = Length[zlist], zlistextended = Join[zlist, -zlist], orb = OptionValue[Orb], OrbitalSymmetry = OptionValue[OrbitalSymmetry],
+    GF, GFO, GFP
+    },
+    Which[ 
+        EdMode == "Superc",
+        (* initialize Green function as a NMatsubara x 2 x 2 tensor *)
+        GF = ConstantArray[0, {NMatsubara, 2, 2}];
+        (* if there is spin symmetry, then perform Lanczos only once, apply to +z and -z and then split the result *)
+        {GF[[All,1,1]], GF[[All,2,2]]} = Partition[ 
+            GreenFunctionImpurityNew[L, f, Norb, {orb,orb}, Egs, Gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, zlistextended],
+        NMatsubara]; 
+        GF[[All,2,2]] = -GF[[All,2,2]]; (* GF_11 -> G_{up,orb1; up,orb1}(z) ;  GF_22 -> - G_{dw,orb1; dw,orb1}(-z) *) 
+        (* compute GFO, where Odg = adg_up + a_dw *)
+        GFO = GreenFunctionImpurityNew[L, f, Norb, {orb,orb}, Egs, Gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, zlist, c2 -> 1.0];
+        (* compute GFP, where Pdg = adg_up + I a_dw *)
+        GFP = GreenFunctionImpurityNew[L, f, Norb, {orb,orb}, Egs, Gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, zlist, c2 -> 1.0*I];
+        (* compute the off-diagonal part using the diagonal part and GFO, GFP *)
+	    GF[[All,1,2]] = (1./2.)*(GFO - I*GFP - 1.*(1 - I)*(GF[[All,1,1]] + GF[[All,2,2]]));
+	    GF[[All,2,1]] = (1./2.)*(GFO + I*GFP - 1.*(1 + I)*(GF[[All,1,1]] + GF[[All,2,2]]));,
+    (* ------------------------------------------------------------- *)
+        EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
+        (* initialize Green function as a NMatsubara x 2 x 2 tensor *)
+        GF = ConstantArray[0, {NMatsubara, 2*Norb, 2*Norb}];
+        (* compute the diagonal part of (a representative of) the diagonal Nambu block *)
+        {GF[[All, 1, 1]], GF[[All, 2, 2]] } = 
+        Partition[ 
+            GreenFunctionImpurityNew[L, f, Norb, {1,1}, Egs, Gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, zlistextended],
+        NMatsubara];    
+        GF[[All, 2, 2]] = -GF[[All, 2, 2]];
+        If[OrbitalSymmetry,
+            GF[[All, 3, 3]] = GF[[All, 1, 1]];
+            GF[[All, 4, 4]] = GF[[All, 2, 2]];,
+        (* else *)
+            {GF[[All, 3, 3]], GF[[All, 4, 4]] } = 
+            Partition[ 
+                GreenFunctionImpurityNew[L, f, Norb, {2,2}, Egs, Gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, zlistextended],
+            NMatsubara];
+            GF[[All, 4, 4]] = -GF[[All, 4, 4]];
+        ];
+        (* 1,2 *)
+        GFO = GreenFunctionImpurityNew[L, f, Norb, {1,1}, Egs, Gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, zlist, c2 -> 1.0];
+        GFP = GreenFunctionImpurityNew[L, f, Norb, {1,1}, Egs, Gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, zlist, c2 -> 1.0*I];
+	    GF[[All,1,2]] = (1./2.)*(GFO - I*GFP - 1.*(1 - I)*(GF[[All,1,1]] + GF[[All,2,2]]));
+	    GF[[All,2,1]] = (1./2.)*(GFO + I*GFP - 1.*(1 + I)*(GF[[All,1,1]] + GF[[All,2,2]]));
+	    (* 3,4 *)
+	    If[OrbitalSymmetry,
+	        GF[[All, 3, 4]] = GF[[All, 1, 2]];
+	        GF[[All, 4, 3]] = GF[[All, 2, 1]];,
+	    (* else *)
+            GFO = GreenFunctionImpurityNew[L, f, Norb, {2,2}, Egs, Gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, zlist, c1 -> 0., c3 -> 1.0, c4 -> 1.0];
+            GFP = GreenFunctionImpurityNew[L, f, Norb, {2,2}, Egs, Gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, zlist, c1 -> 0., c3 -> 1.0, c4 -> 1.0*I];
+	        GF[[All, 3, 4]] = (1./2.)*(GFO - I*GFP - 1.*(1 - I)*(GF[[All, 3, 3]] + GF[[All, 4, 4]]));
+	        GF[[All, 4, 3]] = (1./2.)*(GFO + I*GFP - 1.*(1 + I)*(GF[[All, 3, 3]] + GF[[All, 4, 4]]));
+	    ];
+	    (* 1,3 *)
+        GFO = GreenFunctionImpurityNew[L, f, Norb, {1,2}, Egs, Gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, zlist, c3 -> 1.0];
+        GFP = GreenFunctionImpurityNew[L, f, Norb, {1,2}, Egs, Gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, zlist, c3 -> 1.0*I];
+	    GF[[All,1,3]] = (1./2.)*(GFO - I*GFP - 1.*(1 - I)*(GF[[All,1,1]] + GF[[All,3,3]]));
+	    GF[[All,3,1]] = (1./2.)*(GFO + I*GFP - 1.*(1 + I)*(GF[[All,1,1]] + GF[[All,3,3]]));
+	    (* 2,4 *)
+	    GFO = GreenFunctionImpurityNew[L, f, Norb, {1,2}, Egs, Gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, zlist, c1 -> 0.0, c2 -> 1.0, c4 -> 1.0];
+        GFP = GreenFunctionImpurityNew[L, f, Norb, {1,2}, Egs, Gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, zlist, c1 -> 0.0, c2 -> 1.0, c4 -> 1.0*I];
+	    GF[[All,2,4]] = (1./2.)*(GFO - I*GFP - 1.*(1 - I)*(GF[[All,2,2]] + GF[[All,4,4]]));
+	    GF[[All,4,2]] = (1./2.)*(GFO + I*GFP - 1.*(1 + I)*(GF[[All,2,2]] + GF[[All,4,4]]));
+        (* 1,4 *)
+        GFO = GreenFunctionImpurityNew[L, f, Norb, {1,2}, Egs, Gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, zlist, c1 -> 1.0, c4 -> 1.0];
+        GFP = GreenFunctionImpurityNew[L, f, Norb, {1,2}, Egs, Gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, zlist, c1 -> 1.0, c4 -> 1.0*I];
+	    GF[[All,1,4]] = (1./2.)*(GFO - I*GFP - 1.*(1 - I)*(GF[[All,1,1]] + GF[[All,4,4]]));
+	    GF[[All,4,1]] = (1./2.)*(GFO + I*GFP - 1.*(1 + I)*(GF[[All,1,1]] + GF[[All,4,4]]));
+	    (* 2,3 *)
+        GFO = GreenFunctionImpurityNew[L, f, Norb, {1,2}, Egs, Gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, zlist, c1 -> 0.0, c2 -> 1.0, c3 -> 1.0];
+        GFP = GreenFunctionImpurityNew[L, f, Norb, {1,2}, Egs, Gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, zlist, c1 -> 0.0, c2 -> 1.0, c3 -> 1.0*I];
+	    GF[[All,2,3]] = (1./2.)*(GFO - I*GFP - 1.*(1 - I)*(GF[[All,2,2]] + GF[[All,3,3]]));
+	    GF[[All,3,2]] = (1./2.)*(GFO + I*GFP - 1.*(1 + I)*(GF[[All,2,2]] + GF[[All,3,3]]));
+    ];
+    GF
+];
+Options[GreenFunctionImpurityNambuNew] = {Orb -> 1, OrbitalSymmetry -> False};
 
 
 (*        INVERSE GREEN FUNCTION         *)
@@ -396,15 +528,15 @@ InverseGreenFunction[L_, f_, Norb_, \[Sigma]_, orb_, Egs_, gs_, GsQns_, Hsectors
 	{G},
 	Which[
 		EdMode == "Normal", 
-		G = GreenFunctionImpurity[L, f, Norb, {orb,orb}, Egs, gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, zlist];
+		G = GreenFunctionImpurityNew[L, f, Norb, {orb,orb}, Egs, gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, zlist];
 		1./G,
 	(* ------------------------------------------- *)
 		EdMode == "Superc",	
-		G = GreenFunctionImpurityNambu[L, f, Norb, Egs, gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, zlist, Orb -> orb];
+		G = GreenFunctionImpurityNambuNew[L, f, Norb, Egs, gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, zlist, Orb -> orb];
 		TwoByTwoInverse[G],
 	(* ------------------------------------------- *)
 		EdMode == "InterorbSuperc" || EdMode == "FullSuperc", 
-		G = GreenFunctionImpurityNambu[L, f, Norb, Egs, gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, zlist, Orb -> orb];
+		G = GreenFunctionImpurityNambuNew[L, f, Norb, Egs, gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, zlist, Orb -> orb];
 		Inverse/@G
 	]
 ];

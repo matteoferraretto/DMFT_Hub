@@ -7,7 +7,6 @@ BeginPackage["SelfConsistency`", {"MyLinearAlgebra`"}]
 WeissField::usage = "WeissField[L_, f_, Norb_, \[Mu]_, symbols_, z_, EdMode_]"
 
 SelfConsistency::usage = "SelfConsistency[DBethe, \[Mu], Weiss, symbols, StartingParameters, LocalG, zlist, EdMode]"
-SelfConsistencyGeneral::usage = "SelfConsistency[DBethe, \[Mu], Weiss, symbols, StartingParameters, LocalG, zlist, EdMode]"
 
 DMFTError::usage = "DMFTError[Xnew, Xold, EdMode]"
 
@@ -112,8 +111,13 @@ WeissField[L_, f_, Norb_, \[Mu]_, symbols_, z_, EdMode_] := Module[
 		Do[
 			If[orb1 == orb2,
 				H[[#]][[orb1, orb1]] = e[[orb1]][[#]] * PauliMatrix[3] + \[CapitalDelta][[orb1]][[#]] * PauliMatrix[1];
-				Vmat[[#]][[orb1, orb1]] = V[[orb1]][[#]] * PauliMatrix[3];,
+				Vmat[[#]][[orb1, orb1]] = V[[orb1]][[#]] * PauliMatrix[3];
+			];
 		(* else, if orb1 != orb2 *)
+			If[orb2 > orb1,
+				H[[#]][[orb1, orb2]] = \[CapitalXi][[#]] * PauliMatrix[1]
+			];
+			If[orb2 < orb1,
 				H[[#]][[orb1, orb2]] = \[CapitalXi][[#]] * PauliMatrix[1]
 			];
 		, {orb1, Norb}, {orb2, Norb}] &/@ Range[L-1];
@@ -122,10 +126,10 @@ WeissField[L_, f_, Norb_, \[Mu]_, symbols_, z_, EdMode_] := Module[
 			H[[k]] = ArrayFlatten[H[[k]]];
 			Vmat[[k]] = ArrayFlatten[Vmat[[k]]];
 		, {k, L-1}];
-		Print[H[[1]]//MatrixForm];
-		Print[Vmat[[1]]//MatrixForm];
+		Print[MatrixForm/@H];
+		Print[MatrixForm/@Vmat];
 		(* compute Weiss field *)
-		z * IdentityMatrix[2Norb] - H0 - Sum[Vmat[[k]] . Inverse[z * IdentityMatrix[2Norb] - H[[k]]] . Vmat[[k]] , {k, L-1}]
+		z * IdentityMatrix[2Norb] - H0 - Sum[Vmat[[k]] . (Inverse[z * IdentityMatrix[2Norb] - H[[k]]] . Vmat[[k]]) , {k, L-1}]
 	]
 ];
 
@@ -167,7 +171,7 @@ SelfConsistency[DBethe_, \[Mu]_, Weiss_, symbols_, z_, IndependentParameters_, L
 				Abs[
 					weight[[;;LFit]] * (
 					(UpperTriangularize[Weiss/.{z -> #}] &/@ (zlist[[;;LFit]])) 
-					- (UpperTriangularize[#] &/@ (Inverse /@ (LocalG[[;;LFit]]) + \[CapitalSigma][[;;LFit]]))
+					- (UpperTriangularize[#] &/@ ((Inverse /@ (LocalG[[;;LFit]])) + \[CapitalSigma][[;;LFit]]))
 				)]^2 
 			)];
 	];
@@ -224,15 +228,33 @@ DMFTError[Xnew_, Xold_, EdMode_] := Module[
 		}],
 (* ----------------------------------- *)
 		EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
-		error = Mean[
-			Flatten @ Table[
-				Total[Abs[
-					Xnew[[All, \[Alpha], \[Beta]]] - Xold[[All, \[Alpha], \[Beta]]]
-				]]/Max[
+		error = {};
+		Do[
+			If[EvenQ[\[Alpha]] && \[Alpha] == \[Beta], Continue[]; ]; (* skip elements 22, 44, ... because they are related to 11, 33, ... *)
+			If[
+				Max[Total[Abs[Xnew[[All, \[Alpha], \[Beta]]]]], Total[Abs[Xold[[All, \[Alpha], \[Beta]]]]]] < 0.1,
+				Continue[]; 
+			]; (* skip elements when they are zero *)
+			Print["\[Alpha]=",\[Alpha]," \[Beta]=",\[Beta]];
+			AppendTo[error, Total[
+					Abs[Xnew[[All, \[Alpha], \[Beta]]] - Xold[[All, \[Alpha], \[Beta]]]]
+				]/Max[
 					Total[Abs[Xnew[[All, \[Alpha], \[Beta]]]]], Total[Abs[Xold[[All, \[Alpha], \[Beta]]]]]		
 				]
+			];
+		, {\[Alpha], Length[Xnew[[1]]]}, {\[Beta], \[Alpha], Length[Xnew[[1]]]}];
+		error = Mean[error];
+		(*
+		error = Mean[
+			Flatten @ Table[
+				(* else *)
+					Total[
+						Abs[Xnew[[All, \[Alpha], \[Beta]]] - Xold[[All, \[Alpha], \[Beta]]]]
+					]/Max[
+						Total[Abs[Xnew[[All, \[Alpha], \[Beta]]]]], Total[Abs[Xold[[All, \[Alpha], \[Beta]]]]]		
+					]	
 			, {\[Alpha], Length[Xnew[[1]]]}, {\[Beta], \[Alpha], Length[Xnew[[1]]]}]
-		]
+		]*)
 	];
 	error
 ];
