@@ -49,7 +49,7 @@ BrillouinZone[LE_, d_, OptionsPattern[]] := With[
 Options[BrillouinZone] = {Lattice -> "Hypercubic"};
 
 (* Return the energy and weight lists for computing local G.F. *)
-GetLatticeEnergies[HalfBandwidths_, LatticeType_, LatticeDim_, NumberOfPoints_] := Module[
+GetLatticeEnergies[HalfBandwidths_, \[Delta]_, LatticeType_, LatticeDim_, NumberOfPoints_] := Module[
 	{energies, weights, Norb = Length[HalfBandwidths], d\[Epsilon], LE, BZ},
 	Which[
 		LatticeType == "Bethe" && LatticeDim == Infinity,

@@ -13,7 +13,14 @@ Do[
 	Print["E.D. time: ", AbsoluteTiming[
 	
 		Hsectors = HImp[Norb, HnonlocBlocks, HlocBlocks, BathParameters, InteractionParameters, EdMode];
-		eigs = Map[Eigs[#, "Temperature" -> T, "MinLanczosDim"->100, "MaxIterations" -> 2000]&, Hsectors];
+		eigs = Map[
+			Eigs[#, 
+				"Temperature" -> T, 
+				"MinLanczosDim" -> MinLanczosDim, 
+				"DegeneracyThreshold" -> DegeneracyThreshold,
+				"MaxIterations" -> MaxLanczosIter, 
+				"MinEigenvalues" -> MinNumberOfEigs
+			]&, Hsectors];
 		EgsSectorList = eigs[[All, 1]];
 		GsSectorList = eigs[[All, 2]];
 		ClearAll[eigs];
@@ -86,8 +93,14 @@ Do[
 			
 			(* Self consistency *)
 			NewBathParameters = ReshapeBathParameters[L, f, Norb,	
-				SelfConsistency[W[[1]], \[Mu], Weiss, symbols, z, IndependentParameters, LocalG, \[CapitalSigma], i\[Omega], EdMode, 
-				Lattice -> LatticeType, LatticeDimension -> LatticeDim, Minimum -> "Local", NumberOfFrequencies -> 500, MaxIterations -> 2000, AccuracyGoal -> 7],
+				SelfConsistency[
+					W[[1]], \[Mu], Weiss, symbols, z, IndependentParameters, LocalG, \[CapitalSigma], i\[Omega], EdMode, 
+					Lattice -> LatticeType, 
+					LatticeDimension -> LatticeDim, 
+					Minimum -> "Local", 
+					NumberOfFrequencies -> 500, 
+					MaxIterations -> 2000, 
+					AccuracyGoal -> 7],
 			OrbitalSymmetry, EdMode];
 			
 			], " sec." ];
@@ -125,8 +138,14 @@ Do[
 			Print["S.C. time: ", First@AbsoluteTiming[
 			
 			NewBathParameters = ReshapeBathParameters[L, f, Norb, Table[
-				SelfConsistency[W[[orb]], \[Mu], Weiss, symbols, z, IndependentParameters[[orb]], LocalG[[orb]], \[CapitalSigma][[orb]], i\[Omega], EdMode,
-				Lattice -> LatticeType, LatticeDimension -> LatticeDim, Minimum -> "Local", NumberOfFrequencies -> 500, MaxIterations -> 2000, AccuracyGoal -> 7]
+				SelfConsistency[
+					W[[orb]], \[Mu], Weiss, symbols, z, IndependentParameters[[orb]], LocalG[[orb]], \[CapitalSigma][[orb]], i\[Omega], EdMode,
+					Lattice -> LatticeType, 
+					LatticeDimension -> LatticeDim, 
+					Minimum -> "Local", 
+					NumberOfFrequencies -> 500, 
+					MaxIterations -> 2000, 
+					AccuracyGoal -> 7]
 			, {orb, Norb}], OrbitalSymmetry, EdMode];
 			
 			], " sec." ];
@@ -150,6 +169,8 @@ Do[
 			)/.{z -> #} &/@ i\[Omega];
 			\[CapitalSigma] = InverseG0 - InverseG;
 			LocalG = LocalGreenFunction[LatticeEnergies, LatticeWeights, \[Mu], \[CapitalSigma], i\[Omega], EdMode];
+			Print["Quasiparticle weight z = ", Table[QuasiparticleWeight[\[CapitalSigma], i\[Omega], EdMode, Orb -> orb], {orb, Norb}] ];
+			
 			
 			(* Self consistency *)
 			(* Print["Quasiparticle weight z = ", QuasiparticleWeight[\[CapitalSigma], i\[Omega], EdMode] ]; *)
@@ -159,9 +180,13 @@ Do[
 			NewBathParameters = ReshapeBathParameters[L, f, Norb, 
 				SelfConsistency[
 					W, \[Mu], Weiss, symbols, z, IndependentParameters, LocalG, \[CapitalSigma], i\[Omega], EdMode,
-					Lattice -> LatticeType, LatticeDimension -> LatticeDim, 
-					Minimum -> "Local", Method -> MinimizationMethod,
-					NumberOfFrequencies -> CGNMatsubara, MaxIterations -> CGMax, AccuracyGoal -> CGAccuracy
+					Lattice -> LatticeType, 
+					LatticeDimension -> LatticeDim, 
+					Minimum -> "Local", 
+					Method -> MinimizationMethod,
+					NumberOfFrequencies -> CGNMatsubara, 
+					MaxIterations -> CGMax, 
+					AccuracyGoal -> CGAccuracy
 				]
 			, OrbitalSymmetry, EdMode];
 			

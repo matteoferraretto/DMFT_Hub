@@ -146,16 +146,17 @@ SpectralFunction[L_, f_, Norb_, \[Sigma]_, orb_, Egs_, Gs_, GsQns_, Hsectors_, S
 
 (* Quasiparticle weight *)
 \[NonBreakingSpace]QuasiparticleWeight[\[CapitalSigma]_, i\[Omega]_, EdMode_, OptionsPattern[]] := Module[
-	{Selfenergy, data, a, z, cutoff = OptionValue[FitCutoff]},
+	{Selfenergy, data, a, z, cutoff = OptionValue[FitCutoff], orb = OptionValue[Orb]},
 	Selfenergy = Which[
 		EdMode == "Normal", \[CapitalSigma], 
-		EdMode == "Superc", \[CapitalSigma][[All,1,1]] 
+		EdMode == "Superc", \[CapitalSigma][[All,1,1]],
+		EdMode == "InterorbSuperc" || EdMode == "FullSuperc", \[CapitalSigma][[All, 2(orb-1)+1, 2(orb-1)+1]]
 	];
 	data = ({Im[i\[Omega]], Im[Selfenergy]}\[Transpose])[[;;cutoff]];
 	a = Fit[data, {x}, x]/x;
 	z = 1./(1.-a)
 ];
-Options[QuasiparticleWeight] = {FitCutoff -> 50}
+Options[QuasiparticleWeight] = {FitCutoff -> 50, Orb -> 1};
 
 (* \[Phi]: superconductive order parameter computed through the Green function *)
 OrderParameter[InverseG_, TMats_] := With[

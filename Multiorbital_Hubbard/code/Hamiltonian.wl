@@ -225,7 +225,16 @@ HLocal[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 					, {j, 1, OptionValue[Nimp]}];
 					Hblock = SparseArray@DiagonalMatrix[num];
 					AppendTo[Hsector, Hblock];
-				, {orb, Norb}, {\[Sigma], f}]
+				, {orb, Norb}, {\[Sigma], f}],
+			(* ----------------------------------- *)
+				flag == "Crystal_Field", (* different on site energy to different orbitals *) 
+				Do[
+					num = Sum[
+						n[L, f, Norb, j, \[Sigma], orb, \[Psi]]
+					, {j, 1, OptionValue[Nimp]}, {\[Sigma], f}];
+					Hblock = SparseArray@DiagonalMatrix[num];
+					AppendTo[Hsector, Hblock];
+				, {orb, Norb}]
 			];
 		,{flag, {"Hubbard","Interorb_Hubbard_Opposite_Spin","Interorb_Hubbard_Same_Spin","Pair_Hopping","Spin_Exchange","Energy_Shift","Magnetic_Field"}}];
 		AppendTo[H, Hsector];

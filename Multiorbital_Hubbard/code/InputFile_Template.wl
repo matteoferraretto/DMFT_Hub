@@ -18,13 +18,12 @@ LatticeType = "Hypercubic";
 (* lattice dimensionality *)
 LatticeDim = 2; 
 (* lattice points *)
-LatticePoints = 1600;
+LatticePoints = 100;
 (* set True to enforce orbital symmetry and avoid repeating calculations *)
 OrbitalSymmetry = True; 
 (* list of half-bandwidths for all the orbitals *)
 W = ConstantArray[1., Norb];
-(* Crystal field splitting [not yet implemented] *)
-\[Delta] = 0;
+
 (* add orbital hybridization options if needed ... *)
 
 
@@ -34,9 +33,9 @@ U = ConstantArray[0.0, Norb];
 (* Hund's J. It's used only when HundMode = True to enforce rotation invariance of the Kanamori model. *)
 JH = 0.0; 
 (* density-density opposite spin coupling. It is set automatically if HundMode = True. *)
-Ust = -0.30; 
+Ust = -3.0; 
 (* density-density same spin coupling. It is set automatically if HundMode = True. *)
-Usec = 0.0; 
+Usec = -3.0; 
 (* pair-hopping coupling. It is set automatically if HundMode = True. *)
 Jph = 0.0; 
 (* spin-exchange coupling. It is set automatically if HundMode = True. *)
@@ -45,6 +44,8 @@ Jse = 0.0;
 HundMode = False; 
 (* chemical potential *)
 \[Mu] = 0; 
+(* Crystal field splitting [not yet implemented] *)
+\[Delta] = {0.0, 0.0};
 (* temperature *)
 T = 0; 
 
@@ -75,8 +76,16 @@ InitializeBathMode = "Default";
 HFMode = True; 
 (* energy shift *)
 shift = 0.0; 
+(* use with caution: if this is True, the full spectrum will be automatically determined! *)
+FullDiagonalizationMode = True;
 (* below this threshold, two energy levels are assumed to be degenerate *)
-DegeneracyThreshold = 10^(-9);
+DegeneracyThreshold = 10^(-8);
+(* dimension threshold above which Lanczos is used to perform exact diagonalization *)
+MinLanczosDim = 1000;
+(* maximum number of Lanczos iterations for spectrum determination *)
+MaxLanczosIter = 2000;
+(* if you use Lanczos for spectrum determination, compute AT LEAST this number of eigenstates *)
+MinNumberOfEigs = 10;
 (* minimum number of DMFT loops *)
 DMFTMinIterations = 2; 
 (* maximum number of DMFT loops *)
@@ -84,7 +93,7 @@ DMFTMaxIterations = 20;
 (* threshold for DMFT loop convergence *)
 DMFTerror = 1.0 * 10^(-5); 
 (* Mixing * BathParameters + (1 - Mixing) * NewBathParameters *)
-Mixing = 0; 
+Mixing = 0.25; 
 (* Method for the minimization procedure *)
 MinimizationMethod = "ConjugateGradient";
 (* Max number of Conjugate Gradient iterations *)

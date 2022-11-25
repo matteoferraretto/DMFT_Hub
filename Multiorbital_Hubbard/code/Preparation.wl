@@ -12,7 +12,7 @@ If[EdMode == "InterorbNormal", EdMode == "InterorbSuperc" || EdMode == "FullSupe
 
 
 (* GET BATH PARAMETERS *)
-BathParameters = StartingBath[L, f, Norb, InitializeBathMode, EdMode, \[CapitalXi]0 -> 0.5];
+BathParameters = StartingBath[L, f, Norb, InitializeBathMode, EdMode, \[CapitalDelta]0 -> 0.5, \[CapitalXi]0 -> 0.5];
 Nparams = Length[BathParameters];
 
 
@@ -29,6 +29,24 @@ If[HundMode,
 If[HFMode, 
 	shift = -U[[1]]/2 - (Ust + Usec)*(Norb - 1)/2.;
 ];
+(* avoid stupid bugs: check if \[Delta] has the correct length and that there is no conflict with Orbital symmetry requirement *)
+If[Length[\[Delta]] != Norb, 
+	Print["Error. Crystal field splitting should be a list of ", Norb, " elements. Proceeding with no crystal field splitting."];
+	\[Delta] = ConstantArray[0.0, Norb];
+];
+If[OrbitalSymmetry,
+	If[\[Delta] != ConstantArray[0.0, Norb],
+		Print["Error. Orbital symmetry is incompatible with a crystal field splitting. Proceeding with no crystal field splitting."];
+	];
+	\[Delta] = ConstantArray[0.0, Norb];
+];
+(* if there is a crystal field splitting, move the bath energies around the respective impurity energy *)
+(*BathParameters[[1]] = BathParameters[[1]] + 
+	Flatten[Table[
+		ConstantArray[\[Delta][[i]], f]
+	, {i, Norb}]];*)
+
+(* get flat list of interaction parameters *)
 InteractionParameters = Flatten[{U, Ust, Usec, Jph, Jse, \[Mu] + shift}];
 
 
@@ -50,6 +68,8 @@ DimSectorList = DimSector[L, f, Norb, #, EdMode]&/@QnsSectorList;
 Sectors = BuildSector[L, f, Norb, #, EdMode]&/@QnsSectorList; 
 (* list of rules that assigns every element of QnsSectorList to an integer *)
 SectorsDispatch = Dispatch[Flatten[MapIndexed[{#1->#2[[1]]}&, QnsSectorList], 1]]; 
+(* if full diagonalization is required, make sure that Lanczos will never be used *)
+If[FullDiagonalizationMode, MinLanczosDim = Length[Sectors] + 1];
 (* print recap *)
 Print[Style["Recap of input:", 16, Bold]];
 Print["Nsectors: ", Length[QnsSectorList], ". Dim. of the largest sector: ", Max@DimSectorList];
@@ -64,7 +84,7 @@ FilePrint[OutputDirectory<>"used_input.dat"] *)
 
 
 (* GET LATTICE *)
-{LatticeEnergies, LatticeWeights} = GetLatticeEnergies[W, LatticeType, LatticeDim, LatticePoints];
+{LatticeEnergies, LatticeWeights} = GetLatticeEnergies[W, \[Delta], LatticeType, LatticeDim, LatticePoints];
 
 
 (* GET IMPURITY HAMILTONIAN *)

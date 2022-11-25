@@ -51,6 +51,33 @@ ThreeByThreeInverse = Compile[{
 	CompilationTarget->"C", RuntimeAttributes->{Listable}, Parallelization->True
 ];
 
+(* Algorithm to compute the first element of the inverse of a tridiagonal symmetric matrix with a in the main diagonal and b in the second diagonal *)
+TridiagonalInverseFirstElement = Compile[{
+	{a,_Complex,1}, {b,_Complex,1}
+	},
+	Module[{
+		n = Length[a], \[Theta] = ConstantArray[0.0, Length[a]], \[Phi] = ConstantArray[0.0, Length[a]]
+	},
+	(* initialize the progression \[Theta] *)
+	\[Theta][[1]] = a[[1]]; 
+	\[Theta][[2]] = a[[2]]*\[Theta][[1]] - b[[1]]^2;
+	(* initialize the progression \[Phi] *)
+	\[Phi][[n]] = a[[n]];
+	\[Phi][[n-1]] = a[[n-1]]*\[Phi][[n]] - b[[n-1]]^2;
+	(* compute the progression \[Theta] *)
+	Do[
+		\[Theta][[i]] = a[[i]]*\[Theta][[i-1]] - (b[[i-1]]^2)*\[Theta][[i-2]];
+	,{i,3,n}];
+	(* compute the progression \[Phi] *)
+	Do[
+		\[Phi][[i]] = a[[i]]*\[Phi][[i+1]] - (b[[i]]^2)*\[Phi][[i+2]];
+	,{i,n-2,2,-1}];
+	(* return element i=j=1 of the inverse *)
+	\[Phi][[2]]/\[Theta][[n]]
+	],
+	CompilationTarget->"C", RuntimeAttributes->{Listable}, Parallelization->True
+];
+
 
 (* custom calculation of eigenstates *)
 (* compute eigenstates *)
@@ -96,16 +123,16 @@ Eigs[H_, OptionsPattern[]] := Module[
 			(* condition for stopping the loop *)
 			If[T == 0,
 				(* if there are no degeneracies, break the loop *)
-				If[Abs[values[[-1]] - values[[-2]]] > \[Epsilon]deg, Break[];];,
+				If[Abs[values[[-1]] - values[[1]]] > \[Epsilon]deg, Break[];];,
 			(* else if T != 0 *)
 				(* if the n-th Boltzmann weight is below threshold and there are no degeneracies, break the loop *)
 				If[(Abs[values[[-1]] - values[[-2]]] > \[Epsilon]deg) && (Abs[values[[-1]] - values[[1]]] > \[Epsilon]temp), Break[];];
 			];
-		, {n, 2, dim}];
+		, {n, OptionValue["MinEigenvalues"], dim}];
 		Return[Drop[#,-1] &/@ eigs]
 	];
 ];
-Options[Eigs] = {"Temperature" -> 0, "MinLanczosDim" -> 32, "DegeneracyThreshold" -> 10^(-9), "BoltzmannThreshold" -> 10^(-9), "MaxIterations" -> 1000};
+Options[Eigs] = {"Temperature" -> 0, "MinLanczosDim" -> 32, "DegeneracyThreshold" -> 10^(-9), "BoltzmannThreshold" -> 10^(-9), "MaxIterations" -> 1000, "MinEigenvalues" -> 10};
 
 
 (*                       LANCZOS                       *)
