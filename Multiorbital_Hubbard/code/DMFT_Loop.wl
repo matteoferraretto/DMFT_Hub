@@ -34,7 +34,6 @@ Do[
 	If[T == 0,
 		
 		(* COMPUTE THE GROUND STATE *)
-		Print["Computing ground state and Green functions..."];
 		(* ground state energy (lowest of all the sectors) *)
 		Egs = Min[Flatten[EgsSectorList]];
 		(* sector index where the lowest energy is obtained: if this list contains more than 1 element, there is a degeneracy *)
@@ -50,6 +49,7 @@ Do[
 		(* print relevant information about the ground state *)
 		Print["\t\t Ground state info:\n", "Egs = ", Egs, "   Quantum numbers = ", GsQns];
 		(* print some observables *)
+		Print["\n\t\t Observables:"];
 		Do[
 			Print["Impurity density [orb="<>ToString[orb]<>"] = ", Sum[Density[L, f, Norb, 1, \[Sigma], orb, Sectors, EgsSectorList, GsSectorList, T], {\[Sigma], f}] ];
 			Print["Impurity double occupancy [orb="<>ToString[orb]<>"] = ", SquareDensity[L, f, Norb, {1,1}, {1,2}, {orb,orb}, Sectors, EgsSectorList, GsSectorList, T] ];
@@ -71,6 +71,8 @@ Do[
 		(* --------------------------------------- *)
 		Which[
 			(EdMode == "Normal" || EdMode == "Superc") && OrbitalSymmetry,
+			Print["\n Green functions calculation time: ", First@AbsoluteTiming[
+			
 			(* identify independent parameters, i.e. the minimal set of bath parameters that you need to compute stuff *)
 			IndependentParameters = TakeIndependentParameters[L, f, Norb, 1, 1, BathParameters, EdMode];
 			(* G^-1(i\[Omega]) *)
@@ -85,13 +87,16 @@ Do[
 			\[CapitalSigma] = InverseG0 - InverseG;
 			(* G_loc(i\[Omega]) *)
 			LocalG = LocalGreenFunction[LatticeEnergies[[All,1,1]], LatticeWeights, \[Mu], \[CapitalSigma], i\[Omega], EdMode];
-			
-			(* print stuff *)
+			(* compute and print z *)
 			Print["Quasiparticle weight z = ", QuasiparticleWeight[\[CapitalSigma], i\[Omega], EdMode] ];
+			
+			], " sec."];
+			
+			
+			(* Self consistency *)
 			Print[Style["\t\t Self Consistency start", 16, Bold, Magenta]];
 			Print["S.C. time: ", First@AbsoluteTiming[
 			
-			(* Self consistency *)
 			NewBathParameters = ReshapeBathParameters[L, f, Norb,	
 				SelfConsistency[
 					W[[1]], \[Mu], Weiss, symbols, z, IndependentParameters, LocalG, \[CapitalSigma], i\[Omega], EdMode, 
@@ -112,6 +117,8 @@ Do[
 		(* if NO ORBITAL SYMMETRY *)
 		(* -------------------- *)
 			(EdMode == "Normal" || EdMode == "Superc") && !OrbitalSymmetry,
+			Print["\n Green functions calculation time: ", First@AbsoluteTiming[
+			
 			IndependentParameters = Table[
 				TakeIndependentParameters[L, f, Norb, 1, orb, BathParameters, EdMode],
 			{orb, Norb}];
@@ -123,17 +130,22 @@ Do[
 				]], {orb, Norb}];
 			(* { Subscript[G, 0]^-1Subscript[(i\[Omega]), orb=1] , Subscript[G, 0]^-1Subscript[(i\[Omega]), orb=2] , ...} *)
 			InverseG0old = If[DMFTiterator == 1, 0*InverseG, InverseG0];
-			InverseG0 = Table[
-				(Weiss/.Thread[symbols -> TakeIndependentParameters[L, f, Norb, 1, orb, BathParameters, EdMode]])/.{z -> #}&/@i\[Omega],
-				{orb, Norb}];
+			InverseG0 = Table[(
+				Weiss/.Thread[symbols -> TakeIndependentParameters[L, f, Norb, 1, orb, BathParameters, EdMode]])/.{z -> #}&/@i\[Omega]
+			, {orb, Norb}];
 			(* { \[CapitalSigma]Subscript[(i\[Omega]), orb=1] , \[CapitalSigma]Subscript[(i\[Omega]), orb=2] , ...} *)
 			\[CapitalSigma] = InverseG0 - InverseG;
 			(* { Subscript[G, loc]Subscript[(i\[Omega]), orb=1] , Subscript[G, loc]Subscript[(i\[Omega]), orb=2] , ...} *)
 			LocalG = Table[
 				LocalGreenFunction[LatticeEnergies[[All, orb, orb]], LatticeWeights, \[Mu], \[CapitalSigma][[orb]], i\[Omega], EdMode]
 			, {orb, Norb}];
-			(* Self consistency *)
+			(* z *)
 			Print["Quasiparticle weight z = ", Table[QuasiparticleWeight[\[CapitalSigma][[orb]], i\[Omega], EdMode], {orb, Norb}] ];
+			
+			], " sec."];
+			
+			
+			(* Self consistency *)
 			Print[Style["\t\t Self Consistency start", 16, Bold, Magenta]];
 			Print["S.C. time: ", First@AbsoluteTiming[
 			
@@ -158,6 +170,8 @@ Do[
 		(*   Interorb Superc   *)
 		(* ------------------ *)
 			(EdMode == "InterorbSuperc" || EdMode == "FullSuperc") && !OrbitalSymmetry,
+			Print["\n Green functions calculation time: ", First@AbsoluteTiming[
+			
 			IndependentParameters = TakeIndependentParameters[L, f, Norb, 1, 1, BathParameters, EdMode];
 			InverseG = Mean[MapApply[
 				InverseGreenFunction[L, f, Norb, 1, 1, Egs, ##, Hsectors, Sectors, SectorsDispatch, EdMode, i\[Omega]]&,
@@ -171,6 +185,7 @@ Do[
 			LocalG = LocalGreenFunction[LatticeEnergies, LatticeWeights, \[Mu], \[CapitalSigma], i\[Omega], EdMode];
 			Print["Quasiparticle weight z = ", Table[QuasiparticleWeight[\[CapitalSigma], i\[Omega], EdMode, Orb -> orb], {orb, Norb}] ];
 			
+			], " sec."];
 			
 			(* Self consistency *)
 			(* Print["Quasiparticle weight z = ", QuasiparticleWeight[\[CapitalSigma], i\[Omega], EdMode] ]; *)

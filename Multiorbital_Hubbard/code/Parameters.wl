@@ -2,11 +2,12 @@
 
 BeginPackage["Parameters`"]
 
-StartingBath::usage = "StartingBath[L, f, Norb, InitializeBathMode, EdMode] returns a list containing the bath parameters to start the DMFT loop.
+StartingBath::usage = "StartingBath[L, f, Norb, \[Delta], InitializeBathMode, EdMode] returns a list containing the bath parameters to start the DMFT loop.
 If EdMode = ''Normal'' then the output has the form {e,V}, where e and V are lists of Norb x (L-1) elements, representing the bath energies and the bath-impurity hybridizations.
 If EdMode = ''Superc'' then the output has the form {e,V,\[CapitalDelta]}, where e and V are defined as above, and \[CapitalDelta] is the Norb x Nbath dimensional list of pairs creation (annihilation) amplitudes.
 If EdMode = ''InterorbSuperc'' then the output has the form {e,V,\[CapitalDelta],\[CapitalXi]}, where e, V, \[CapitalDelta] are as above, and \[CapitalXi] is the Nbath - dimensional list of interorbital pairs creation (annihilation) amplitudes
-InitializeBathMode is a string with the path to the file containing the bath parameters; if it is set to ''Default'', default parameters are dropped."
+InitializeBathMode is a string with the path to the file containing the bath parameters; if it is set to ''Default'', default parameters are dropped.
+The input \[Delta] is the list of crystal field splittings (with Norb elements) and it's used to set the starting bath energy levels around the corresponding non-interacting energies."
 
 Symbols::usage = "Symbols[L, f, EdMode] returns a list of symbols representing the independent bath parameters. 
 The word ''independent'' means that in case there is some symmetry, for example orbital and spin symmetry, we just extract a representative subset of the bath parameters. "
@@ -24,7 +25,7 @@ Begin["Private`"]
 Print["Package Parameters` loaded successfully."];
 
 (* Initialize starting bath *)
-StartingBath[L_, f_, Norb_, InitializeBathMode_, EdMode_, OptionsPattern[]] := Module[
+StartingBath[L_, f_, Norb_, \[Delta]_, InitializeBathMode_, EdMode_, OptionsPattern[]] := Module[
 	{e, V, \[CapitalDelta], \[CapitalXi], Nbath},
 	Nbath = L - 1;
 	Which[
@@ -33,7 +34,10 @@ StartingBath[L_, f_, Norb_, InitializeBathMode_, EdMode_, OptionsPattern[]] := M
 			InitializeBathMode == "Default",
 			e = ConstantArray[
 				Table[-(Nbath-1)/2.+k,{k,0,Nbath-1}],
-			f*Norb];
+			f*Norb] + 
+			Join @@ Table[
+				ConstantArray[\[Delta][[orb]], f]
+			, {orb, Norb}];
 			V = ConstantArray[
 				Table[1.,{k,1,Nbath}],
 			f*Norb],	
@@ -66,7 +70,10 @@ StartingBath[L_, f_, Norb_, InitializeBathMode_, EdMode_, OptionsPattern[]] := M
 			InitializeBathMode == "Default",
 			e = ConstantArray[
 				Table[-(Nbath-1)/2.+k, {k, 0, Nbath-1}],
-			f*Norb];
+			f*Norb] + 
+			Join @@ Table[
+				ConstantArray[\[Delta][[orb]], f]
+			, {orb, Norb}];
 			V = ConstantArray[
 				Table[1.,{k,1,Nbath}],
 			f*Norb];
@@ -83,7 +90,10 @@ StartingBath[L_, f_, Norb_, InitializeBathMode_, EdMode_, OptionsPattern[]] := M
 			InitializeBathMode=="Default",
 			e = ConstantArray[
 				Table[-(Nbath-1)/2.+k,{k,0,Nbath-1}],
-			f*Norb];
+			f*Norb] + 
+			Join @@ Table[
+				ConstantArray[\[Delta][[orb]], f]
+			, {orb, Norb}];
 			V = ConstantArray[
 				Table[1., {k,1,Nbath}],
 			f*Norb];
@@ -98,7 +108,10 @@ StartingBath[L_, f_, Norb_, InitializeBathMode_, EdMode_, OptionsPattern[]] := M
 			InitializeBathMode == "Default",
 			e = ConstantArray[
 				Table[-(Nbath-1)/2.+k,{k,0,Nbath-1}],
-			f*Norb];
+			f*Norb] + 
+			Join @@ Table[
+				ConstantArray[\[Delta][[orb]], f]
+			, {orb, Norb}];
 			V = ConstantArray[
 				Table[1.,{k,1,Nbath}],
 			f*Norb];

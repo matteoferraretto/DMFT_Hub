@@ -103,6 +103,7 @@ WeissField[L_, f_, Norb_, \[Mu]_, symbols_, z_, EdMode_] := Module[
 		(* separate into the various orbital parts *)
 		e = Partition[e, L-1]; V = Partition[V, L-1]; \[CapitalDelta] = Partition[\[CapitalDelta], L-1];
 		(* get Hamiltonian blocks *)
+		(* the chemical potential is now a list of Norb numbers given by \[Mu] + \[Delta][[orb]] *)
 		H0 = DiagonalMatrix[
 			Table[\[Mu]*(-1)^j, {j, 2*Norb}]
 		];

@@ -8,12 +8,7 @@ Converged = False;
 (* initialize list of DMFT errors *) 
 ErrorList = {}; 
 (* set OrbitalSymmetry to False in some cases to avoid stupid bugs *)
-If[EdMode == "InterorbNormal", EdMode == "InterorbSuperc" || EdMode == "FullSuperc", OrbitalSymmetry = False];
-
-
-(* GET BATH PARAMETERS *)
-BathParameters = StartingBath[L, f, Norb, InitializeBathMode, EdMode, \[CapitalDelta]0 -> 0.5, \[CapitalXi]0 -> 0.5];
-Nparams = Length[BathParameters];
+If[EdMode == "InterorbNormal" || EdMode == "InterorbSuperc" || EdMode == "FullSuperc", OrbitalSymmetry = False];
 
 
 (* GET INTERACTION PARAMETERS *)
@@ -40,14 +35,14 @@ If[OrbitalSymmetry,
 	];
 	\[Delta] = ConstantArray[0.0, Norb];
 ];
-(* if there is a crystal field splitting, move the bath energies around the respective impurity energy *)
-(*BathParameters[[1]] = BathParameters[[1]] + 
-	Flatten[Table[
-		ConstantArray[\[Delta][[i]], f]
-	, {i, Norb}]];*)
 
 (* get flat list of interaction parameters *)
-InteractionParameters = Flatten[{U, Ust, Usec, Jph, Jse, \[Mu] + shift}];
+InteractionParameters = Flatten[{\[Delta], U, Ust, Usec, Jph, Jse, -\[Mu] + shift}];
+
+
+(* GET BATH PARAMETERS *)
+BathParameters = StartingBath[L, f, Norb, \[Delta], InitializeBathMode, EdMode, \[CapitalDelta]0 -> 1.0, \[CapitalXi]0 -> 0.0];
+Nparams = Length[BathParameters];
 
 
 (* GET SYMBOLIC GREEN FUNCTION AND WEISS FIELD *)
@@ -56,7 +51,9 @@ symbols = Symbols[L, f, Norb, EdMode];
 (* define a symbolic expression for the Weiss field *)
 Weiss = WeissField[L, f, Norb, \[Mu], symbols, z, EdMode];
 (* print it *)
-Print["The Weiss field for the given impurity problem is  \!\(\*SuperscriptBox[SubscriptBox[\(G\), \(0\)], \(-1\)]\)(z) = ", Weiss];
+If[EdMode != "FullSuperc",
+	Print["The Weiss field for the given impurity problem is  \!\(\*SuperscriptBox[SubscriptBox[\(G\), \(0\)], \(-1\)]\)(z) = ", Weiss];
+];
 
 
 (* GET SECTORS *)

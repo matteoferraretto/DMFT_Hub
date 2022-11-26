@@ -60,10 +60,10 @@ GetLatticeEnergies[HalfBandwidths_, \[Delta]_, LatticeType_, LatticeDim_, Number
 		energies[[All, 1, 1]] = Table[\[Epsilon], {\[Epsilon], -HalfBandwidths[[1]], HalfBandwidths[[1]], d\[Epsilon]}];
 		(* weights correspond to the DoS of orb=1 *)
 		weights = d\[Epsilon] * DoSBethe[energies[[All,1,1]], HalfBandwidths[[1]]];
-		(* fill up orbital diagonal energies *)
+		(* fill up orbital diagonal energies starting from the last to the first orbital (energies[[All, 1,1]] must be updated at the very end) *)
 		Do[
-			energies[[All, orb, orb]] = (HalfBandwidths[[orb]]/HalfBandwidths[[1]]) * energies[[All, 1, 1]];
-		, {orb, 2, Norb}];,
+			energies[[All, orb, orb]] = (HalfBandwidths[[orb]]/HalfBandwidths[[1]]) * energies[[All, 1, 1]] + \[Delta][[orb]];
+		, {orb, Norb, 1, -1}];,
 	(* ---------------------------------------------------------------------- *)
 		LatticeType == "Hypercubic" && LatticeDim != Infinity,
 		(* number of points per lattice direction *)
@@ -75,7 +75,7 @@ GetLatticeEnergies[HalfBandwidths_, \[Delta]_, LatticeType_, LatticeDim_, Number
 		(* equal weights to all the energies since we are sampling the Brillouin zone *)
 		weights = ConstantArray[1./(Length[BZ]), Length[BZ]];
 		Do[
-			energies[[All, orb, orb]] = DispersionHypercubic[BZ, HalfBandwidths[[orb]]];
+			energies[[All, orb, orb]] = DispersionHypercubic[BZ, HalfBandwidths[[orb]]] + \[Delta][[orb]];
 		, {orb, Norb}];,
 	(* ---------------------------------------------------------------------- *)
 		LatticeType != "Hypercubic",

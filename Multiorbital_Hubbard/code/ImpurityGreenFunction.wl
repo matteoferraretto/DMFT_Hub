@@ -85,20 +85,12 @@ FinalSector[L_, f_, Norb_, j_, \[Sigma]_, orb_, qns_, operator_, EdMode_] := Mod
 
 (* apply cdg_{j,\[Sigma],orb} |gs>, where |gs> belongs to the sector with quantum numbers qns and give the resulting vector resized to fit the dimension of the sector obtained adding a particle with state label (j,\[Sigma],orb)*)
 ApplyCdg[L_, f_, Norb_, j_, \[Sigma]_, orb_, gs_, qns_, Sectors_, SectorsDispatch_, EdMode_] := Module[
-	{newqns = qns,startingsector = Sectors[[qns/.SectorsDispatch]],finalsector, newdim,sign,dispatch,pos,newpos,coeff,\[Psi]1,\[Chi]},
-	(* check which states of the starting sector can host the extra particle *)
-	dispatch = Dispatch[Flatten[MapIndexed[{#1->#2[[1]]}&,startingsector],1]];
-	\[Psi]1 = CreateParticleSelect[L, f, j, \[Sigma], orb, startingsector];
-	pos = \[Psi]1/.dispatch;
-	(* compute the correct signs obtained moving cdg to the correct position  *)
-	sign = CSign[L, f, j, \[Sigma], orb, \[Psi]1];
-	(* list of coefficients that remain non vanishing *)
-	coeff = gs[[pos]]*sign;
-	(* build the final sector *)
+	{newqns = qns, startingsector = Sectors[[qns/.SectorsDispatch]],finalsector, newdim,sign,dispatch,pos,newpos,coeff,\[Psi]1,\[Chi]},
+	(* build the final sector quantum numbers *)
 	Which[
-		EdMode=="Normal",
-		If[qns[[f*(orb-1)+\[Sigma]]]==L,Return[0]];  (* trivial case *)
-		newqns[[f*(orb-1)+\[Sigma]]]+=1;,
+		EdMode == "Normal",
+		If[qns[[f*(orb-1)+\[Sigma]]] == L, Return[0]];  (* trivial case *)
+		newqns[[f*(orb-1)+\[Sigma]]] += 1;,
 	(* ---------------------------- *)
 		EdMode == "InterorbNormal",
 		If[qns[[\[Sigma]]] == Norb*L, Return[0]];  (* trivial case *)
@@ -120,6 +112,15 @@ ApplyCdg[L_, f_, Norb_, j_, \[Sigma]_, orb_, gs_, qns_, Sectors_, SectorsDispatc
 			\[Sigma]==2, newqns-=1
 		]
 	];
+	(* check which states of the starting sector can host the extra particle *)
+	dispatch = Dispatch[Flatten[MapIndexed[{#1->#2[[1]]}&,startingsector],1]];
+	\[Psi]1 = CreateParticleSelect[L, f, j, \[Sigma], orb, startingsector];
+	pos = \[Psi]1/.dispatch;
+	(* compute the correct signs obtained moving cdg to the correct position  *)
+	sign = CSign[L, f, j, \[Sigma], orb, \[Psi]1];
+	(* list of coefficients that remain non vanishing *)
+	coeff = gs[[pos]]*sign;
+	(* get the final sector *)
 	finalsector = Sectors[[newqns/.SectorsDispatch]];
 	newdim = Length[finalsector];
 	(* create a dispatch that labels all these states *)
@@ -133,15 +134,7 @@ ApplyCdg[L_, f_, Norb_, j_, \[Sigma]_, orb_, gs_, qns_, Sectors_, SectorsDispatc
 (* apply c_{j,\[Sigma],orb} |gs>, where |gs> belongs to the sector with quantum numbers qns and give the resulting vector resized to fit the dimension of the sector obtained removing a particle with state label (j,\[Sigma],orb)*)
 ApplyC[L_, f_, Norb_, j_, \[Sigma]_, orb_, gs_, qns_, Sectors_, SectorsDispatch_, EdMode_] := Module[
 	{newqns = qns,startingsector = Sectors[[qns/.SectorsDispatch]],finalsector, newdim,sign,dispatch,pos,newpos,coeff,\[Psi]1,\[Chi]},
-	(* check which states of the starting sector can host the extra particle *)
-	dispatch = Dispatch[Flatten[MapIndexed[{#1->#2[[1]]}&,startingsector],1]];
-	\[Psi]1 = DestroyParticleSelect[L, f, j, \[Sigma], orb, startingsector];
-	pos = \[Psi]1/.dispatch;
-	(* compute the correct signs obtained moving cdg to the correct position  *)
-	sign = CSign[L,f,j,\[Sigma],orb,\[Psi]1];
-	(* list of coefficients that remain non vanishing *)
-	coeff = gs[[pos]]*sign;
-	(* build the final sector *)
+	(* build the final sector quantum numbers *)
 	Which[
 		EdMode=="Normal",
 		If[qns[[f*(orb-1)+\[Sigma]]]==0, Return[0]];  (* trivial case *)
@@ -167,6 +160,15 @@ ApplyC[L_, f_, Norb_, j_, \[Sigma]_, orb_, gs_, qns_, Sectors_, SectorsDispatch_
 			\[Sigma]==2, newqns+=1
 		]
 	];
+	(* check which states of the starting sector can host the extra particle *)
+	dispatch = Dispatch[Flatten[MapIndexed[{#1->#2[[1]]}&,startingsector],1]];
+	\[Psi]1 = DestroyParticleSelect[L, f, j, \[Sigma], orb, startingsector];
+	pos = \[Psi]1/.dispatch;
+	(* compute the correct signs obtained moving cdg to the correct position  *)
+	sign = CSign[L,f,j,\[Sigma],orb,\[Psi]1];
+	(* list of coefficients that remain non vanishing *)
+	coeff = gs[[pos]]*sign;
+	(* find final sector *)
 	finalsector = Sectors[[newqns/.SectorsDispatch]];
 	newdim = Length[finalsector];
 	(* create a dispatch that labels all these states *)
@@ -384,23 +386,31 @@ GreenFunctionImpurity[L_, f_, Norb_, {orb1_,orb2_}, Egs_, Gs_, GsQns_, Hsectors_
 (*          G_O(z) "Particle" contribution             *)
 	Odggs = c1*adgup + c2*adw + c3*bdgup + c4*bdw; 
 	newqns = FinalSector[L, f, Norb, 1, 1, orb1, GsQns, "Creation", EdMode]; (* evaluate the quantum numbers of the final sector *)
-	H = Hsectors[[newqns/.SectorsDispatch]]; (* Hamiltonian on that sector *)
-	{E0,a,b} = Lanczos[H, Normalize[Odggs] ]; (* Apply Lanczos starting from Odg|gs> *)
-	H = SparseArray[DiagonalMatrix[b, 1] + DiagonalMatrix[b, -1] + DiagonalMatrix[a] ]; (* Krylov matrix in the final sector *)
-	GFOparticle = (Norm[Odggs]^2)*(
-		InverseElement[
-			SparseArray[(# + Egs) * IdentityMatrix[Length[a] ] - H]
-		, {1, 1}] &/@ zlist);
+	If[newqns === Null, (* if there is no final state, this does not contribute to the GF *)
+		GFOparticle = ConstantArray[0.0+0.0*I, Length[zlist]];, 
+	(* else *)
+		H = Hsectors[[newqns/.SectorsDispatch]]; (* Hamiltonian on that sector *)
+		{E0,a,b} = Lanczos[H, Normalize[Odggs] ]; (* Apply Lanczos starting from Odg|gs> *)
+		H = SparseArray[DiagonalMatrix[b, 1] + DiagonalMatrix[b, -1] + DiagonalMatrix[a] ]; (* Krylov matrix in the final sector *)
+		GFOparticle = (Norm[Odggs]^2)*(
+			InverseElement[
+				SparseArray[(# + Egs) * IdentityMatrix[Length[a] ] - H]
+			, {1, 1}] &/@ zlist);
+	];
 (*           G_O(z) "Hole" contribution               *)
 	Ogs = (c1\[Conjugate])*aup + (c2\[Conjugate])*adgdw + (c3\[Conjugate])*bup + (c4\[Conjugate])*bdgdw; 
 	newqns = FinalSector[L, f, Norb, 1, 1, orb1, GsQns, "Annihilation", EdMode]; (* evaluate the quantum numbers of the final sector *)
-	H = Hsectors[[newqns/.SectorsDispatch]]; (* Hamiltonian on that sector *)
-	{E0,a,b} = Lanczos[H, Normalize[Ogs] ]; (* Apply Lanczos starting from O|gs> *)
-	H = SparseArray[DiagonalMatrix[b, 1] + DiagonalMatrix[b, -1] + DiagonalMatrix[a] ]; (* Krylov matrix in the final sector *)
-	GFOhole = (Norm[Ogs]^2)*(
-		InverseElement[
-			SparseArray[(# - Egs) * IdentityMatrix[Length[a] ] + H]
-		, {1, 1}] &/@ zlist);
+	If[newqns === Null, (* if there is no final state, this does not contribute to the GF *)
+		GFOhole = ConstantArray[0.0+0.0*I, Length[zlist]];, 
+	(* else *)
+		H = Hsectors[[newqns/.SectorsDispatch]]; (* Hamiltonian on that sector *)
+		{E0,a,b} = Lanczos[H, Normalize[Ogs] ]; (* Apply Lanczos starting from O|gs> *)
+		H = SparseArray[DiagonalMatrix[b, 1] + DiagonalMatrix[b, -1] + DiagonalMatrix[a] ]; (* Krylov matrix in the final sector *)
+		GFOhole = (Norm[Ogs]^2)*(
+			InverseElement[
+				SparseArray[(# - Egs) * IdentityMatrix[Length[a] ] + H]
+			, {1, 1}] &/@ zlist);
+	];
 	GFOparticle + GFOhole
 ];
 Options[GreenFunctionImpurity] = {c1 -> 1.0, c2 -> 0.0, c3 -> 0.0, c4 -> 0.0}; (* by default use Odg = adgup *)

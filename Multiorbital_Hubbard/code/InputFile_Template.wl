@@ -12,15 +12,15 @@ L = Nimp + Nbath;
 (* number of spin states *)
 f = 2; 
 (* call the function EdModeInfo[EdMode] to get details *)
-EdMode = "FullSuperc"; 
+EdMode = "Normal"; 
 (* lattice crystal structure: "Bethe", "Hypercubic", etc. *)
-LatticeType = "Hypercubic"; 
+LatticeType = "Bethe"; 
 (* lattice dimensionality *)
-LatticeDim = 2; 
+LatticeDim = Infinity; 
 (* lattice points *)
 LatticePoints = 100;
 (* set True to enforce orbital symmetry and avoid repeating calculations *)
-OrbitalSymmetry = True; 
+OrbitalSymmetry = False; 
 (* list of half-bandwidths for all the orbitals *)
 W = ConstantArray[1., Norb];
 
@@ -29,13 +29,13 @@ W = ConstantArray[1., Norb];
 
 (*      INPUT PHYSICAL PARAMETERS        *)
 (* interaction energy (list of U values for the orbitals) *)
-U = ConstantArray[0.0, Norb]; 
+U = ConstantArray[0.5, Norb]; 
 (* Hund's J. It's used only when HundMode = True to enforce rotation invariance of the Kanamori model. *)
 JH = 0.0; 
 (* density-density opposite spin coupling. It is set automatically if HundMode = True. *)
-Ust = -3.0; 
+Ust = 0.0; 
 (* density-density same spin coupling. It is set automatically if HundMode = True. *)
-Usec = -3.0; 
+Usec = 0.0; 
 (* pair-hopping coupling. It is set automatically if HundMode = True. *)
 Jph = 0.0; 
 (* spin-exchange coupling. It is set automatically if HundMode = True. *)
@@ -43,9 +43,9 @@ Jse = 0.0;
 (* if this is True, interorbital couplings are authomatically set to Ust=U-2JH; Usec=U-3JH, Jph=JH, Jse=-JH enforcing the rotational invariance *)
 HundMode = False; 
 (* chemical potential *)
-\[Mu] = 0; 
+\[Mu] = 0.0; 
 (* Crystal field splitting [not yet implemented] *)
-\[Delta] = {0.0, 0.0};
+\[Delta] = {-3.0, 3.0};
 (* temperature *)
 T = 0; 
 

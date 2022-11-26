@@ -170,14 +170,14 @@ HLocal[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 						n[L,f,Norb,j,1,orbA,\[Psi]]*n[L,f,Norb,j,2,orbB,\[Psi]],
 					(*else*)
 						0]
-				,{orbA,1,Norb}, {orbB,1,Norb}, {j,1,OptionValue[Nimp]}];
+				,{orbA, Norb}, {orbB, Norb}, {j, 1, OptionValue[Nimp]}];
 				Hblock = SparseArray@DiagonalMatrix[num];
 				AppendTo[Hsector, Hblock];,
 			(* ---------------------------------- *)
 				flag == "Interorb_Hubbard_Same_Spin" && Norb > 1,
 				num = Sum[
-					n[L,f,Norb,j,\[Sigma],1,\[Psi]]*n[L,f,Norb,j,\[Sigma],2,\[Psi]]
-				,{\[Sigma],1,f}, {j,1,OptionValue[Nimp]}];
+					n[L, f, Norb, j, \[Sigma], orb, \[Psi]] * n[L, f, Norb, j, \[Sigma], orb+1, \[Psi]]
+				,{\[Sigma], f}, {orb, Norb-1}, {j, 1, OptionValue[Nimp]}];
 				Hblock = SparseArray@DiagonalMatrix[num];
 				AppendTo[Hsector,Hblock];,
 			(* ---------------------------------- *)
@@ -236,7 +236,7 @@ HLocal[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 					AppendTo[Hsector, Hblock];
 				, {orb, Norb}]
 			];
-		,{flag, {"Hubbard","Interorb_Hubbard_Opposite_Spin","Interorb_Hubbard_Same_Spin","Pair_Hopping","Spin_Exchange","Energy_Shift","Magnetic_Field"}}];
+		,{flag, {"Crystal_Field","Hubbard","Interorb_Hubbard_Opposite_Spin","Interorb_Hubbard_Same_Spin","Pair_Hopping","Spin_Exchange","Energy_Shift","Magnetic_Field"}}];
 		AppendTo[H, Hsector];
 	,{\[Psi],Sectors}];
 	H

@@ -37,9 +37,3 @@ Total[Abs[InverseG0[[All,1,3]]] - Abs[InverseG0old[[All,1,3]]]]
 
 
 Weiss/.{\[CapitalXi]1->0, \[CapitalXi]2->0}
-
-
-MapApply[
-	InverseGreenFunction[L, f, Norb, 1, 1, Egs, ##, Hsectors, Sectors, SectorsDispatch, EdMode, i\[Omega]]&,
-{Gs, GsQns}\[Transpose]]
-
