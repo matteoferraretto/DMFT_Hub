@@ -46,6 +46,23 @@ Density[L_, f_, Norb_, j_, \[Sigma]_, orb_, Sectors_, EgsSectorList_, GsSectorLi
 ];
 Options[Density] = {DegeneracyThreshold -> 1.*10^(-9)}
 
+(* n(k) *)
+MomentumDistributionDensity[k_, Dispersion_, \[Mu]_, \[CapitalSigma]_, i\[Omega]_, \[Eta]_, EdMode_] := Module[
+	{TMats = i\[Omega][[2]]-i\[Omega][[1]]},
+	Which[
+		EdMode == "Normal",
+		{k, TMats * Total[
+			Exp[- i\[Omega] * \[Eta]]/(i\[Omega] + \[Mu] - Dispersion[k] - \[CapitalSigma])
+		]},
+	(* ------------------------------------------ *)
+		EdMode == "Superc",
+		{k, TMats * Total[
+			Exp[- i\[Omega] * \[Eta]]/(i\[Omega] + \[Mu] - Dispersion[k] - \[CapitalSigma][[All, 1, 1]])
+		]}
+	];
+]
+
+
 (* Density-Density *)
 SquareDensity[L_, f_, Norb_, {i_,j_}, {\[Sigma]1_,\[Sigma]2_}, {orb1_,orb2_}, Sectors_, EgsSectorList_, GsSectorList_, T_, OptionsPattern[]] := Module[
 	{Egs, Gs, GsQns, GsSectorIndex, \[Epsilon] = OptionValue[DegeneracyThreshold], num, \[Psi], squaredensity},
@@ -125,12 +142,12 @@ CdgC[L_, f_, Norb_, {i_,j_}, {\[Sigma]1_,\[Sigma]2_}, {orb1_,orb2_}, Sectors_, E
 Options[CdgC] = {DegeneracyThreshold -> 1.*10^(-9)}
 
 (* Spectral function *)
-SpectralFunction[L_, f_, Norb_, \[Sigma]_, orb_, Egs_, Gs_, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, EdMode_, \[Omega]_, \[Eta]_] := Module[
+SpectralFunctionOld[L_, f_, Norb_, \[Sigma]_, orb_, Egs_, Gs_, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, EdMode_, \[Omega]_, \[Eta]_] := Module[
 	{spectralfunction},
 	Which[
 		EdMode == "Normal",
 		spectralfunction = -(1./Pi) * Im[Mean[MapApply[
-			GreenFunctionImpurity[L, f, Norb, \[Sigma], orb, Egs, ##, Hsectors, Sectors, SectorsDispatch, EdMode, \[Omega]+I*\[Eta]]&,
+			GreenFunctionImpurity[L, f, Norb, {orb, orb}, Egs, ##, Hsectors, Sectors, SectorsDispatch, EdMode, \[Omega]+I*\[Eta]]&,
 			{Gs, GsQns}\[Transpose]
 		]]],
 (* ---------------------------------------------- *)
@@ -143,6 +160,23 @@ SpectralFunction[L_, f_, Norb_, \[Sigma]_, orb_, Egs_, Gs_, GsQns_, Hsectors_, S
 	];
 	{\[Omega], spectralfunction}\[Transpose]
 ];
+
+SpectralFunction[LatticeEnergies_, weights_, \[Mu]_, \[CapitalSigma]_, zlist_, EdMode_] := Module[
+	{spectralfunction},
+	Which[
+		EdMode == "Normal",
+		spectralfunction = -(1./Pi) * Im[
+			LocalGreenFunction[LatticeEnergies, weights, \[Mu], \[CapitalSigma], zlist, EdMode]
+		],
+	(* ---------------------------------------------- *)
+		EdMode == "Superc",
+		spectralfunction = -(1./Pi) * Im[ Tr[#] &/@
+			LocalGreenFunction[LatticeEnergies, weights, \[Mu], \[CapitalSigma], zlist, EdMode]
+		]
+	];
+	{Re[zlist], spectralfunction}\[Transpose]
+];
+
 
 (* Quasiparticle weight *)
 \[NonBreakingSpace]QuasiparticleWeight[\[CapitalSigma]_, i\[Omega]_, EdMode_, OptionsPattern[]] := Module[

@@ -390,12 +390,16 @@ GreenFunctionImpurity[L_, f_, Norb_, {orb1_,orb2_}, Egs_, Gs_, GsQns_, Hsectors_
 		GFOparticle = ConstantArray[0.0+0.0*I, Length[zlist]];, 
 	(* else *)
 		H = Hsectors[[newqns/.SectorsDispatch]]; (* Hamiltonian on that sector *)
-		{E0,a,b} = Lanczos[H, Normalize[Odggs] ]; (* Apply Lanczos starting from Odg|gs> *)
-		H = SparseArray[DiagonalMatrix[b, 1] + DiagonalMatrix[b, -1] + DiagonalMatrix[a] ]; (* Krylov matrix in the final sector *)
-		GFOparticle = (Norm[Odggs]^2)*(
-			InverseElement[
-				SparseArray[(# + Egs) * IdentityMatrix[Length[a] ] - H]
-			, {1, 1}] &/@ zlist);
+		If[Length[H] == 1, (* if the Hamiltonian in the final sector is just a number, avoid Lanczos *)
+			GFOparticle = ((Norm[Odggs]^2)/(# - H[[1,1]] + Egs)) &/@ zlist;,
+		(* else *)
+			{E0,a,b} = Lanczos[H, Normalize[Odggs] ]; (* Apply Lanczos starting from Odg|gs> *)
+			H = SparseArray[DiagonalMatrix[b, 1] + DiagonalMatrix[b, -1] + DiagonalMatrix[a] ]; (* Krylov matrix in the final sector *)
+			GFOparticle = (Norm[Odggs]^2)*(
+				InverseElement[
+					SparseArray[(# + Egs) * IdentityMatrix[Length[a] ] - H]
+				, {1, 1}] &/@ zlist);
+		];
 	];
 (*           G_O(z) "Hole" contribution               *)
 	Ogs = (c1\[Conjugate])*aup + (c2\[Conjugate])*adgdw + (c3\[Conjugate])*bup + (c4\[Conjugate])*bdgdw; 
@@ -404,12 +408,16 @@ GreenFunctionImpurity[L_, f_, Norb_, {orb1_,orb2_}, Egs_, Gs_, GsQns_, Hsectors_
 		GFOhole = ConstantArray[0.0+0.0*I, Length[zlist]];, 
 	(* else *)
 		H = Hsectors[[newqns/.SectorsDispatch]]; (* Hamiltonian on that sector *)
-		{E0,a,b} = Lanczos[H, Normalize[Ogs] ]; (* Apply Lanczos starting from O|gs> *)
-		H = SparseArray[DiagonalMatrix[b, 1] + DiagonalMatrix[b, -1] + DiagonalMatrix[a] ]; (* Krylov matrix in the final sector *)
-		GFOhole = (Norm[Ogs]^2)*(
-			InverseElement[
-				SparseArray[(# - Egs) * IdentityMatrix[Length[a] ] + H]
-			, {1, 1}] &/@ zlist);
+		If[Length[H] == 1, (* if the Hamiltonian in the final sector is just a number, avoid Lanczos *)
+			GFOhole = ((Norm[Ogs]^2)/(# + H[[1,1]] - Egs)) &/@ zlist;,
+		(* else *)
+			{E0,a,b} = Lanczos[H, Normalize[Ogs] ]; (* Apply Lanczos starting from O|gs> *)
+			H = SparseArray[DiagonalMatrix[b, 1] + DiagonalMatrix[b, -1] + DiagonalMatrix[a] ]; (* Krylov matrix in the final sector *)
+			GFOhole = (Norm[Ogs]^2)*(
+				InverseElement[
+					SparseArray[(# - Egs) * IdentityMatrix[Length[a] ] + H]
+				, {1, 1}] &/@ zlist);
+		];
 	];
 	GFOparticle + GFOhole
 ];

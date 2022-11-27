@@ -40,7 +40,7 @@ StartingBath[L_, f_, Norb_, \[Delta]_, InitializeBathMode_, EdMode_, OptionsPatt
 			, {orb, Norb}];
 			V = ConstantArray[
 				Table[1.,{k,1,Nbath}],
-			f*Norb],	
+			f*Norb] * OptionValue[V0],	
 		(*else*)
 			{e,V} = Import[InitializeBathMode,"Table"];
 		];
@@ -59,7 +59,7 @@ StartingBath[L_, f_, Norb_, \[Delta]_, InitializeBathMode_, EdMode_, OptionsPatt
 				Table[
 					ConstantArray[1., {f, f}]
 				, {k, Nbath}]
-			, Norb],
+			, Norb] * OptionValue[V0],
 		(*else*)
 			{e, V} = Import[InitializeBathMode, "Table"];
 		];
@@ -76,10 +76,10 @@ StartingBath[L_, f_, Norb_, \[Delta]_, InitializeBathMode_, EdMode_, OptionsPatt
 			, {orb, Norb}];
 			V = ConstantArray[
 				Table[1.,{k,1,Nbath}],
-			f*Norb];
-			\[CapitalDelta] = OptionValue[\[CapitalDelta]0] *ConstantArray[
+			f*Norb] * OptionValue[V0];
+			\[CapitalDelta] = ConstantArray[
 				Table[1.,{k,1,Nbath}],
-			Norb],
+			Norb] * OptionValue[\[CapitalDelta]0],
 		(*else*)
 			{e,V,\[CapitalDelta]} = Import[InitializeBathMode,"Table"];
 		];
@@ -96,7 +96,7 @@ StartingBath[L_, f_, Norb_, \[Delta]_, InitializeBathMode_, EdMode_, OptionsPatt
 			, {orb, Norb}];
 			V = ConstantArray[
 				Table[1., {k,1,Nbath}],
-			f*Norb];
+			f*Norb] * OptionValue[V0];
 	        \[CapitalXi] = OptionValue[\[CapitalXi]0] * Table[1., {k,1,Nbath}],
 		(*else*)
 			{e,V,\[CapitalXi]} = Import[InitializeBathMode,"Table"];
@@ -114,10 +114,10 @@ StartingBath[L_, f_, Norb_, \[Delta]_, InitializeBathMode_, EdMode_, OptionsPatt
 			, {orb, Norb}];
 			V = ConstantArray[
 				Table[1.,{k,1,Nbath}],
-			f*Norb];
-			\[CapitalDelta] = OptionValue[\[CapitalDelta]0] * ConstantArray[
+			f*Norb] * OptionValue[V0];
+			\[CapitalDelta] = ConstantArray[
 				Table[1.,{k,1,Nbath}],
-			Norb];
+			Norb] * OptionValue[\[CapitalDelta]0];
 	        \[CapitalXi] = OptionValue[\[CapitalXi]0] * Table[1.,{k,1,Nbath}],
 		(*else*)
 			{e,V,\[CapitalDelta],\[CapitalXi]} = Import[InitializeBathMode,"Table"];
@@ -125,7 +125,7 @@ StartingBath[L_, f_, Norb_, \[Delta]_, InitializeBathMode_, EdMode_, OptionsPatt
 	   Return[{e,V,\[CapitalDelta],\[CapitalXi]}];
 	]
 ];
-Options[StartingBath] = {\[CapitalDelta]0 -> 1., \[CapitalXi]0 -> 1., \[CapitalOmega]0 -> 1.};
+Options[StartingBath] = {V0 -> 1., \[CapitalDelta]0 -> 1., \[CapitalXi]0 -> 1., \[CapitalOmega]0 -> 1.};
 
 (* generate a list of "independent" symbols *)
 Symbols[L_, f_, Norb_, EdMode_] := Which[

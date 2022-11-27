@@ -131,7 +131,7 @@ Do[
 			(* { Subscript[G, 0]^-1Subscript[(i\[Omega]), orb=1] , Subscript[G, 0]^-1Subscript[(i\[Omega]), orb=2] , ...} *)
 			InverseG0old = If[DMFTiterator == 1, 0*InverseG, InverseG0];
 			InverseG0 = Table[(
-				Weiss/.Thread[symbols -> TakeIndependentParameters[L, f, Norb, 1, orb, BathParameters, EdMode]])/.{z -> #}&/@i\[Omega]
+				(Weiss/.{\[Mu]eff -> \[Mu] - \[Delta][[orb]]})/.Thread[symbols -> TakeIndependentParameters[L, f, Norb, 1, orb, BathParameters, EdMode]])/.{z -> #}&/@i\[Omega]
 			, {orb, Norb}];
 			(* { \[CapitalSigma]Subscript[(i\[Omega]), orb=1] , \[CapitalSigma]Subscript[(i\[Omega]), orb=2] , ...} *)
 			\[CapitalSigma] = InverseG0 - InverseG;
@@ -151,7 +151,7 @@ Do[
 			
 			NewBathParameters = ReshapeBathParameters[L, f, Norb, Table[
 				SelfConsistency[
-					W[[orb]], \[Mu], Weiss, symbols, z, IndependentParameters[[orb]], LocalG[[orb]], \[CapitalSigma][[orb]], i\[Omega], EdMode,
+					W[[orb]], \[Mu] - \[Delta][[orb]], Weiss/.{\[Mu]eff -> \[Mu] - \[Delta][[orb]]}, symbols, z, IndependentParameters[[orb]], LocalG[[orb]], \[CapitalSigma][[orb]], i\[Omega], EdMode,
 					Lattice -> LatticeType, 
 					LatticeDimension -> LatticeDim, 
 					Minimum -> "Local", 

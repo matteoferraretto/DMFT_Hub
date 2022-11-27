@@ -37,11 +37,11 @@ If[OrbitalSymmetry,
 ];
 
 (* get flat list of interaction parameters *)
-InteractionParameters = Flatten[{\[Delta], U, Ust, Usec, Jph, Jse, -\[Mu] + shift}];
+InteractionParameters = Flatten[{\[Delta], U, Ust, Usec, Jph, Jse, - \[Mu] + shift}];
 
 
 (* GET BATH PARAMETERS *)
-BathParameters = StartingBath[L, f, Norb, \[Delta], InitializeBathMode, EdMode, \[CapitalDelta]0 -> 1.0, \[CapitalXi]0 -> 0.0];
+BathParameters = StartingBath[L, f, Norb, \[Delta]-\[Mu], InitializeBathMode, EdMode, V0 -> 0.01, \[CapitalDelta]0 -> 1.0, \[CapitalXi]0 -> 0.0];
 Nparams = Length[BathParameters];
 
 
@@ -49,7 +49,7 @@ Nparams = Length[BathParameters];
 (* define a suitable list of symbols depending on EdMode *)
 symbols = Symbols[L, f, Norb, EdMode]; 
 (* define a symbolic expression for the Weiss field *)
-Weiss = WeissField[L, f, Norb, \[Mu], symbols, z, EdMode];
+Weiss = WeissField[L, f, Norb, \[Mu]eff, symbols, z, EdMode];
 (* print it *)
 If[EdMode != "FullSuperc",
 	Print["The Weiss field for the given impurity problem is  \!\(\*SuperscriptBox[SubscriptBox[\(G\), \(0\)], \(-1\)]\)(z) = ", Weiss];
@@ -66,10 +66,10 @@ Sectors = BuildSector[L, f, Norb, #, EdMode]&/@QnsSectorList;
 (* list of rules that assigns every element of QnsSectorList to an integer *)
 SectorsDispatch = Dispatch[Flatten[MapIndexed[{#1->#2[[1]]}&, QnsSectorList], 1]]; 
 (* if full diagonalization is required, make sure that Lanczos will never be used *)
-If[FullDiagonalizationMode, MinLanczosDim = Length[Sectors] + 1];
+If[FullDiagonalizationMode, MinLanczosDim = Max @ DimSectorList];
 (* print recap *)
 Print[Style["Recap of input:", 16, Bold]];
-Print["Nsectors: ", Length[QnsSectorList], ". Dim. of the largest sector: ", Max@DimSectorList];
+Print["Nsectors: ", Length[QnsSectorList], ". Dim. of the largest sector: ", Max @ DimSectorList];
 
 
 (* EXPORT EFFECTIVELY USED INPUT *)

@@ -138,7 +138,7 @@ Options[Eigs] = {"Temperature" -> 0, "MinLanczosDim" -> 32, "DegeneracyThreshold
 (*                       LANCZOS                       *)
 Lanczos[H_, StartingVector_, OptionsPattern[]] := Module[{
 	miniter = OptionValue[MinIter],
-	maxiter = OptionValue[MaxIter],
+	maxiter = Min[OptionValue[MaxIter], Length[H]-1],
 	\[Epsilon] = OptionValue[ConvergenceThreshold],
 	shift = OptionValue[Shift],
 	a,b,a0,b1,v,w,HKrilov,E0old,E0new,nfinal
@@ -184,13 +184,13 @@ Lanczos[H_, StartingVector_, OptionsPattern[]] := Module[{
 		If[Abs[E0new-E0old] < \[Epsilon] && n > miniter,
 			nfinal = n; Break[];
 		];
-		E0old=E0new;
-	,{n,1,maxiter}];
+		E0old = E0new;
+	, {n, 1, maxiter}];
 	a = Take[a, nfinal+1];
 	b = Take[b, nfinal];
 	{E0new,a,b}
 ];
-Options[Lanczos] = {ConvergenceThreshold -> 1.0*10^(-8), MinIter -> 2, MaxIter -> 2000, Shift -> 0};
+Options[Lanczos] = {ConvergenceThreshold -> 1.0*10^(-8), MinIter -> 1, MaxIter -> 2000, Shift -> 0};
 
 End[]
 
