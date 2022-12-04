@@ -9,6 +9,12 @@ Converged = False;
 ErrorList = {}; 
 (* set OrbitalSymmetry to False in some cases to avoid stupid bugs *)
 If[EdMode == "InterorbNormal" || EdMode == "InterorbSuperc" || EdMode == "FullSuperc", OrbitalSymmetry = False];
+(* avoid a bunch of stupid bugs related to the C.G. *)
+If[CGNMatsubara > NMatsubara, CGNMatsubara = NMatsubara];
+If[Length[CGWeight] != CGNMatsubara, 
+	Print[Style["Error. CGWeight should be a list of length " <> ToString[CGNMatsubara] <> ", proceeding with default options.", Red]];
+	CGWeight = ConstantArray[1., CGNMatsubara];
+];
 
 
 (* GET INTERACTION PARAMETERS *)
@@ -22,16 +28,18 @@ If[HundMode,
 ];
 (* shift on site energy if HFMode = True *)
 If[HFMode, 
-	shift = -U[[1]]/2 - (Ust + Usec)*(Norb - 1)/2.;
+	shift = -U[[1]]/2 - (Ust + Usec)*(Norb - 1)/2.;,
+(* else *)
+	shift = 0;
 ];
 (* avoid stupid bugs: check if \[Delta] has the correct length and that there is no conflict with Orbital symmetry requirement *)
 If[Length[\[Delta]] != Norb, 
-	Print["Error. Crystal field splitting should be a list of ", Norb, " elements. Proceeding with no crystal field splitting."];
+	Print[Style["Error. Crystal field splitting should be a list of " <> ToString[Norb] <> " elements. Proceeding with no crystal field splitting.", Red]];
 	\[Delta] = ConstantArray[0.0, Norb];
 ];
-If[OrbitalSymmetry,
+If[OrbitalSymmetry && Norb > 1,
 	If[\[Delta] != ConstantArray[0.0, Norb],
-		Print["Error. Orbital symmetry is incompatible with a crystal field splitting. Proceeding with no crystal field splitting."];
+		Print[Style["Error. Orbital symmetry is incompatible with a crystal field splitting. Proceeding with no crystal field splitting.", Red]];
 	];
 	\[Delta] = ConstantArray[0.0, Norb];
 ];
@@ -41,7 +49,7 @@ InteractionParameters = Flatten[{\[Delta], U, Ust, Usec, Jph, Jse, - \[Mu] + shi
 
 
 (* GET BATH PARAMETERS *)
-BathParameters = StartingBath[L, f, Norb, \[Delta]-\[Mu], InitializeBathMode, EdMode, V0 -> 0.01, \[CapitalDelta]0 -> 1.0, \[CapitalXi]0 -> 0.0];
+BathParameters = StartingBath[L, f, Norb, \[Delta]-\[Mu], InitializeBathMode, EdMode, V0 -> 0.1, \[CapitalDelta]0 -> 0.0, \[CapitalXi]0 -> 0.0];
 Nparams = Length[BathParameters];
 
 

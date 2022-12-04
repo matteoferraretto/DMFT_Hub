@@ -19,7 +19,7 @@ SuperfluidStiffness::usage = "SuperfluidStiffness[DBethe, \[CapitalSigma], i\[Om
 
 KineticEnergy::usage = "KineticEnergy[DBethe, \[Mu], \[CapitalSigma], i\[Omega], EdMode] computes the Kinetic energy (expectation value of non-local impurity Hamiltonian). "
 
-SpectralFunction::usage = "SpectralFunction[L, f, Norb, \[Sigma], orb, Egs, Gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, \[Omega], \[Eta]]"
+SpectralFunction::usage = "SpectralFunction[LatticeEnergies_, weights_, \[Mu]_, \[CapitalSigma]_, zlist_, EdMode_]"
 
 
 Begin["Private`"]
@@ -141,8 +141,8 @@ CdgC[L_, f_, Norb_, {i_,j_}, {\[Sigma]1_,\[Sigma]2_}, {orb1_,orb2_}, Sectors_, E
 ];
 Options[CdgC] = {DegeneracyThreshold -> 1.*10^(-9)}
 
-(* Spectral function *)
-SpectralFunctionOld[L_, f_, Norb_, \[Sigma]_, orb_, Egs_, Gs_, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, EdMode_, \[Omega]_, \[Eta]_] := Module[
+(* Spectral function of the impurity problem *)
+SpectralFunctionImpurity[L_, f_, Norb_, \[Sigma]_, orb_, Egs_, Gs_, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, EdMode_, \[Omega]_, \[Eta]_] := Module[
 	{spectralfunction},
 	Which[
 		EdMode == "Normal",
@@ -161,6 +161,7 @@ SpectralFunctionOld[L_, f_, Norb_, \[Sigma]_, orb_, Egs_, Gs_, GsQns_, Hsectors_
 	{\[Omega], spectralfunction}\[Transpose]
 ];
 
+(* spectral function of the lattice problem *)
 SpectralFunction[LatticeEnergies_, weights_, \[Mu]_, \[CapitalSigma]_, zlist_, EdMode_] := Module[
 	{spectralfunction},
 	Which[
@@ -170,11 +171,16 @@ SpectralFunction[LatticeEnergies_, weights_, \[Mu]_, \[CapitalSigma]_, zlist_, E
 		],
 	(* ---------------------------------------------- *)
 		EdMode == "Superc",
+		spectralfunction = -(1./Pi) * Im[
+			LocalGreenFunction[LatticeEnergies, weights, \[Mu], \[CapitalSigma], zlist, EdMode][[All, 1, 1]]
+		],
+	(* ---------------------------------------------- *)
+		EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
 		spectralfunction = -(1./Pi) * Im[ Tr[#] &/@
 			LocalGreenFunction[LatticeEnergies, weights, \[Mu], \[CapitalSigma], zlist, EdMode]
 		]
 	];
-	{Re[zlist], spectralfunction}\[Transpose]
+	{Re[zlist] + \[Mu], spectralfunction}\[Transpose]
 ];
 
 
@@ -187,7 +193,7 @@ SpectralFunction[LatticeEnergies_, weights_, \[Mu]_, \[CapitalSigma]_, zlist_, E
 		EdMode == "InterorbSuperc" || EdMode == "FullSuperc", \[CapitalSigma][[All, 2(orb-1)+1, 2(orb-1)+1]]
 	];
 	data = ({Im[i\[Omega]], Im[Selfenergy]}\[Transpose])[[;;cutoff]];
-	a = Fit[data, {x}, x]/x;
+	a = Fit[data, {x, x^2}, x, "BestFitParameters"][[1]];
 	z = 1./(1.-a)
 ];
 Options[QuasiparticleWeight] = {FitCutoff -> 50, Orb -> 1};

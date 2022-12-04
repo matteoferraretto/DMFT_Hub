@@ -11,6 +11,8 @@ The option ''MinLanczosDim'' establishes a threshold on the matrix dimension, ab
 
 InverseElement::usage = "InverseElement[m_, {i_,j_}]"
 
+TwoByTwoInverse::usage = "TwoByTwoInverse[A] returns the inverse of the 2x2 complex invertible matrix A. The function is listable. "
+
 
 Begin["Private`"]
 
@@ -19,6 +21,14 @@ Print["Package MyLinearAlgebra` loaded successfully."];
 (* tools to invert matrices more efficiently *)
 (* get a single element of the inverse matrix *)
 InverseElement[m_, {i_,j_}] := (-1)^(i+j)Det[Drop[m,{j},{i}]]/Det[m];
+
+(* compiled and listable version of determinant specific for 2x2 matrices *)
+TwoByTwoDet = Compile[{
+	{A, _Complex, 2}
+	},
+	A[[1,1]]*A[[2,2]] - A[[1,2]]*A[[2,1]],
+	CompilationTarget -> "C", RuntimeAttributes -> {Listable}, Parallelization -> True
+];
 
 (* listable inversion of 2x2 matrices *)
 TwoByTwoInverse = Compile[{
@@ -30,6 +40,13 @@ TwoByTwoInverse = Compile[{
 		invA = (1./(a*d-b*c))*{{d,-b},{-c,a}}
 	]
 	, CompilationTarget->"C", RuntimeAttributes->{Listable}, Parallelization->True
+];
+
+ThreeByThreeDet = Compile[{
+	{A, _Complex, 2}
+	},
+	A[[1,1]]*A[[2,2]]*A[[3,3]] + A[[1,2]]*A[[2,3]]*A[[3,1]] + A[[1,3]]*A[[3,2]]*A[[2,1]] - A[[3,1]]*A[[1,3]]*A[[2,2]] - A[[3,2]]*A[[2,3]]*A[[1,1]] - A[[2,1]]*A[[1,2]]*A[[3,3]],
+	CompilationTarget -> "C", RuntimeAttributes -> {Listable}, Parallelization -> True
 ];
 
 (* listable inversion of 3x3 matrices *)
@@ -50,6 +67,7 @@ ThreeByThreeInverse = Compile[{
 	],
 	CompilationTarget->"C", RuntimeAttributes->{Listable}, Parallelization->True
 ];
+
 
 (* Algorithm to compute the first element of the inverse of a tridiagonal symmetric matrix with a in the main diagonal and b in the second diagonal *)
 TridiagonalInverseFirstElement = Compile[{
@@ -176,12 +194,12 @@ Lanczos[H_, StartingVector_, OptionsPattern[]] := Module[{
 			Band[{2,1}] -> Take[b, n],
 			Band[{1,1}] -> Take[a, n+1]
 		},{n+1, n+1}];
-		E0new = If[shift==0,
-			Min@Eigenvalues@HKrilov,
+		E0new = If[shift == 0,
+			Min @ Eigenvalues[HKrilov, Method -> "Banded"],
 		(*else*)	
 			Eigenvalues[HKrilov-DiagonalMatrix[ConstantArray[shift,1+n]]][[1]]+shift
 		];
-		If[Abs[E0new-E0old] < \[Epsilon] && n > miniter,
+		If[Abs[E0new - E0old] < \[Epsilon] && n > miniter,
 			nfinal = n; Break[];
 		];
 		E0old = E0new;
@@ -191,6 +209,55 @@ Lanczos[H_, StartingVector_, OptionsPattern[]] := Module[{
 	{E0new,a,b}
 ];
 Options[Lanczos] = {ConvergenceThreshold -> 1.0*10^(-8), MinIter -> 1, MaxIter -> 2000, Shift -> 0};
+
+(* avoid eigenvalue computation inside, and performed a fixed number of iterations. 
+WARNING: it is faster than Lanczos[] for a fixed number of iterations, yet it can be overall slower since it never stops earlier *)
+LanczosCore[H_, StartingVector_, OptionsPattern[]] := Module[{
+	maxiter = Min[OptionValue[MaxIter], Length[H]-1],
+	\[Epsilon] = OptionValue[ConvergenceThreshold],
+	a,b,a0,b1,v,w,nfinal,HKrylov,E0
+	},
+	(* initialize array of a_n :  a[1]=a_0 , a[1+n]=a_n *)
+	a = ConstantArray[0.0, maxiter+1];
+	(*initialize array of b_n : b[n]=b_n *)
+	b = ConstantArray[0.0, maxiter];
+	(* initialize starting vector *)
+	v = Normalize[StartingVector];
+	(* initialize a new vector w = Hv *)
+	w = H . v;
+	a0 = (Conjugate[v]) . w;
+	w = w - a0*v;
+	b1 = Norm[w];
+	a[[1]] = a0; b[[1]] = b1;
+	nfinal = maxiter;
+	(* start the loop *)
+	Do[
+		If[b[[n]] < \[Epsilon],
+			nfinal = n;
+			Print["Lanczos terminated after "<>ToString[n]<>" out of "<>ToString[maxiter]<>" iterations."];
+			Break[];
+		];
+		w = w/b[[n]];(* w=Subscript[v, n] *)
+		v = -b[[n]]*v;(* v=-Subscript[b, n]Subscript[v, n-1]*)
+		{v,w} = {w,v};
+		w = w + H . v;(* w=Subscript[Hv, n]-Subscript[b, n]Subscript[v, n-1] *)
+		a[[n+1]] = (Conjugate@v) . w; (*Subscript[a, n] = Subscript[v, n]Subscript[Hv, n]-Subscript[b, n]Subscript[v, n]Subscript[v, n-1]*)
+		w = w - a[[n+1]] * v;
+		If[n < maxiter,
+			b[[n+1]] = Norm[w];
+		];
+	, {n, 1, maxiter}];
+	a = a[[;;nfinal+1]];
+	b = b[[;;nfinal]];
+	HKrylov = SparseArray[{
+			Band[{1,2}] -> b,
+			Band[{2,1}] -> b,
+			Band[{1,1}] -> a
+		}, {nfinal+1, nfinal+1}];
+	E0 = Min[Eigenvalues[HKrylov, Method -> "Banded"]];
+	{E0, a, b}
+];
+Options[LanczosCore] = {ConvergenceThreshold -> 1.0*10^(-8), MaxIter -> 2000};
 
 End[]
 

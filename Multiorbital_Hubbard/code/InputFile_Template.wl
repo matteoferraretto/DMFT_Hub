@@ -2,9 +2,9 @@
 
 (*             GENERAL INPUT              *)
 (* number of bath sites *)
-Nbath = 2; 
+Nbath = 5; 
 (* number of orbitals *)
-Norb = 2; 
+Norb = 1; 
 (* number of impurity sites *)
 Nimp = 1; 
 (* total number of sites: bath+impurity *)
@@ -18,18 +18,18 @@ LatticeType = "Bethe";
 (* lattice dimensionality *)
 LatticeDim = Infinity; 
 (* lattice points *)
-LatticePoints = 1600;
+LatticePoints = 1500;
 (* set True to enforce orbital symmetry and avoid repeating calculations *)
-OrbitalSymmetry = False; 
+OrbitalSymmetry = True; 
 (* list of half-bandwidths for all the orbitals *)
-W = ConstantArray[0.2, Norb];
+W = ConstantArray[1.0, Norb];
 
 (* add orbital hybridization options if needed ... *)
 
 
 (*      INPUT PHYSICAL PARAMETERS        *)
 (* interaction energy (list of U values for the orbitals) *)
-U = ConstantArray[0.001, Norb]; 
+U = ConstantArray[7.0, Norb]; 
 (* Hund's J. It's used only when HundMode = True to enforce rotation invariance of the Kanamori model. *)
 JH = 0.0; 
 (* density-density opposite spin coupling. It is set automatically if HundMode = True. *)
@@ -43,9 +43,9 @@ Jse = 0.0;
 (* if this is True, interorbital couplings are authomatically set to Ust=U-2JH; Usec=U-3JH, Jph=JH, Jse=-JH enforcing the rotational invariance *)
 HundMode = False; 
 (* chemical potential *)
-\[Mu] = 2.0; 
-(* Crystal field splitting [not yet implemented] *)
-\[Delta] = {-2.0, 2.0};
+\[Mu] = -1.0; 
+(* Crystal field splitting *)
+\[Delta] = {-1.0};
 (* temperature *)
 T = 0; 
 
@@ -66,22 +66,20 @@ d\[Omega] = (\[Omega]max - \[Omega]min)/NReal;
 (* list of real frequencies *)
 \[Omega] = Table[\[Omega]min + n*d\[Omega], {n, 0, NReal}]; 
 (* small shift of the pole in the imaginary axis: this avoids singularities, but introduces an artificial broadening of the spectrum *)
-\[Eta] = 0.025;
+\[Eta] = 0.05;
 
 
 (* NUMERICAL DETAILS OF THE ALGORITHM *)
 (* path to input file of bath parameters or "Default" *)
-InitializeBathMode = "Default"; 
+InitializeBathMode = "Default";
 (* if this is True, an extra on-site energy term is added to ensure PH symmetry of the Kanamori Hamiltonian when \[Mu]=0 *)
 HFMode = True; 
-(* energy shift *)
-shift = 0.0; 
 (* use with caution: if this is True, the full spectrum will be automatically determined! *)
-FullDiagonalizationMode = True;
+FullDiagonalizationMode = False;
 (* below this threshold, two energy levels are assumed to be degenerate *)
 DegeneracyThreshold = 10^(-8);
 (* dimension threshold above which Lanczos is used to perform exact diagonalization *)
-MinLanczosDim = 1000;
+MinLanczosDim = 2000;
 (* maximum number of Lanczos iterations for spectrum determination *)
 MaxLanczosIter = 2000;
 (* if you use Lanczos for spectrum determination, compute AT LEAST this number of eigenstates *)
@@ -89,19 +87,23 @@ MinNumberOfEigs = 10;
 (* minimum number of DMFT loops *)
 DMFTMinIterations = 2; 
 (* maximum number of DMFT loops *)
-DMFTMaxIterations = 20; 
+DMFTMaxIterations = 30; 
 (* threshold for DMFT loop convergence *)
 DMFTerror = 1.0 * 10^(-5); 
-(* Mixing * BathParameters + (1 - Mixing) * NewBathParameters *)
-Mixing = 0.25; 
+(* InverseG0 = Mixing * InverseG0old + (1 - Mixing) * InverseG0 *)
+Mixing = 0.75; 
+(* type of minimization: "Global" or "Local" *)
+MinimizationType = "Local";
 (* Method for the minimization procedure *)
 MinimizationMethod = "ConjugateGradient";
 (* Max number of Conjugate Gradient iterations *)
-CGMax = 1000;
+CGMaxIterations = 2000;
 (* Number of Matsubara frequencies used to perform the fit *)
 CGNMatsubara = 500;
 (* Accuracy goal for minimization procedure *)
 CGAccuracy = 7;
+(* list of weights attributed to each Matsubara frequency w(i\[Omega]): IT SHOULD BE >= CGNMatsubara *)
+CGWeight = ConstantArray[1., CGNMatsubara];
 
 
 (* INPUT-OUTPUT MANAGEMENT *)

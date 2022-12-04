@@ -1,6 +1,6 @@
 (* ::Package:: *)
 
-BeginPackage["Lattices`"]
+BeginPackage["Lattices`", {"MyLinearAlgebra`"}]
 
 
 DoSBethe::usage = "."
@@ -121,6 +121,24 @@ LocalGreenFunctionSuperc = Compile[{
 	],
 	RuntimeAttributes->{Listable}, Parallelization->True
 ];
+(* use explicit inversion of 2x2 matrices *)
+LocalGreenFunctionSupercNew = Compile[{
+	{Energies,_Real,1}, {weights, _Real,1}, {\[Mu], _Real}, {\[CapitalSigma], _Complex, 3}, {zlist, _Complex, 1}
+	},
+	Module[
+		{LE = Length[Energies], NMatsubara = Length[zlist]},
+		Total @ TwoByTwoInverse[
+				Table[(1./weights[[i]]) * (
+					(IdentityMatrix[2] * #) &/@ zlist +
+					ConstantArray[
+						(\[Mu] - Energies[[i]]) * DiagonalMatrix[{1., -1.}]
+					, NMatsubara] - \[CapitalSigma])
+				, {i, 2, LE-1}]
+			]
+	],
+	RuntimeAttributes->{Listable}, Parallelization->True
+];
+
 
 (* when EdMode = "InterorbNormal" *)
 LocalGreenFunctionInterorbNormal = Compile[{
@@ -166,13 +184,12 @@ LocalGreenFunction[LatticeEnergies_, weights_, \[Mu]_, \[CapitalSigma]_, zlist_,
 		LocalGreenFunctionNormal[energies, weights, \[Mu], \[CapitalSigma], zlist],
 	(* ------------------------------------------------------------------- *)
 		EdMode == "Superc",
-		(* --- this code is ok for computing LocalG via inverse matrix
-		energies = ConstantArray[0, {LE, 2, 2}]; (* the input will be {{e1},{e2},...} but we want the 2x2 Nambu representation *)
-		energies[[All, 1, 1]] = Flatten[LatticeEnergies];
-		energies[[All, 2, 2]] = - energies[[All, 1, 1]];
-		*)
 		energies = Flatten[LatticeEnergies];
-		LocalGreenFunctionSuperc[energies, weights, \[Mu], \[CapitalSigma], zlist],
+		If[Re[zlist[[-1]]] == 0.0, (* if we are using Matsubara frequencies, use a shortcut *)
+			LocalGreenFunctionSuperc[energies, weights, \[Mu], \[CapitalSigma], zlist],
+		(* else if we are using real frequencies let's be safe and invert the matrix *)
+			LocalGreenFunctionSupercNew[energies, weights, \[Mu], \[CapitalSigma], zlist]
+		],
 	(* ------------------------------------------------------------------- *)
 		EdMode == "InterorbNormal",
 		energies = LatticeEnergies; (* in this situation the input tensor has the correct shape *)

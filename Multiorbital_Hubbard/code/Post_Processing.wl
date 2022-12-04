@@ -25,9 +25,9 @@ InverseG0realfreq = Table[(
 \[CapitalSigma]realfreq = InverseG0realfreq - InverseGrealfreq;
 (* 4. compute the lattice spectral function *)
 spectralfunction = Table[
-	SpectralFunction[LatticeEnergies[[All, orb, orb]], LatticeWeights, 0, \[CapitalSigma]realfreq[[orb]], \[Omega]+I*\[Eta], EdMode]
+	SpectralFunction[LatticeEnergies[[All, orb, orb]], LatticeWeights, \[Mu], \[CapitalSigma]realfreq[[orb]], \[Omega]+I*\[Eta], EdMode]
 , {orb, Norb}];
-
+(* plot stuff *)
 Which[
 	LatticeType == "Bethe",
 	Print @ Show[
@@ -69,7 +69,7 @@ Which[
 		]
 	]
 ]
-
+(* check if the integral gives 1 *)
 Print["Integral of spectral function = ", 
 	d\[Omega] * Total[#] &/@ Table[spectralfunction[[orb]][[All,2]] , {orb, Norb}]
 ];

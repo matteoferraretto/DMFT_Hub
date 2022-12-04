@@ -66,10 +66,10 @@ Do[
 			];
 		
 		
+		Which[
 		(* --------------------------------------- *)
 		(* if there is orbital symmetry, you compute many body functions just for ONE representative orbital *)
 		(* --------------------------------------- *)
-		Which[
 			(EdMode == "Normal" || EdMode == "Superc") && OrbitalSymmetry,
 			Print["\n Green functions calculation time: ", First@AbsoluteTiming[
 			
@@ -82,13 +82,22 @@ Do[
 			]];
 			(* G_0^-1(i\[Omega]) *)
 			InverseG0old = If[DMFTiterator == 1, 0*InverseG, InverseG0]; (* memorize the previous one *)
-			InverseG0 = (Weiss/.Thread[symbols -> IndependentParameters])/.{z -> #}&/@i\[Omega];
+			InverseG0 = ((Weiss/.{\[Mu]eff -> \[Mu] - \[Delta][[1]]})/.Thread[symbols -> IndependentParameters])/.{z -> #}&/@i\[Omega];
 			(* \[CapitalSigma](i\[Omega]) *)
 			\[CapitalSigma] = InverseG0 - InverseG;
 			(* G_loc(i\[Omega]) *)
+			LocalGold = If[DMFTiterator == 1, 0*InverseG, LocalG];
 			LocalG = LocalGreenFunction[LatticeEnergies[[All,1,1]], LatticeWeights, \[Mu], \[CapitalSigma], i\[Omega], EdMode];
+		
+		(* IN PROGRESS ... *)
+			If[DMFTiterator > 2,
+				LocalG = (1.0 - Mixing) * LocalG + Mixing * LocalGold;
+			];
+		(* END IN PROGRESS *)	
+		
 			(* compute and print z *)
-			Print["Quasiparticle weight z = ", QuasiparticleWeight[\[CapitalSigma], i\[Omega], EdMode] ];
+			z = QuasiparticleWeight[\[CapitalSigma], i\[Omega], EdMode, FitCutoff -> 50];
+			Print["Quasiparticle weight z = ", z];
 			
 			], " sec."];
 			
@@ -99,19 +108,21 @@ Do[
 			
 			NewBathParameters = ReshapeBathParameters[L, f, Norb,	
 				SelfConsistency[
-					W[[1]], \[Mu], Weiss, symbols, z, IndependentParameters, LocalG, \[CapitalSigma], i\[Omega], EdMode, 
+					W[[1]], \[Mu] - \[Delta][[1]], Weiss/.{\[Mu]eff -> \[Mu] - \[Delta][[1]]}, symbols, z, IndependentParameters, LocalG, \[CapitalSigma], i\[Omega], EdMode, 
 					Lattice -> LatticeType, 
 					LatticeDimension -> LatticeDim, 
-					Minimum -> "Local", 
-					NumberOfFrequencies -> 500, 
-					MaxIterations -> 2000, 
-					AccuracyGoal -> 7],
+					Minimum -> MinimizationType, 
+					Method -> MinimizationMethod,
+					NumberOfFrequencies -> CGNMatsubara, 
+					MaxIterations -> CGMaxIterations, 
+					AccuracyGoal -> CGAccuracy,
+					FitWeight -> CGWeight],
 			OrbitalSymmetry, EdMode];
 			
 			], " sec." ];
 			
 			(* compute error *)
-			error = DMFTError[InverseG0[[;;2000]], InverseG0old[[;;2000]], EdMode];,
+			error = DMFTError[InverseG0[[;;CGNMatsubara]], InverseG0old[[;;CGNMatsubara]], EdMode];,
 		
 		(* -------------------- *)	
 		(* if NO ORBITAL SYMMETRY *)
@@ -139,8 +150,10 @@ Do[
 			LocalG = Table[
 				LocalGreenFunction[LatticeEnergies[[All, orb, orb]], LatticeWeights, \[Mu], \[CapitalSigma][[orb]], i\[Omega], EdMode]
 			, {orb, Norb}];
+			
 			(* z *)
-			Print["Quasiparticle weight z = ", Table[QuasiparticleWeight[\[CapitalSigma][[orb]], i\[Omega], EdMode], {orb, Norb}] ];
+			z = Table[ QuasiparticleWeight[\[CapitalSigma][[orb]], i\[Omega], EdMode, FitCutoff -> 50], {orb, Norb} ];
+			Print["Quasiparticle weight z = ", z ];
 			
 			], " sec."];
 			
@@ -154,10 +167,12 @@ Do[
 					W[[orb]], \[Mu] - \[Delta][[orb]], Weiss/.{\[Mu]eff -> \[Mu] - \[Delta][[orb]]}, symbols, z, IndependentParameters[[orb]], LocalG[[orb]], \[CapitalSigma][[orb]], i\[Omega], EdMode,
 					Lattice -> LatticeType, 
 					LatticeDimension -> LatticeDim, 
-					Minimum -> "Local", 
-					NumberOfFrequencies -> 500, 
-					MaxIterations -> 2000, 
-					AccuracyGoal -> 7]
+					Minimum -> MinimizationType, 
+					Method -> MinimizationMethod,
+					NumberOfFrequencies -> CGNMatsubara, 
+					MaxIterations -> CGMaxIterations, 
+					AccuracyGoal -> CGAccuracy,
+					FitWeight -> CGWeight]
 			, {orb, Norb}], OrbitalSymmetry, EdMode];
 			
 			], " sec." ];
@@ -179,7 +194,7 @@ Do[
 			]];
 			InverseG0old = If[DMFTiterator == 1, 0*InverseG, InverseG0];
 			InverseG0 = (
-				Weiss/.Thread[symbols -> TakeIndependentParameters[L, f, Norb, 1, 1, BathParameters, EdMode]]
+				(Weiss/.{\[Mu]eff -> \[Mu] - \[Delta]})/.Thread[symbols -> TakeIndependentParameters[L, f, Norb, 1, 1, BathParameters, EdMode]]
 			)/.{z -> #} &/@ i\[Omega];
 			\[CapitalSigma] = InverseG0 - InverseG;
 			LocalG = LocalGreenFunction[LatticeEnergies, LatticeWeights, \[Mu], \[CapitalSigma], i\[Omega], EdMode];
@@ -194,15 +209,15 @@ Do[
 			
 			NewBathParameters = ReshapeBathParameters[L, f, Norb, 
 				SelfConsistency[
-					W, \[Mu], Weiss, symbols, z, IndependentParameters, LocalG, \[CapitalSigma], i\[Omega], EdMode,
+					W, \[Mu] - \[Delta], Weiss/.{\[Mu]eff -> \[Mu] - \[Delta]}, symbols, z, IndependentParameters, LocalG, \[CapitalSigma], i\[Omega], EdMode,
 					Lattice -> LatticeType, 
 					LatticeDimension -> LatticeDim, 
-					Minimum -> "Local", 
+					Minimum -> MinimizationType, 
 					Method -> MinimizationMethod,
 					NumberOfFrequencies -> CGNMatsubara, 
-					MaxIterations -> CGMax, 
-					AccuracyGoal -> CGAccuracy
-				]
+					MaxIterations -> CGMaxIterations, 
+					AccuracyGoal -> CGAccuracy,
+					FitWeight -> CGWeight]
 			, OrbitalSymmetry, EdMode];
 			
 			error = DMFTError[InverseG0, InverseG0old, EdMode];
@@ -220,7 +235,7 @@ Do[
 	];
 	
 	(* update bath parameters *)
-	BathParameters = Mixing * BathParameters + (1 - Mixing) * NewBathParameters;
+	BathParameters = NewBathParameters;
 	Print["DMFT error: ", ScientificForm[error]];
 	AppendTo[ErrorList, error];
 	
