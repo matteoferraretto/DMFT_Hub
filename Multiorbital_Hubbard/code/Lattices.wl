@@ -11,6 +11,8 @@ GetLatticeEnergies::usage = "."
 
 DispersionHypercubic::usage = "."
 
+HighSymmetryPath::usage = "."
+
 LocalGreenFunction::usage = "LocalGreenFunction[LatticeEnergies_, weights_, \[Mu]_, \[CapitalSigma]_, zlist_, EdMode_]"
 
 
@@ -37,13 +39,36 @@ BrillouinZone[LE_, d_, OptionsPattern[]] := With[
 	{dk = 2.Pi/LE, Lattice = OptionValue[Lattice]},
 	Which[
 		Lattice == "Hypercubic",
-		Tuples[ Table[k, {k, -1.*Pi, 1.*Pi-dk, dk}], d],
+		Tuples[ Table[k, {k, -1.*Pi+dk, 1.*Pi, dk}], d],
 	(* ----------------------------------------------- *)
 		Lattice != "Hypercubic",
 		Print["Not supported."];
 	]
 ];
 Options[BrillouinZone] = {Lattice -> "Hypercubic"};
+
+(* "high symmetry path" for the Bethe lattice. This is an abuse of notation: this just returns the indexes of all energies *)
+HighSymmetryPathBethe[LatticePoints_] := Range[LatticePoints];
+
+(* high symmetry path \[CapitalGamma]XM\[CapitalGamma] for the square lattice *)
+HighSymmetryPathSquare[LatticePoints_] := Module[
+	{LE = Sqrt[LatticePoints], \[CapitalGamma], X, M},
+	If[OddQ[LE], Print["Error: an odd number of points per lattice dimension does not describe the high symmetry path. "]; ];
+	\[CapitalGamma] = LE*(LE/2-1) + LE/2;
+	X = \[CapitalGamma] + (LE^2)/2;
+	M = LatticePoints;
+	Join[
+		Table[\[CapitalGamma] + n*LE, {n, 0, LE/2}],
+		Table[X + n, {n, 1, LE/2}],
+		Table[M - n*(LE+1), {n, 1, LE/2}]
+	]
+];
+
+HighSymmetryPath[LatticePoints_, LatticeType_, LatticeDim_] := Which[
+	LatticeType == "Bethe", HighSymmetryPathBethe[LatticePoints],
+	LatticeType == "Hypercubic" && LatticeDim == 2, HighSymmetryPathSquare[LatticePoints],
+	True, Print["Not supported."];
+];
 
 (* Return the energy and weight lists for computing local G.F. *)
 GetLatticeEnergies[HalfBandwidths_, \[Delta]_, LatticeType_, LatticeDim_, NumberOfPoints_] := Module[
