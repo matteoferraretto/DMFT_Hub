@@ -29,7 +29,7 @@ W = ConstantArray[1.0, Norb];
 
 (*      INPUT PHYSICAL PARAMETERS        *)
 (* interaction energy (list of U values for the orbitals) *)
-U = ConstantArray[7.0, Norb]; 
+U = ConstantArray[0.5, Norb]; 
 (* Hund's J. It's used only when HundMode = True to enforce rotation invariance of the Kanamori model. *)
 JH = 0.0; 
 (* density-density opposite spin coupling. It is set automatically if HundMode = True. *)
@@ -43,9 +43,9 @@ Jse = 0.0;
 (* if this is True, interorbital couplings are authomatically set to Ust=U-2JH; Usec=U-3JH, Jph=JH, Jse=-JH enforcing the rotational invariance *)
 HundMode = False; 
 (* chemical potential *)
-\[Mu] = -1.0; 
+\[Mu] = 0.0; 
 (* Crystal field splitting *)
-\[Delta] = {-1.0};
+\[Delta] = {0.0};
 (* temperature *)
 T = 0; 
 

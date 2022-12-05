@@ -27,9 +27,12 @@ InverseG0realfreq = Table[(
 spectralfunction = Table[
 	SpectralFunction[LatticeEnergies[[All, orb, orb]], LatticeWeights, \[Mu], \[CapitalSigma]realfreq[[orb]], \[Omega]+I*\[Eta], EdMode]
 , {orb, Norb}];
+
+
 (* plot stuff *)
 Which[
 	LatticeType == "Bethe",
+	(* spectral function *)
 	Print @ Show[
 		ListPlot[
 			spectralfunction,
@@ -52,6 +55,18 @@ Which[
 			AxesStyle -> Directive[Black, 14],
 			AspectRatio -> 1/2
 		]
+	];
+	(* energy-resolved spectral function A(\[Epsilon], \[Omega]) *)
+	(* *)
+	spectralfunctionresolved = MomentumResolvedSpectralFunction[
+		LatticeEnergies[[All, 1, 1]][[1;;-9;;10]], \[Mu], \[CapitalSigma]realfreq[[1]][[1;;-1;;10]], Range[Length[LatticeEnergies[[All, 1, 1]][[1;;-9;;10]]]], (\[Omega]+I*\[Eta])[[1;;-1;;10]], EdMode
+	];
+	Print @ ListDensityPlot[
+		spectralfunctionresolved,
+		FrameLabel -> {"\[Epsilon]", "\[Omega]"},
+		FrameStyle -> Directive[Black, 14],
+		PlotLegends -> Automatic,
+		DataRange -> {{-W[[1]],W[[1]]}, {\[Omega]min, \[Omega]max}}
 	],
 (* ---------------------------------------- *)
 	LatticeType == "Hypercubic",
@@ -73,3 +88,6 @@ Which[
 Print["Integral of spectral function = ", 
 	d\[Omega] * Total[#] &/@ Table[spectralfunction[[orb]][[All,2]] , {orb, Norb}]
 ];
+
+
+Range[LatticePoints][[;;-9;;10]]

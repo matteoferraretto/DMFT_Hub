@@ -96,8 +96,8 @@ Do[
 		(* END IN PROGRESS *)	
 		
 			(* compute and print z *)
-			z = QuasiparticleWeight[\[CapitalSigma], i\[Omega], EdMode, FitCutoff -> 50];
-			Print["Quasiparticle weight z = ", z];
+			Z = QuasiparticleWeight[\[CapitalSigma], i\[Omega], EdMode, FitCutoff -> 50];
+			Print["Quasiparticle weight z = ", Z];
 			
 			], " sec."];
 			
@@ -152,8 +152,8 @@ Do[
 			, {orb, Norb}];
 			
 			(* z *)
-			z = Table[ QuasiparticleWeight[\[CapitalSigma][[orb]], i\[Omega], EdMode, FitCutoff -> 50], {orb, Norb} ];
-			Print["Quasiparticle weight z = ", z ];
+			Z = Table[ QuasiparticleWeight[\[CapitalSigma][[orb]], i\[Omega], EdMode, FitCutoff -> 50], {orb, Norb} ];
+			Print["Quasiparticle weight z = ", Z];
 			
 			], " sec."];
 			
@@ -198,7 +198,9 @@ Do[
 			)/.{z -> #} &/@ i\[Omega];
 			\[CapitalSigma] = InverseG0 - InverseG;
 			LocalG = LocalGreenFunction[LatticeEnergies, LatticeWeights, \[Mu], \[CapitalSigma], i\[Omega], EdMode];
-			Print["Quasiparticle weight z = ", Table[QuasiparticleWeight[\[CapitalSigma], i\[Omega], EdMode, Orb -> orb], {orb, Norb}] ];
+			
+			Z = Table[QuasiparticleWeight[\[CapitalSigma], i\[Omega], EdMode, Orb -> orb], {orb, Norb}];
+			Print["Quasiparticle weight z = ", Z];
 			
 			], " sec."];
 			
