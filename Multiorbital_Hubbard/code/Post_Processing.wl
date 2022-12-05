@@ -12,11 +12,12 @@ Print @ ListLogPlot[
 
 (* Compute, save and plot spectral function *)
 (* 1. compute G^-1 in real frequencies *)
-InverseGrealfreq = Table[
+Gimprealfreq = Table[
 	Mean[MapApply[
-		InverseGreenFunction[L, f, Norb, 1, orb, Egs, ##, Hsectors, Sectors, SectorsDispatch, EdMode, \[Omega] + I*\[Eta]]&,
+		GreenFunctionImpurity[L, f, Norb, 1, orb, Egs, ##, Hsectors, Sectors, SectorsDispatch, EdMode, \[Omega] + I*\[Eta]]&,
 		{Gs, GsQns}\[Transpose]
 	]], {orb, Norb}];
+InverseGrealfreq = InverseGreenFunction[Gimprealfreq, EdMode];
 (* 2. compute Subscript[G, 0]^-1 in real frequencies *)
 InverseG0realfreq = Table[(
 	(Weiss/.{\[Mu]eff -> \[Mu] - \[Delta][[orb]]})/.Thread[symbols -> TakeIndependentParameters[L, f, Norb, 1, orb, BathParameters, EdMode]])/.{z -> #}&/@(\[Omega] + I*\[Eta])

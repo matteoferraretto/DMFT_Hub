@@ -32,18 +32,15 @@ DispersionHypercubic = Compile[
 	CompilationTarget -> "C", RuntimeAttributes -> {Listable}
 ];
 
-(* returns a list of k points in the 1st BZ *)
+(* returns a list of k points (d-dimensional vectors) in the 1st BZ *)
 BrillouinZone[LE_, d_, OptionsPattern[]] := With[
 	{dk = 2.Pi/LE, Lattice = OptionValue[Lattice]},
 	Which[
 		Lattice == "Hypercubic",
-		Flatten[
-			Outer[{##}&,##]&@@
-				ConstantArray[
-					Table[k, {k, -1.*Pi, 1.*Pi-dk, dk}],
-					d
-				],
-		d-1]
+		Tuples[ Table[k, {k, -1.*Pi, 1.*Pi-dk, dk}], d],
+	(* ----------------------------------------------- *)
+		Lattice != "Hypercubic",
+		Print["Not supported."];
 	]
 ];
 Options[BrillouinZone] = {Lattice -> "Hypercubic"};

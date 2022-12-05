@@ -49,7 +49,7 @@ InteractionParameters = Flatten[{\[Delta], U, Ust, Usec, Jph, Jse, - \[Mu] + shi
 
 
 (* GET BATH PARAMETERS *)
-BathParameters = StartingBath[L, f, Norb, \[Delta]-\[Mu], InitializeBathMode, EdMode, V0 -> 0.1, \[CapitalDelta]0 -> 0.0, \[CapitalXi]0 -> 0.0];
+BathParameters = StartingBath[L, f, Norb, \[Delta]-\[Mu], InitializeBathMode, EdMode, V0 -> 0.1, \[CapitalDelta]0 -> 0.1, \[CapitalXi]0 -> 0.0];
 Nparams = Length[BathParameters];
 
 

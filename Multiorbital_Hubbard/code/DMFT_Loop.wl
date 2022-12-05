@@ -75,11 +75,13 @@ Do[
 			
 			(* identify independent parameters, i.e. the minimal set of bath parameters that you need to compute stuff *)
 			IndependentParameters = TakeIndependentParameters[L, f, Norb, 1, 1, BathParameters, EdMode];
-			(* G^-1(i\[Omega]) *)
-			InverseG = Mean[MapApply[
-				InverseGreenFunction[L, f, Norb, 1, 1, Egs, ##, Hsectors, Sectors, SectorsDispatch, EdMode, i\[Omega]]&,
+			(* G(i\[Omega]) *)
+			Gimp = Mean[MapApply[
+				GreenFunctionImpurity[L, f, Norb, 1, 1, Egs, ##, Hsectors, Sectors, SectorsDispatch, EdMode, i\[Omega]]&,
 				{Gs, GsQns}\[Transpose]
 			]];
+			(* G^-1(i\[Omega]) *)
+			InverseG = InverseGreenFunction[Gimp, EdMode];
 			(* G_0^-1(i\[Omega]) *)
 			InverseG0old = If[DMFTiterator == 1, 0*InverseG, InverseG0]; (* memorize the previous one *)
 			InverseG0 = ((Weiss/.{\[Mu]eff -> \[Mu] - \[Delta][[1]]})/.Thread[symbols -> IndependentParameters])/.{z -> #}&/@i\[Omega];
@@ -133,12 +135,14 @@ Do[
 			IndependentParameters = Table[
 				TakeIndependentParameters[L, f, Norb, 1, orb, BathParameters, EdMode],
 			{orb, Norb}];
-			(* { G^-1(i\[Omega])_orb=1 , G^-1(i\[Omega])_orb=2 , ...} *)
-			InverseG = Table[
+			(* { G(i\[Omega])_orb=1 , G(i\[Omega])_orb=2 , ...} *)
+			Gimp = Table[
 				Mean[MapApply[
-					InverseGreenFunction[L, f, Norb, 1, orb, Egs, ##, Hsectors, Sectors, SectorsDispatch, EdMode, i\[Omega]]&,
+					GreenFunctionImpurity[L, f, Norb, 1, orb, Egs, ##, Hsectors, Sectors, SectorsDispatch, EdMode, i\[Omega]]&,
 					{Gs, GsQns}\[Transpose]
 				]], {orb, Norb}];
+			(* G^-1(i\[Omega])_orb=1 , G^-1(i\[Omega])_orb=2 ... *)
+			InverseG = InverseGreenFunction[#, EdMode] &/@ Gimp;
 			(* { Subscript[G, 0]^-1Subscript[(i\[Omega]), orb=1] , Subscript[G, 0]^-1Subscript[(i\[Omega]), orb=2] , ...} *)
 			InverseG0old = If[DMFTiterator == 1, 0*InverseG, InverseG0];
 			InverseG0 = Table[(
@@ -188,10 +192,11 @@ Do[
 			Print["\n Green functions calculation time: ", First@AbsoluteTiming[
 			
 			IndependentParameters = TakeIndependentParameters[L, f, Norb, 1, 1, BathParameters, EdMode];
-			InverseG = Mean[MapApply[
-				InverseGreenFunction[L, f, Norb, 1, 1, Egs, ##, Hsectors, Sectors, SectorsDispatch, EdMode, i\[Omega]]&,
+			Gimp = Mean[MapApply[
+				GreenFunctionImpurity[L, f, Norb, 1, 1, Egs, ##, Hsectors, Sectors, SectorsDispatch, EdMode, i\[Omega]]&,
 				{Gs, GsQns}\[Transpose]
 			]];
+			InverseG = InverseGreenFunction[Gimp, EdMode];
 			InverseG0old = If[DMFTiterator == 1, 0*InverseG, InverseG0];
 			InverseG0 = (
 				(Weiss/.{\[Mu]eff -> \[Mu] - \[Delta]})/.Thread[symbols -> TakeIndependentParameters[L, f, Norb, 1, 1, BathParameters, EdMode]]

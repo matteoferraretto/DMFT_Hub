@@ -2,7 +2,7 @@
 
 (*             GENERAL INPUT              *)
 (* number of bath sites *)
-Nbath = 5; 
+Nbath = 3; 
 (* number of orbitals *)
 Norb = 1; 
 (* number of impurity sites *)
@@ -12,7 +12,7 @@ L = Nimp + Nbath;
 (* number of spin states *)
 f = 2; 
 (* call the function EdModeInfo[EdMode] to get details *)
-EdMode = "Normal"; 
+EdMode = "Superc"; 
 (* lattice crystal structure: "Bethe", "Hypercubic", etc. *)
 LatticeType = "Bethe"; 
 (* lattice dimensionality *)
@@ -29,7 +29,7 @@ W = ConstantArray[1.0, Norb];
 
 (*      INPUT PHYSICAL PARAMETERS        *)
 (* interaction energy (list of U values for the orbitals) *)
-U = ConstantArray[0.5, Norb]; 
+U = ConstantArray[-7.0, Norb]; 
 (* Hund's J. It's used only when HundMode = True to enforce rotation invariance of the Kanamori model. *)
 JH = 0.0; 
 (* density-density opposite spin coupling. It is set automatically if HundMode = True. *)
@@ -91,7 +91,7 @@ DMFTMaxIterations = 30;
 (* threshold for DMFT loop convergence *)
 DMFTerror = 1.0 * 10^(-5); 
 (* InverseG0 = Mixing * InverseG0old + (1 - Mixing) * InverseG0 *)
-Mixing = 0.75; 
+Mixing = 0.0; 
 (* type of minimization: "Global" or "Local" *)
 MinimizationType = "Local";
 (* Method for the minimization procedure *)
