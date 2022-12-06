@@ -19,7 +19,7 @@ Gimprealfreq = Table[
 		{Gs, GsQns}\[Transpose]
 	]], {orb, Norb}];
 (* compute G(\[Omega])^-1 *)
-InverseGrealfreq = InverseGreenFunction[Gimprealfreq, EdMode];
+InverseGrealfreq = InverseGreenFunction[#, EdMode] &/@ Gimprealfreq;
 (* 2. compute G0(\[Omega])^-1 *)
 InverseG0realfreq = Table[(
 	(Weiss/.{\[Mu]eff -> \[Mu] - \[Delta][[orb]]})/.Thread[symbols -> TakeIndependentParameters[L, f, Norb, 1, orb, BathParameters, EdMode]])/.{z -> #}&/@(\[Omega] + I*\[Eta])
@@ -60,14 +60,14 @@ Which[
 		]
 	];
 	(* compute energy-resolved spectral function A(\[Epsilon], \[Omega]) *)
-	spectralfunctionresolved = Module[{
-		energies = LatticeEnergies[[All, 1, 1]][[1;;-9;;10]], (* take one element every 10 *)
+	Module[{
+		energies = LatticeEnergies[[All, 1, 1]], (* take one element every 10 *)
 		path,
-		\[CapitalSigma] = \[CapitalSigma]realfreq[[1]][[1;;-1;;10]], (* again one element out of 10 *)
-		zlist = (\[Omega]+I*\[Eta])[[1;;-1;;10]]
+		\[CapitalSigma] = \[CapitalSigma]realfreq[[1]][[1;;-1;;20]], (* again one element out of 10 *)
+		zlist = (\[Omega]+I*\[Eta])[[1;;-1;;20]]
 		},
 		path = HighSymmetryPath[Length[energies], LatticeType, LatticeDim];
-		MomentumResolvedSpectralFunction[energies, \[Mu], \[CapitalSigma], path, zlist, EdMode]
+		spectralfunctionresolved = MomentumResolvedSpectralFunction[energies, \[Mu], \[CapitalSigma], path, zlist, EdMode];
 	];
 	(* plot it *)
 	Print @ ListDensityPlot[
@@ -93,15 +93,15 @@ Which[
 		]
 	];
 	(* compute energy-resolved spectral function A(\[Epsilon], \[Omega]) *)
-	spectralfunctionresolved = Module[{
-		energies = LatticeEnergies[[All, 1, 1]], 
-		path,
-		\[CapitalSigma] = \[CapitalSigma]realfreq[[1]][[1;;-1;;20]], (* again one element out of 10 *)
-		zlist = (\[Omega]+I*\[Eta])[[1;;-1;;20]]
-		},
-		path = HighSymmetryPath[Length[energies], LatticeType, LatticeDim];
-		MomentumResolvedSpectralFunction[energies, \[Mu], \[CapitalSigma], path, zlist, EdMode]
-	];
+	spectralfunctionresolved = 
+	MomentumResolvedSpectralFunction[
+			LatticeEnergies[[All, 1, 1]], 
+			\[Mu], 
+			\[CapitalSigma]realfreq[[1]][[1;;-1;;100]], 
+			HighSymmetryPath[Length[ LatticeEnergies[[All,1,1]] ], LatticeType, LatticeDim],
+			\[Omega][[1;;-1;;100]] + I*\[Eta], 
+			EdMode
+	]; 
 	(* plot it *)
 	Print @ ListDensityPlot[
 		spectralfunctionresolved,
@@ -115,3 +115,10 @@ Which[
 Print["Integral of spectral function = ", 
 	d\[Omega] * Total[#] &/@ Table[spectralfunction[[orb]][[All,2]] , {orb, Norb}]
 ];
+
+
+Dimensions[Gimprealfreq]
+Dimensions[InverseGrealfreq]
+
+
+

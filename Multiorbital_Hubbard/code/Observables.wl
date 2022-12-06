@@ -1,6 +1,6 @@
 (* ::Package:: *)
 
-BeginPackage["Observables`", {"Sectors`", "Hamiltonian`", "ImpurityGreenFunction`", "Lattices`"}]
+BeginPackage["Observables`", {"MyLinearAlgebra`", "Sectors`", "Hamiltonian`", "ImpurityGreenFunction`", "Lattices`"}]
 
 
 Density::usage = "Density[L, f, Norb, j, \[Sigma], orb, Sectors, EgsSectorList, GsSectorList, T]"
@@ -187,37 +187,29 @@ SpectralFunction[LatticeEnergies_, weights_, \[Mu]_, \[CapitalSigma]_, zlist_, E
 
 (* A(k, \[Omega]) = (\[Omega] + \[Mu] - \[Epsilon]_k - \[CapitalSigma](\[Omega])^-1 *)
 MomentumResolvedSpectralFunction[LatticeEnergies_, \[Mu]_, \[CapitalSigma]_, kindexes_, zlist_, EdMode_] := Module[
-	{spectralfunction, grid, energies},
-	(* grid of the form {{1, \[Omega]1}, {2, \[Omega]1}, ..., {1, \[Omega]2}, {2, \[Omega]2}, ... } *)
-	grid =  Tuples[{
-		Range[ Length[kindexes] ],
-		Range[ Length[zlist] ]
-	}];
+	{spectralfunction, energies, prova},
 	(* extract energies indicated by kindexes *)
 	energies = LatticeEnergies[[kindexes]];
 	(* *)
 	Which[
 		EdMode == "Normal",
-		(*spectralfunction = - (1./Pi) * Im[1./(zlist[[#2]] + \[Mu] - energies[[#1]] - \[CapitalSigma][[#2]])]& @@@ grid,*)
 		spectralfunction = Table[
 			- (1./Pi) * Im[1./(zlist[[i]] + \[Mu] - energies[[j]] - \[CapitalSigma][[i]])]
 		, {i, Length[zlist]}, {j, Length[kindexes]}],
 	(* ---------------------------------------------- *)
 		EdMode == "InterorbNormal",
 		Print["Not supported"];
-		spectralfunction = ConstantArray[0.0, Length[kindexes] * Length[zlist] ];
+		spectralfunction = ConstantArray[0.0, Length[kindexes] * Length[zlist] ],
 	(* ---------------------------------------------- *)	
 		EdMode == "Superc",
-		Print["Not supported"];
-		spectralfunction = ConstantArray[0.0, Length[kindexes] * Length[zlist] ];
+		spectralfunction = Table[ -(1./Pi) * Im[
+			InverseElement[ zlist[[i]]*IdentityMatrix[2] + (\[Mu] - energies[[j]])*PauliMatrix[3] - \[CapitalSigma][[i]], {1,1}]
+		], {i, 1, Length[zlist]}, {j, 1, Length[kindexes]}],
 	(* ---------------------------------------------- *)
-		EdMode == "InterorbSuperc" || "FullSuperc",
+		EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
 		Print["Not supported"];
 		spectralfunction = ConstantArray[0.0, Length[kindexes] * Length[zlist] ];
 	];
-	(* 
-	Partition[spectralfunction, Length[kindexes]]
-	*)
 	spectralfunction
 ];
 

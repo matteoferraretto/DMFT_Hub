@@ -2,7 +2,7 @@
 
 (*             GENERAL INPUT              *)
 (* number of bath sites *)
-Nbath = 6; 
+Nbath = 4; 
 (* number of orbitals *)
 Norb = 1; 
 (* number of impurity sites *)
@@ -12,24 +12,24 @@ L = Nimp + Nbath;
 (* number of spin states *)
 f = 2; 
 (* call the function EdModeInfo[EdMode] to get details *)
-EdMode = "Normal"; 
+EdMode = "Superc"; 
 (* lattice crystal structure: "Bethe", "Hypercubic", etc. *)
-LatticeType = "Hypercubic"; 
+LatticeType = "Bethe"; 
 (* lattice dimensionality *)
-LatticeDim = 2; 
+LatticeDim = Infinity; 
 (* lattice points *)
-LatticePoints = 900;
+LatticePoints = 1500;
 (* set True to enforce orbital symmetry and avoid repeating calculations *)
 OrbitalSymmetry = True; 
 (* list of half-bandwidths for all the orbitals *)
-W = ConstantArray[0.25, Norb];
+W = ConstantArray[1.0, Norb];
 
 (* add orbital hybridization options if needed ... *)
 
 
 (*      INPUT PHYSICAL PARAMETERS        *)
 (* interaction energy (list of U values for the orbitals) *)
-U = ConstantArray[0.05, Norb]; 
+U = ConstantArray[-0.1, Norb]; 
 (* Hund's J. It's used only when HundMode = True to enforce rotation invariance of the Kanamori model. *)
 JH = 0.0; 
 (* density-density opposite spin coupling. It is set automatically if HundMode = True. *)
@@ -66,7 +66,7 @@ d\[Omega] = (\[Omega]max - \[Omega]min)/NReal;
 (* list of real frequencies *)
 \[Omega] = Table[\[Omega]min + n*d\[Omega], {n, 0, NReal}]; 
 (* small shift of the pole in the imaginary axis: this avoids singularities, but introduces an artificial broadening of the spectrum *)
-\[Eta] = 0.01;
+\[Eta] = 0.02;
 
 
 (* NUMERICAL DETAILS OF THE ALGORITHM *)
