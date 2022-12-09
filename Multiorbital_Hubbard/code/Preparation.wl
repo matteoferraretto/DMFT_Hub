@@ -7,6 +7,9 @@ LastIteration = False;
 Converged = False; 
 (* initialize list of DMFT errors *) 
 ErrorList = {}; 
+(* initialize Matsubara frequencies [use just CGNMatsubara frequencies, not NMatsubara!] *)
+i\[Omega] = Table[(2n-1)Pi*I*TMats, {n, CGNMatsubara}]; 
+
 (* set OrbitalSymmetry to False in some cases to avoid stupid bugs *)
 If[EdMode == "InterorbNormal" || EdMode == "InterorbSuperc" || EdMode == "FullSuperc", OrbitalSymmetry = False];
 (* avoid a bunch of stupid bugs related to the C.G. *)
@@ -49,7 +52,7 @@ InteractionParameters = Flatten[{\[Delta], U, Ust, Usec, Jph, Jse, - \[Mu] + shi
 
 
 (* GET BATH PARAMETERS *)
-BathParameters = StartingBath[L, f, Norb, \[Delta]-\[Mu], InitializeBathMode, EdMode, V0 -> 0.1, \[CapitalDelta]0 -> 0.1, \[CapitalXi]0 -> 0.0];
+BathParameters = StartingBath[L, f, Norb, \[Delta]-\[Mu], InitializeBathMode, EdMode, V0 -> 0.1, \[CapitalDelta]0 -> 0.1, \[CapitalXi]0 -> 0.1];
 Nparams = Length[BathParameters];
 
 
@@ -57,11 +60,11 @@ Nparams = Length[BathParameters];
 (* define a suitable list of symbols depending on EdMode *)
 symbols = Symbols[L, f, Norb, EdMode]; 
 (* define a symbolic expression for the Weiss field *)
-Weiss = WeissField[L, f, Norb, \[Mu]eff, symbols, z, EdMode];
+(* Weiss = WeissField[L, f, Norb, \[Mu]eff, symbols, z, EdMode]; 
 (* print it *)
 If[EdMode != "FullSuperc",
 	Print["The Weiss field for the given impurity problem is  \!\(\*SuperscriptBox[SubscriptBox[\(G\), \(0\)], \(-1\)]\)(z) = ", Weiss];
-];
+];*)
 
 
 (* GET SECTORS *)

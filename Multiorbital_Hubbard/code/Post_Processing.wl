@@ -1,5 +1,64 @@
 (* ::Package:: *)
 
+(* Compute many body functions for all the Matsubara frequencies *)
+(* get all Matsubara frequencies *)
+i\[Omega] = Table[(2n-1)Pi*I*TMats, {n, NMatsubara}];
+
+Which[
+	(EdMode == "Normal" || EdMode == "Superc") || OrbitalSymmetry,
+	(* G(i\[Omega]) *)
+	Gimp = Mean[MapApply[
+		GreenFunctionImpurity[L, f, Norb, 1, 1, Egs, ##, Hsectors, Sectors, SectorsDispatch, EdMode, i\[Omega]]&,
+		{Gs, GsQns}\[Transpose]
+	]];
+	(* G^-1(i\[Omega]) *)
+	InverseG = InverseGreenFunction[Gimp, EdMode];
+	(* G_0^-1(i\[Omega]) *)
+	InverseG0 = ((Weiss/.{\[Mu]eff -> \[Mu] - \[Delta][[1]]})/.Thread[symbols -> IndependentParameters])/.{z -> #}&/@i\[Omega];
+	(* \[CapitalSigma](i\[Omega]) *)
+	\[CapitalSigma] = InverseG0 - InverseG;
+	(* G_loc(i\[Omega]) *)
+	LocalG = LocalGreenFunction[LatticeEnergies[[All,1,1]], LatticeWeights, \[Mu], \[CapitalSigma], i\[Omega], EdMode];,
+(* ------------------------------------------------------------------------------------ *)
+(* ------------------------------------------------------------------------------------ *)
+	(EdMode == "Normal" || EdMode == "Superc") && !OrbitalSymmetry,
+	(* {G_orb=1, G_orb=2, ...} *)
+	Gimp = Table[
+		Mean[MapApply[
+			GreenFunctionImpurity[L, f, Norb, 1, orb, Egs, ##, Hsectors, Sectors, SectorsDispatch, EdMode, i\[Omega]]&,
+			{Gs, GsQns}\[Transpose]
+		]], {orb, Norb}];
+	(* {G^-1(i\[Omega])_orb=1 , G^-1(i\[Omega])_orb=2 ...} *)
+	InverseG = InverseGreenFunction[#, EdMode] &/@ Gimp;
+	(* {G0^-1(i\[Omega])_orb=1, G0^-1(i\[Omega])_orb=2 ...} *)
+	InverseG0 = Table[(
+		(Weiss/.{\[Mu]eff -> \[Mu] - \[Delta][[orb]]})/.Thread[symbols -> TakeIndependentParameters[L, f, Norb, 1, orb, BathParameters, EdMode]])/.{z -> #}&/@i\[Omega]
+	, {orb, Norb}];
+	(* { \[CapitalSigma](i\[Omega])_orb=1 , \[CapitalSigma](i\[Omega])_orb=2 , ...} *)
+	\[CapitalSigma] = InverseG0 - InverseG;
+	(* { Gloc(i\[Omega])_orb=1 , Gloc(i\[Omega])_orb=2 , ...} *)
+	LocalG = Table[
+		LocalGreenFunction[LatticeEnergies[[All, orb, orb]], LatticeWeights, \[Mu], \[CapitalSigma][[orb]], i\[Omega], EdMode]
+	, {orb, Norb}];,
+(* ------------------------------------------------------------------------------------ *)
+(* ------------------------------------------------------------------------------------ *)
+	(EdMode == "InterorbSuperc" || EdMode == "FullSuperc") && !OrbitalSymmetry,
+	Gimp = Mean[MapApply[
+		GreenFunctionImpurity[L, f, Norb, 1, 1, Egs, ##, Hsectors, Sectors, SectorsDispatch, EdMode, i\[Omega]]&,
+		{Gs, GsQns}\[Transpose]
+	]];
+	InverseG = InverseGreenFunction[Gimp, EdMode];
+	(* G0^-1(i\[Omega]) *)
+	InverseG0 = (
+		(Weiss/.{\[Mu]eff -> \[Mu] - \[Delta]})/.Thread[symbols -> TakeIndependentParameters[L, f, Norb, 1, 1, BathParameters, EdMode]]
+	)/.{z -> #} &/@ i\[Omega];
+	(* \[CapitalSigma](i\[Omega]) *)
+	\[CapitalSigma] = InverseG0 - InverseG;
+	(* Gloc(i\[Omega]) *)
+	LocalG = LocalGreenFunction[LatticeEnergies, LatticeWeights, \[Mu], \[CapitalSigma], i\[Omega], EdMode];
+]
+
+
 (* Plot DMFT error *)
 Print @ ListLogPlot[
 	ErrorList,
@@ -12,6 +71,9 @@ Print @ ListLogPlot[
 
 
 (* Compute, save and plot spectral function *)
+(* initialize real frequencies *)
+\[Omega] = Table[\[Omega]min + n*d\[Omega], {n, 0, NReal}];
+
 (* 1. compute G(\[Omega]) *)
 Gimprealfreq = Table[
 	Mean[MapApply[

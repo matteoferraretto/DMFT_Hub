@@ -2,9 +2,9 @@
 
 (*             GENERAL INPUT              *)
 (* number of bath sites *)
-Nbath = 4; 
+Nbath = 2; 
 (* number of orbitals *)
-Norb = 1; 
+Norb = 2; 
 (* number of impurity sites *)
 Nimp = 1; 
 (* total number of sites: bath+impurity *)
@@ -12,7 +12,7 @@ L = Nimp + Nbath;
 (* number of spin states *)
 f = 2; 
 (* call the function EdModeInfo[EdMode] to get details *)
-EdMode = "Superc"; 
+EdMode = "FullSuperc"; 
 (* lattice crystal structure: "Bethe", "Hypercubic", etc. *)
 LatticeType = "Bethe"; 
 (* lattice dimensionality *)
@@ -20,7 +20,7 @@ LatticeDim = Infinity;
 (* lattice points *)
 LatticePoints = 1500;
 (* set True to enforce orbital symmetry and avoid repeating calculations *)
-OrbitalSymmetry = True; 
+OrbitalSymmetry = False; 
 (* list of half-bandwidths for all the orbitals *)
 W = ConstantArray[1.0, Norb];
 
@@ -29,11 +29,11 @@ W = ConstantArray[1.0, Norb];
 
 (*      INPUT PHYSICAL PARAMETERS        *)
 (* interaction energy (list of U values for the orbitals) *)
-U = ConstantArray[-0.1, Norb]; 
+U = ConstantArray[0.0, Norb]; 
 (* Hund's J. It's used only when HundMode = True to enforce rotation invariance of the Kanamori model. *)
 JH = 0.0; 
 (* density-density opposite spin coupling. It is set automatically if HundMode = True. *)
-Ust = 0.0; 
+Ust = -0.25; 
 (* density-density same spin coupling. It is set automatically if HundMode = True. *)
 Usec = 0.0; 
 (* pair-hopping coupling. It is set automatically if HundMode = True. *)
@@ -45,7 +45,7 @@ HundMode = False;
 (* chemical potential *)
 \[Mu] = 0.0; 
 (* Crystal field splitting *)
-\[Delta] = {0.0};
+\[Delta] = {0.0, 0.0};
 (* temperature *)
 T = 0; 
 
@@ -55,16 +55,12 @@ T = 0;
 TMats = 0.001; 
 (* Total number of Matsubara frequencies *)
 NMatsubara = 5000; 
-(* list of Matsubara frequencies (don't touch) *)
-i\[Omega] = Table[(2n-1)Pi*I*TMats, {n, NMatsubara}]; 
 (* set min and max value for the set of real frequencies *)
 \[Omega]min = -5.; \[Omega]max = 5.; 
 (* number of real frequencies *)
 NReal = 10000;
 (* real frequency step *)
 d\[Omega] = (\[Omega]max - \[Omega]min)/NReal; 
-(* list of real frequencies *)
-\[Omega] = Table[\[Omega]min + n*d\[Omega], {n, 0, NReal}]; 
 (* small shift of the pole in the imaginary axis: this avoids singularities, but introduces an artificial broadening of the spectrum *)
 \[Eta] = 0.02;
 
@@ -91,7 +87,7 @@ DMFTMaxIterations = 30;
 (* threshold for DMFT loop convergence *)
 DMFTerror = 1.0 * 10^(-5); 
 (* InverseG0 = Mixing * InverseG0old + (1 - Mixing) * InverseG0 *)
-Mixing = 0.0; 
+Mixing = 0.25; 
 (* type of minimization: "Global" or "Local" *)
 MinimizationType = "Local";
 (* Method for the minimization procedure *)

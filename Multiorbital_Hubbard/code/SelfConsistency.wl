@@ -8,6 +8,8 @@ WeissField::usage = "WeissField[L_, f_, Norb_, \[Mu]_, symbols_, z_, EdMode_]"
 
 SelfConsistency::usage = "SelfConsistency[DBethe, \[Mu], Weiss, symbols, StartingParameters, LocalG, zlist, EdMode]"
 
+SelfConsistencyNew::usage = "SelfConsistencyNew[DBethe_, \[Mu]_, Weiss_, symbols_, z_, IndependentParameters_, LocalG_, LocalGold_, \[CapitalSigma]_, \[CapitalSigma]old_, zlist_, EdMode_]"
+
 DMFTError::usage = "DMFTError[Xnew, Xold, EdMode]"
 
 
@@ -127,8 +129,9 @@ WeissField[L_, f_, Norb_, \[Mu]_, symbols_, z_, EdMode_] := Module[
 			H[[k]] = ArrayFlatten[H[[k]]];
 			Vmat[[k]] = ArrayFlatten[Vmat[[k]]];
 		, {k, L-1}];
-		Print[MatrixForm/@H];
-		Print[MatrixForm/@Vmat];
+		Print[ MatrixForm[H0] ];
+		Print[ MatrixForm /@ H ];
+		Print[ MatrixForm /@ Vmat ];
 		(* compute Weiss field *)
 		z * IdentityMatrix[2Norb] - H0 - Sum[Vmat[[k]] . (Inverse[z * IdentityMatrix[2Norb] - H[[k]]] . Vmat[[k]]) , {k, L-1}]
 	]
@@ -202,6 +205,104 @@ SelfConsistency[DBethe_, \[Mu]_, Weiss_, symbols_, z_, IndependentParameters_, L
 	symbols/.newparameters
 ];
 Options[SelfConsistency] = {Lattice -> "Bethe", LatticeDimension -> 2, NumberOfFrequencies -> 2000, Minimum -> "Local", Method -> "ConjugateGradient", FitWeight -> ConstantArray[1., 2000]};
+
+(* Perform minimization according to the self consistency condition *)
+SelfConsistencyNew[DBethe_, \[Mu]_, Weiss_, symbols_, z_, IndependentParameters_, LocalG_, LocalGold_, \[CapitalSigma]_, \[CapitalSigma]old_, zlist_, EdMode_, OptionsPattern[{SelfConsistencyNew, FindMinimum}]] := 
+Module[
+	{Lattice = OptionValue[Lattice],
+	weight = OptionValue[FitWeight],
+	\[Alpha] = OptionValue[Mix],
+	LocalGeff, Weff,
+	residue, newparameters, \[Chi], \[Sigma]3 = PauliMatrix[3]},
+	(* define the target function to minimize depending on the Lattice and EdMode (if Lattice = Bethe there is a shortcut) *)
+	Which[
+		EdMode == "Normal" && Lattice == "Bethe",
+		(* Mix up the local Green function *)
+		LocalGeff = \[Alpha] * LocalGold + (1.0 - \[Alpha]) * LocalG;
+		(* distance function *)
+		\[Chi][symbols] = Mean[Abs[ weight * (
+			((Weiss - z - \[Mu])/.{z -> #} &/@ zlist) + (DBethe^2/4.)*LocalGeff
+		)]^2],
+	(* ------------------------------------ *)
+		EdMode == "Superc" && Lattice == "Bethe",
+		(* Mix up the local Green function *)
+		LocalGeff = \[Alpha] * LocalGold + (1.0 - \[Alpha]) * LocalG;
+		(* distance function *)
+		\[Chi][symbols] = Mean @ First @
+			Mean[Abs[ weight *
+				((Weiss - z - \[Mu]*\[Sigma]3)/.{z -> #} &/@ zlist) 
+				+ (DBethe^2/4.) * Map[Dot[\[Sigma]3, #, \[Sigma]3]&, LocalGeff]
+			]^2],
+	(* ------------------------------------ *)
+		EdMode == "Normal" && Lattice != "Bethe",
+		(* Mix up the effective Weiss field *)
+		Weff = \[Alpha] * (1./LocalGold + \[CapitalSigma]old) + (1.0 - \[Alpha]) * (1./LocalG + \[CapitalSigma]);
+		(* distance function *)
+		\[Chi][symbols] = Mean[Abs[ weight * (
+			(Weiss/.{z -> #} &/@ zlist) - Weff
+		)]^2],
+	(* ------------------------------------ *)
+		EdMode == "Superc" && Lattice != "Bethe",
+		(* Mix up the effective Weiss field *)
+		Weff = \[Alpha] * (TwoByTwoInverse[LocalGold] + \[CapitalSigma]old) + (1.0 - \[Alpha]) * (TwoByTwoInverse[LocalG] + \[CapitalSigma]);
+		(* distance function *)
+		\[Chi][symbols] = Mean @ First @
+			Mean[Abs[
+				(Weiss/.{z -> #}& /@ zlist) - Weff
+			]^2],
+	(* ------------------------------------ *)
+		EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
+		(* Mix up the effective Weiss field *)
+		If[\[Alpha] == 0.0, 
+			Weff = (Inverse /@ LocalG) + \[CapitalSigma], (* if no mixing, avoid inverting the old local G *)
+		(* else *)
+			Weff = \[Alpha] * ((Inverse /@ LocalGold) + \[CapitalSigma]old) + (1.0 - \[Alpha]) * ((Inverse /@ LocalG) + \[CapitalSigma])
+		];
+		(* distance function *)
+		\[Chi][symbols] = Mean[
+			Total[#, 2] &/@ (
+				Abs[
+					weight * (
+					(UpperTriangularize[Weiss/.{z -> #}] &/@ zlist) 
+					- (UpperTriangularize[#] &/@ Weff)
+				)]^2 
+			)];
+	];
+	(* perform the fit to find the new bath parameters *)
+	Which[
+		OptionValue[Minimum] == "Local",
+		{residue, newparameters} =
+			FindMinimum[
+				\[Chi][symbols],
+				{symbols, IndependentParameters}\[Transpose],
+				Method -> OptionValue[Method],
+				MaxIterations -> OptionValue[MaxIterations],
+				AccuracyGoal -> OptionValue[AccuracyGoal]
+			];,
+	(* -------------------------------------- *)
+		OptionValue[Minimum] == "Global",
+		{residue, newparameters} =
+			NMinimize[
+				\[Chi][symbols],
+				symbols,
+				Method -> OptionValue[Method],
+				MaxIterations -> OptionValue[MaxIterations],
+				AccuracyGoal -> OptionValue[AccuracyGoal]
+			];
+	];
+	Print["Fit residue: ", residue];
+	symbols/.newparameters
+];
+Options[SelfConsistencyNew] = {
+	Mix -> 0.0,
+	Lattice -> "Bethe", 
+	LatticeDimension -> 2, 
+	NumberOfFrequencies -> 2000, 
+	Minimum -> "Local", 
+	Method -> "ConjugateGradient", 
+	FitWeight -> ConstantArray[1., 2000]
+};
+
 
 (* DMFT error *)
 DMFTError[Xnew_, Xold_, EdMode_] := Module[
