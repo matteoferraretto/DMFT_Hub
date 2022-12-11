@@ -83,17 +83,22 @@ Print[Style["Recap of input:", 16, Bold]];
 Print["Nsectors: ", Length[QnsSectorList], ". Dim. of the largest sector: ", Max @ DimSectorList];
 
 
-(* EXPORT EFFECTIVELY USED INPUT *)
-(* Export[
-	OutputDirectory<>"used_input.dat",{
-	{"Nbath =",Nbath}, {"Norb =",Norb}, {"Nimp =",Nimp}, {"f =",f}, {"EdMode =",EdMode}, {"U =",U}
-}];
-FilePrint[OutputDirectory<>"used_input.dat"] *)
-
-
 (* GET LATTICE *)
 {LatticeEnergies, LatticeWeights} = GetLatticeEnergies[W, \[Delta], LatticeType, LatticeDim, LatticePoints];
 
 
 (* GET IMPURITY HAMILTONIAN *)
+(* file name for import / export of nonlocal Hamiltonian blocks *)
+HnonlocFile = OutputDirectory<>"Hnonloc_L="<>ToString[L]<>"_f="<>ToString[f]<>"_Norb="<>ToString[Norb]<>"_EdMode="<>EdMode<>".mx";
+(* file name for import / export of local Hamiltonian blocks *)
+HlocFile = OutputDirectory<>"Hloc_L="<>ToString[L]<>"_f="<>ToString[f]<>"_Norb="<>ToString[Norb]<>"_EdMode="<>EdMode<>".mx";
+(* get hamiltonians *)
 {HnonlocBlocks, HlocBlocks} = GetHamiltonian[L, f, Norb, Sectors, LoadHamiltonianQ, HnonlocFile, HlocFile, EdMode];
+
+
+(* COPY INPUT FILE *)
+CopyFile[
+	CodeDirectory<>"InputFile_Template.wl",
+	OutputDirectory<>"InputFile_Used.wl",
+	OverwriteTarget -> True
+]

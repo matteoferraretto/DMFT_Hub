@@ -14,11 +14,11 @@ f = 2;
 (* call the function EdModeInfo[EdMode] to get details *)
 EdMode = "FullSuperc"; 
 (* lattice crystal structure: "Bethe", "Hypercubic", etc. *)
-LatticeType = "Bethe"; 
+LatticeType = "Hypercubic"; 
 (* lattice dimensionality *)
-LatticeDim = Infinity; 
+LatticeDim = 2; 
 (* lattice points *)
-LatticePoints = 1500;
+LatticePoints = 1225;
 (* set True to enforce orbital symmetry and avoid repeating calculations *)
 OrbitalSymmetry = False; 
 (* list of half-bandwidths for all the orbitals *)
@@ -33,7 +33,7 @@ U = ConstantArray[0.0, Norb];
 (* Hund's J. It's used only when HundMode = True to enforce rotation invariance of the Kanamori model. *)
 JH = 0.0; 
 (* density-density opposite spin coupling. It is set automatically if HundMode = True. *)
-Ust = -0.25; 
+Ust = -0.30; 
 (* density-density same spin coupling. It is set automatically if HundMode = True. *)
 Usec = 0.0; 
 (* pair-hopping coupling. It is set automatically if HundMode = True. *)
@@ -109,11 +109,6 @@ CodeDirectory = NotebookDirectory[];
 OutputDirectory = CodeDirectory<>"U="<>ToString[U[[1]]]<>"\\";
 (* load Hamiltonian from a file? *)
 LoadHamiltonianQ = False;
-(* file name for import / export of nonlocal Hamiltonian blocks *)
-HnonlocFile = OutputDirectory<>"Hnonloc_L="<>ToString[L]<>"_f="<>ToString[f]<>"_Norb="<>ToString[Norb]<>"_EdMode="<>EdMode<>".mx";
-(* file name for import / export of local Hamiltonian blocks *)
-HlocFile = OutputDirectory<>"Hloc_L="<>ToString[L]<>"_f="<>ToString[f]<>"_Norb="<>ToString[Norb]<>"_EdMode="<>EdMode<>".mx";
-
 
 
 Print["Input file imported successfully. "]

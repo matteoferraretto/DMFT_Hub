@@ -104,6 +104,10 @@ CdgCdg[L_, f_, Norb_, {i_,j_}, {\[Sigma]1_,\[Sigma]2_}, {orb1_,orb2_}, Sectors_,
 				\[Chi] = CreatePair[L, f, i, j, \[Sigma]1, \[Sigma]2, orb1, orb2, \[Psi]1];
 				rows = \[Chi]/.dispatch;(* *)cols = \[Psi]1/.dispatch;(* *)pos = {rows,cols}\[Transpose];
 				\[CapitalSigma] = CCSign[L, f, {i,j}, {\[Sigma]1,\[Sigma]2}, {orb1,orb2}, \[Psi]1];
+				If[
+					f*(orb1-1)+\[Sigma]1 > f*(orb2-1)+\[Sigma]2 || (orb1 == orb2 && \[Sigma]1 == \[Sigma]2 && i > j),
+					\[CapitalSigma] = -\[CapitalSigma]
+				];
 				cdgcdg += SparseArray[pos -> \[CapitalSigma], {dim,dim}];
 			];
 			Conjugate[gs] . (cdgcdg . gs)
@@ -203,7 +207,7 @@ MomentumResolvedSpectralFunction[LatticeEnergies_, \[Mu]_, \[CapitalSigma]_, kin
 	(* ---------------------------------------------- *)	
 		EdMode == "Superc",
 		spectralfunction = Table[ -(1./Pi) * Im[
-			InverseElement[ zlist[[i]]*IdentityMatrix[2] + (\[Mu] - energies[[j]])*PauliMatrix[3] - \[CapitalSigma][[i]], {1,1}]
+			TwoByTwoInverse[ zlist[[i]]*IdentityMatrix[2] + (\[Mu] - energies[[j]])*PauliMatrix[3] - \[CapitalSigma][[i]] ][[1,1]]
 		], {i, 1, Length[zlist]}, {j, 1, Length[kindexes]}],
 	(* ---------------------------------------------- *)
 		EdMode == "InterorbSuperc" || EdMode == "FullSuperc",

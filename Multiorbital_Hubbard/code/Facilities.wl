@@ -5,11 +5,12 @@ BeginPackage["Facilities`"]
 DrawState::usage = "DrawState[L, f, Norb] draws a graphic representation of a Fock state that can be manipulated. Each box can be filled either with 0 (no particles in that slot) or 1 (a particle in that slot). "
 EdModeInfo::usage = "EdModeInfo[EdMode] print useful information about EdMode. "
 PlotMatsubara::usage = "."
-WriteOutput::usage = "WriteOutput[condition, file, label, U, data] "
+(*WriteOutput::usage = "WriteOutput[condition, file, label, U, data] "*)
+WriteOutput::usage = "WriteOutputNew[condition_, OutputDirectory_, label_, data_]"
 HNonlocalInfo::usage = "HNonlocalInfo[L, f, Norb, EdMode] print info about the organization of Hamiltonian blocks. "
 
 Begin["Private`"];
-
+(*
 (* Draw a picture of a state to help the user *)
 DrawState[L_, f_, Norb_, j_, \[Sigma]_, orb_] := Module[
 	{impuritycolor, color},
@@ -94,9 +95,11 @@ GreenFunctionNambuInfo[Norb_] := Module[
 	,{orb1,Norb},{orb2,orb1+1,Norb}];
 	m//MatrixPlot
 ];
+*)
 
 
 (* Plot many body function of Matsubara frequencies *)
+(*
 PlotMatsubara[function_, i\[Omega]_, EdMode_, OptionsPattern[ListPlot]] := Which[
 	EdMode == "Normal",
 	ListPlot[
@@ -116,47 +119,49 @@ PlotMatsubara[function_, i\[Omega]_, EdMode_, OptionsPattern[ListPlot]] := Which
 		AxesLabel -> {"\!\(\*SubscriptBox[\(\[Omega]\), \(n\)]\)", None}
 	]
 ];
+*)
 
-(* manage output  *)
+(* manage output  
 WriteOutput[condition_, file_, label_, U_, data_] := Module[
 	{fout},
 	Which[
 		label == "BathParameters",
 		If[condition,
-			Export[file, data, "Table"];
-			Print["Converged bath parameters stored on file.\n"]
+			Export[file, data];
+			(*Print["Converged bath parameters stored on file."]*)
 		],
 	(* ---------------------------------------- *)
 		label == "SelfEnergy",
 		If[condition,
-			Export[file, data, "Table"];
-			Print["Self Energy stored on file.\n"]
+			Export[file, data];
+			Print["Self Energy stored on file."]
 		],
 	(* ---------------------------------------- *)
 		label == "Error",
 		If[condition,
-			Export[file, data, "Table"];
-			Print["Error list stored on file.\n"]
+			Export[file, data];
+			(*Print["Error list stored on file."]*)
 		],
 	(* ---------------------------------------- *)
 		label == "SpectralFunction",
 		If[condition,
-			Export[file, data, "Table"];
-			Print["Spectral Function stored on file.\n"]
+			Export[file, data];
+			Print["Spectral Function stored on file."]
 		],
 	(* ---------------------------------------- *)
 		label == "z",
 		If[condition,
 			fout = OpenAppend[file];(* open output stream on file *)
-			WriteString[fout, U, " ", DecimalForm@data, "\n"]; (*write the data string*)
+			WriteString[fout, data, "\n"]; (*write the data string*)
 			Close[fout](* close output stream *)
 		];
+		Print["z saved to file."];
 		Print["z = ", data, "\n"],(* print data on screen *)
 	(* ---------------------------------------- *)
 		label == "\[Phi]",
 		If[condition,
 			fout = OpenAppend[file];(* open output stream on file *)
-			WriteString[fout, U, " ", DecimalForm@data, "\n"]; (*write the data string*)
+			WriteString[fout, data, "\n"]; (*write the data string*)
 			Close[fout](* close output stream *)
 		];
 		Print["\[Phi] = ", data, "\n"],(* print data on screen *)
@@ -164,7 +169,7 @@ WriteOutput[condition_, file_, label_, U_, data_] := Module[
 		label == "Ekin",
 		If[condition,
 			fout = OpenAppend[file];(* open output stream on file *)
-			WriteString[fout, U, " ", DecimalForm@data, "\n"]; (*write the data string*)
+			WriteString[fout, data, "\n"]; (*write the data string*)
 			Close[fout](* close output stream *)
 		];
 		Print["\!\(\*SubscriptBox[\(E\), \(kin\)]\) = ", data, "\n"],(* print data on screen *)
@@ -172,7 +177,7 @@ WriteOutput[condition_, file_, label_, U_, data_] := Module[
 		label == "Ds",
 		If[condition,
 			fout = OpenAppend[file];(* open output stream on file *)
-			WriteString[fout, U, " ", DecimalForm@data, "\n"]; (*write the data string*)
+			WriteString[fout, DecimalForm@data, "\n"]; (*write the data string*)
 			Close[fout](* close output stream *)
 		];
 		Print["\!\(\*SubscriptBox[\(D\), \(s\)]\) = ", data, "\n"],(* print data on screen *)
@@ -180,7 +185,7 @@ WriteOutput[condition_, file_, label_, U_, data_] := Module[
 		label == "Occupancy",
 		If[condition,
 			fout = OpenAppend[file];(* open output stream on file *)
-			WriteString[fout, U, " ", DecimalForm@data[[1]]," ",data[[2]]," ",data[[3]]," ",data[[2]]+2.*data[[3]],"\n"]; (*write the data string*)
+			WriteString[fout, DecimalForm@data[[1]]," ",data[[2]]," ",data[[3]]," ",data[[2]]+2.*data[[3]],"\n"]; (*write the data string*)
 			Close[fout](* close output stream *)
 		];
 		Print["U","\t\t\t","Double Occ.","\t\t\t","Single Occ.","\t\t\t","Empty Occ.","\t\t\t","Density"];
@@ -205,8 +210,17 @@ WriteOutput[condition_, file_, label_, U_, data_] := Module[
 		Print[U,"\t\t\t",data[[1]],"\t\t\t ",data[[2]],"\t\t\t\t",data[[3]],"\n"](* print data on screen *)
 	]
 ];
+*)
+
+WriteOutput[condition_, OutputDirectory_, label_, data_] := 
+If[
+	condition,
+	Export[OutputDirectory<>label<>".m", data];
+	Print["Data stored on file: "<>label<>".m"];
+];
 
 (* --- in progress --- *)
+(*
 BathPlot[L_, BathParameters_] := Module[
 	{coordinates, rules, edgeweights},
 	coordinates = Join[
@@ -222,7 +236,7 @@ BathPlot[L_, BathParameters_] := Module[
 		VertexStyle -> Orange
 	]
 ];
-
+*)
 Print["Package Facilities` loaded successfully."];
 
 End[];

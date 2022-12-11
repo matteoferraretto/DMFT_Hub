@@ -42,7 +42,7 @@ Do[
 			_?((Abs[# - Egs] < DegeneracyThreshold)&)
 		];
 		(* list of all the degenerate ground states *)
-		Gs = MapApply[GsSectorList[[##]]&, GsSectorIndex];
+		Gs = Apply[GsSectorList[[##]]&, GsSectorIndex, {1}];
 		(* list of quantum numbers of the degenerate ground states *)
 		GsQns = QnsSectorList[[GsSectorIndex[[All, 1]]]];	
 		
@@ -50,20 +50,19 @@ Do[
 		Print["\t\t Ground state info:\n", "Egs = ", Egs, "   Quantum numbers = ", GsQns];
 		(* print some observables *)
 		Print["\n\t\t Observables:"];
-		Do[
-			Print["Impurity density [orb="<>ToString[orb]<>"] = ", Sum[Density[L, f, Norb, 1, \[Sigma], orb, Sectors, EgsSectorList, GsSectorList, T], {\[Sigma], f}] ];
-			Print["Impurity double occupancy [orb="<>ToString[orb]<>"] = ", SquareDensity[L, f, Norb, {1,1}, {1,2}, {orb,orb}, Sectors, EgsSectorList, GsSectorList, T] ];
-			If[EdMode == "Superc" || EdMode == "InterorbSuperc" || EdMode == "FullSuperc", 
-				Print["Order parameter [orb="<>ToString[orb]<>"] = ", CdgCdg[L, f, Norb, {1,1}, {1,2}, {orb,orb}, Sectors, EgsSectorList, GsSectorList, T] ];
-			];
-		, {orb, Norb}];
-		
-		If[EdMode == "InterorbSuperc" || EdMode == "FullSuperc", 
-				Print["Order parameter interorbital = ", 
-				0.5 * (CdgCdg[L, f, Norb, {1,1}, {1,2}, {1,2}, Sectors, EgsSectorList, GsSectorList, T]
-				- CdgCdg[L, f, Norb, {1,1}, {1,2}, {2,1}, Sectors, EgsSectorList, GsSectorList, T])];
-				(* the minus sign is WRONG. it should come from the second CdgCdg, not put explicitly here. *)
-			];
+		density = Table[ Sum[Density[L, f, Norb, 1, \[Sigma], orb, Sectors, EgsSectorList, GsSectorList, T], {\[Sigma], f}], {orb, Norb}];
+		Print["Impurity density = ", density ];
+		docc = Table[ SquareDensity[L, f, Norb, {1,1}, {1,2}, {orb,orb}, Sectors, EgsSectorList, GsSectorList, T], {orb, Norb}];
+		Print["Impurity double occupancy = ", docc ];
+		If[EdMode == "Superc" || EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
+			\[Phi] = Table[ CdgCdg[L, f, Norb, {1,1}, {1,2}, {orb,orb}, Sectors, EgsSectorList, GsSectorList, T], {orb, Norb}];
+			Print["Order parameter = ", \[Phi] ];
+			If[EdMode != "Superc",
+				\[CapitalXi] = 0.5 * (CdgCdg[L, f, Norb, {1,1}, {1,2}, {1,2}, Sectors, EgsSectorList, GsSectorList, T] 
+				+ CdgCdg[L, f, Norb, {1,1}, {1,2}, {2,1}, Sectors, EgsSectorList, GsSectorList, T]);
+				Print["Order parameter interorbital = ", \[CapitalXi]];
+			]
+		];
 		
 		
 		Which[
@@ -76,10 +75,10 @@ Do[
 			(* identify independent parameters, i.e. the minimal set of bath parameters that you need to compute stuff *)
 			IndependentParameters = TakeIndependentParameters[L, f, Norb, 1, 1, BathParameters, EdMode];
 			(* G(i\[Omega]) *)
-			Gimp = Mean[MapApply[
+			Gimp = Mean[Apply[
 				GreenFunctionImpurity[L, f, Norb, 1, 1, Egs, ##, Hsectors, Sectors, SectorsDispatch, EdMode, i\[Omega]]&,
 				{Gs, GsQns}\[Transpose]
-			]];
+			, {1}]];
 			(* G^-1(i\[Omega]) *)
 			InverseG = InverseGreenFunction[Gimp, EdMode];
 			(* G_0^-1(i\[Omega]) *)
@@ -104,18 +103,8 @@ Do[
 			Print[Style["\t\t Self Consistency start", 16, Bold, Magenta]];
 			Print["S.C. time: ", First@AbsoluteTiming[
 			
-			NewBathParameters = ReshapeBathParameters[L, f, Norb,	
-				(*SelfConsistency[
-					W[[1]], \[Mu] - \[Delta][[1]], Weiss/.{\[Mu]eff -> \[Mu] - \[Delta][[1]]}, symbols, z, IndependentParameters, LocalG, \[CapitalSigma], i\[Omega], EdMode, 
-					Lattice -> LatticeType, 
-					LatticeDimension -> LatticeDim, 
-					Minimum -> MinimizationType, 
-					Method -> MinimizationMethod,
-					NumberOfFrequencies -> CGNMatsubara, 
-					MaxIterations -> CGMaxIterations, 
-					AccuracyGoal -> CGAccuracy,
-					FitWeight -> CGWeight],*)
-				SelfConsistencyNew[
+			BathParameters = ReshapeBathParameters[L, f, Norb,	
+				SelfConsistency[
 					W[[1]], \[Mu] - \[Delta][[1]], Weiss, symbols, z, IndependentParameters, 
 					LocalG, LocalGold, \[CapitalSigma], \[CapitalSigma]old, i\[Omega], EdMode,
 					Mix -> If[DMFTiterator > 2, Mixing, (* else *) 0.0],
@@ -146,10 +135,10 @@ Do[
 			{orb, Norb}];
 			(* { G(i\[Omega])_orb=1 , G(i\[Omega])_orb=2 , ...} *)
 			Gimp = Table[
-				Mean[MapApply[
+				Mean[Apply[
 					GreenFunctionImpurity[L, f, Norb, 1, orb, Egs, ##, Hsectors, Sectors, SectorsDispatch, EdMode, i\[Omega]]&,
 					{Gs, GsQns}\[Transpose]
-				]], {orb, Norb}];
+				, {1}]], {orb, Norb}];
 			(* G^-1(i\[Omega])_orb=1 , G^-1(i\[Omega])_orb=2 ... *)
 			InverseG = InverseGreenFunction[#, EdMode] &/@ Gimp;
 			(* { Subscript[G, 0]^-1Subscript[(i\[Omega]), orb=1] , Subscript[G, 0]^-1Subscript[(i\[Omega]), orb=2] , ...} *)
@@ -180,18 +169,8 @@ Do[
 			Print[Style["\t\t Self Consistency start", 16, Bold, Magenta]];
 			Print["S.C. time: ", First@AbsoluteTiming[
 			
-			NewBathParameters = ReshapeBathParameters[L, f, Norb, Table[
-				(*SelfConsistency[
-					W[[orb]], \[Mu] - \[Delta][[orb]], Weiss/.{\[Mu]eff -> \[Mu] - \[Delta][[orb]]}, symbols, z, IndependentParameters[[orb]], LocalG[[orb]], \[CapitalSigma][[orb]], i\[Omega], EdMode,
-					Lattice -> LatticeType, 
-					LatticeDimension -> LatticeDim, 
-					Minimum -> MinimizationType, 
-					Method -> MinimizationMethod,
-					NumberOfFrequencies -> CGNMatsubara, 
-					MaxIterations -> CGMaxIterations, 
-					AccuracyGoal -> CGAccuracy,
-					FitWeight -> CGWeight]*)
-				SelfConsistencyNew[
+			BathParameters = ReshapeBathParameters[L, f, Norb, Table[
+				SelfConsistency[
 					W[[orb]], \[Mu] - \[Delta][[orb]], Weiss[[orb]], symbols, z, IndependentParameters[[orb]], 
 					LocalG[[orb]], LocalGold[[orb]], \[CapitalSigma][[orb]], \[CapitalSigma]old[[orb]], i\[Omega], EdMode,
 					Mix -> If[DMFTiterator > 2, Mixing, (* else *) 0.0],
@@ -220,10 +199,10 @@ Do[
 			
 			IndependentParameters = TakeIndependentParameters[L, f, Norb, 1, 1, BathParameters, EdMode];
 			(* G(i\[Omega]) *)
-			Gimp = Mean[MapApply[
+			Gimp = Mean[Apply[
 				GreenFunctionImpurity[L, f, Norb, 1, 1, Egs, ##, Hsectors, Sectors, SectorsDispatch, EdMode, i\[Omega]]&,
 				{Gs, GsQns}\[Transpose]
-			]];
+			, {1}]];
 			InverseG = InverseGreenFunction[Gimp, EdMode];
 			(* G0^-1(i\[Omega]) *)
 			If[DMFTiterator == 1,
@@ -250,18 +229,8 @@ Do[
 			Print[Style["\t\t Self Consistency start", 16, Bold, Magenta]];
 			Print["S.C. time: ", First@AbsoluteTiming[
 			
-			NewBathParameters = ReshapeBathParameters[L, f, Norb, 
-				(*SelfConsistency[
-					W, \[Mu] - \[Delta], Weiss/.{\[Mu]eff -> \[Mu] - \[Delta]}, symbols, z, IndependentParameters, LocalG, \[CapitalSigma], i\[Omega], EdMode,
-					Lattice -> LatticeType, 
-					LatticeDimension -> LatticeDim, 
-					Minimum -> MinimizationType, 
-					Method -> MinimizationMethod,
-					NumberOfFrequencies -> CGNMatsubara, 
-					MaxIterations -> CGMaxIterations, 
-					AccuracyGoal -> CGAccuracy,
-					FitWeight -> CGWeight]*)
-				SelfConsistencyNew[
+			BathParameters = ReshapeBathParameters[L, f, Norb, 
+				SelfConsistency[
 					W[[1]], 
 					\[Mu] - \[Delta], 
 					Weiss, 
@@ -293,10 +262,11 @@ Do[
 		Break[];
 	];
 	
-	(* update bath parameters *)
-	BathParameters = NewBathParameters;
-	Print["DMFT error: ", ScientificForm[error]];
+	(* store new bath parameters and error *)
+	WriteOutput[True, OutputDirectory, "hamiltonian_restart", BathParameters];
 	AppendTo[ErrorList, error];
+	WriteOutput[True, OutputDirectory, "error", ErrorList];
+	Print["DMFT error: ", ScientificForm[error]];
 	
 	(*Print*)
 	Print[Style["\t\t Self Consistency completed", 16, Bold, Magenta]];
@@ -305,8 +275,7 @@ Do[
 	Print["----------------------------------------------------------------------------------------"];
 
 	(* Exit DMFT Loop if convengerce is reached *)
-	If[DMFTiterator > DMFTMinIterations && error < DMFTerror && LastIteration, Break[];];
+	If[DMFTiterator > DMFTMinIterations && error < DMFTerror && LastIteration, Converged = True; Break[];];
 	If[error < DMFTerror, LastIteration = True, (*else*) LastIteration = False];
-
 
 , {DMFTiterator, DMFTMaxIterations}]

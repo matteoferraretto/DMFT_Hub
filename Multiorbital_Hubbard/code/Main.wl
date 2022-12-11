@@ -18,3 +18,6 @@ $Path = Join[$Path, {"C:\\Users\\matte\\Desktop\\Mathematica_package\\"}];
 
 
 <<("Post_Processing.wl");
+
+
+
