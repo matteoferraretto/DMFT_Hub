@@ -18,7 +18,7 @@ LatticeType = "Hypercubic";
 (* lattice dimensionality *)
 LatticeDim = 2; 
 (* lattice points *)
-LatticePoints = 1225;
+LatticePoints = 100;
 (* set True to enforce orbital symmetry and avoid repeating calculations *)
 OrbitalSymmetry = False; 
 (* list of half-bandwidths for all the orbitals *)
@@ -33,9 +33,9 @@ U = ConstantArray[0.0, Norb];
 (* Hund's J. It's used only when HundMode = True to enforce rotation invariance of the Kanamori model. *)
 JH = 0.0; 
 (* density-density opposite spin coupling. It is set automatically if HundMode = True. *)
-Ust = -0.30; 
+Ust = -3.0; 
 (* density-density same spin coupling. It is set automatically if HundMode = True. *)
-Usec = 0.0; 
+Usec = -3.0; 
 (* pair-hopping coupling. It is set automatically if HundMode = True. *)
 Jph = 0.0; 
 (* spin-exchange coupling. It is set automatically if HundMode = True. *)
@@ -87,13 +87,13 @@ DMFTMaxIterations = 30;
 (* threshold for DMFT loop convergence *)
 DMFTerror = 1.0 * 10^(-5); 
 (* InverseG0 = Mixing * InverseG0old + (1 - Mixing) * InverseG0 *)
-Mixing = 0.25; 
+Mixing = 0.5; 
 (* type of minimization: "Global" or "Local" *)
 MinimizationType = "Local";
 (* Method for the minimization procedure *)
 MinimizationMethod = "ConjugateGradient";
 (* Max number of Conjugate Gradient iterations *)
-CGMaxIterations = 2000;
+CGMaxIterations = 1000;
 (* Number of Matsubara frequencies used to perform the fit *)
 CGNMatsubara = 500;
 (* Accuracy goal for minimization procedure *)

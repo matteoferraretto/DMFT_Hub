@@ -114,7 +114,13 @@ ContourM[contour_, \[Mu]_] := With[
 	, {3Nt, 3Nt}]
 ];
 
-
+(* Joint DoS for the infinite-dimensional hypercubic lattice *)
+JDOSHypercubicInfinite = Compile[{
+	{\[Epsilon], _Real}, {\[Epsilon]bar, _Real}, {t, _Real}
+	},
+	(1./(Pi*t^2)) * Exp[- (\[Epsilon]^2 + \[Epsilon]bar^2)/(2.0*t^2)],
+	CompilationTarget -> "C", RuntimeAttributes -> {Listable}, Parallelization -> True
+]
 
 
 

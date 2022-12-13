@@ -58,9 +58,11 @@ Do[
 			\[Phi] = Table[ CdgCdg[L, f, Norb, {1,1}, {1,2}, {orb,orb}, Sectors, EgsSectorList, GsSectorList, T], {orb, Norb}];
 			Print["Order parameter = ", \[Phi] ];
 			If[EdMode != "Superc",
-				\[CapitalXi] = 0.5 * (CdgCdg[L, f, Norb, {1,1}, {1,2}, {1,2}, Sectors, EgsSectorList, GsSectorList, T] 
-				+ CdgCdg[L, f, Norb, {1,1}, {1,2}, {2,1}, Sectors, EgsSectorList, GsSectorList, T]);
-				Print["Order parameter interorbital = ", \[CapitalXi]];
+				\[CapitalXi] = {
+					CdgCdg[L, f, Norb, {1,1}, {1,2}, {1,2}, Sectors, EgsSectorList, GsSectorList, T],
+					CdgCdg[L, f, Norb, {1,1}, {1,2}, {2,1}, Sectors, EgsSectorList, GsSectorList, T]
+				};
+				Print["Order parameter interorbital {<adg_up bdg_dw>, <bdg_up adg_dw>} = ", \[CapitalXi]];
 			]
 		];
 		

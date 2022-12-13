@@ -90,12 +90,12 @@ HNonlocal[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 				AppendTo[Hsector, Hblock];
 				];
 			];
-		,{flag, {"Bath","Hopping","Superc","InterorbSuperc"}}, {orb,1,Norb}, {\[Sigma],1,f}, {j,OptionValue[Nimp]+1,L}];
+		,{flag, {"Bath","Hopping","Superc","InterorbSuperc"}}, {orb,1,Norb}, {\[Sigma],1,f}, {j,OptionValue["Nimp"]+1,L}];
 		AppendTo[H, Hsector];
 	,{\[Psi], Sectors}];
 	H
 ];
-Options[HNonlocal] = {Nimp -> 1};
+Options[HNonlocal] = {"Nimp" -> 1};
 
 (* non local part of impurity Hamiltonian for Raman processes *)
 HNonlocalRaman[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
@@ -133,12 +133,12 @@ HNonlocalRaman[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 				];
 				AppendTo[Hsector, Hblock];
 			];
-		,{flag, {"Bath", "Hopping"}}, {orb, 1, Norb}, {j, OptionValue[Nimp]+1, L}, {\[Rho], 1, f}, {\[Sigma], 1, f}];
+		,{flag, {"Bath", "Hopping"}}, {orb, 1, Norb}, {j, OptionValue["Nimp"]+1, L}, {\[Rho], 1, f}, {\[Sigma], 1, f}];
 		AppendTo[H, Hsector];
 	,{\[Psi], Sectors}];
 	H
 ];
-Options[HNonlocalRaman] = {Nimp -> 1};
+Options[HNonlocalRaman] = {"Nimp" -> 1};
 
 (* Local Hamiltonian blocks *)
 HLocal[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
@@ -159,8 +159,8 @@ HLocal[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 						num = Sum[
 							n[L, f, Norb, j, \[Sigma], orb, \[Psi]]
 						, {\[Sigma], 1, f}];
-						Hblock += SparseArray@DiagonalMatrix[0.5*num*(num-1)];
-					, {j, 1, OptionValue[Nimp]}];
+						Hblock += SparseArray @ DiagonalMatrix[0.5*num*(num-1)];
+					, {j, 1, OptionValue["Nimp"]}];
 					AppendTo[Hsector, Hblock];
 				, {orb, 1, Norb}],
 			(* ---------------------------------- *)
@@ -170,15 +170,15 @@ HLocal[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 						n[L,f,Norb,j,1,orbA,\[Psi]]*n[L,f,Norb,j,2,orbB,\[Psi]],
 					(*else*)
 						0]
-				,{orbA, Norb}, {orbB, Norb}, {j, 1, OptionValue[Nimp]}];
+				,{orbA, Norb}, {orbB, Norb}, {j, 1, OptionValue["Nimp"]}];
 				Hblock = SparseArray@DiagonalMatrix[num];
 				AppendTo[Hsector, Hblock];,
 			(* ---------------------------------- *)
 				flag == "Interorb_Hubbard_Same_Spin" && Norb > 1,
 				num = Sum[
 					n[L, f, Norb, j, \[Sigma], orb, \[Psi]] * n[L, f, Norb, j, \[Sigma], orb+1, \[Psi]]
-				,{\[Sigma], f}, {orb, Norb-1}, {j, 1, OptionValue[Nimp]}];
-				Hblock = SparseArray@DiagonalMatrix[num];
+				,{\[Sigma], f}, {orb, Norb-1}, {j, 1, OptionValue["Nimp"]}];
+				Hblock = SparseArray @ DiagonalMatrix[num];
 				AppendTo[Hsector,Hblock];,
 			(* ---------------------------------- *)
 				flag == "Pair_Hopping" && Norb > 1 && (EdMode == "InterorbNormal" || EdMode == "InterorbSuperc" || EdMode == "Superc" || EdMode == "FullSuperc"),
@@ -192,7 +192,7 @@ HLocal[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 						\[CapitalSigma] = CCSign[L, f, {j,j,j,j}, {1,2,1,2}, {orb1,orb1,orb2,orb2}, \[Psi]1];
 						Hblock += SparseArray[pos->\[CapitalSigma],{dim,dim}];
 					];
-				,{orb1,1,Norb}, {orb2,1,Norb}, {j,1,OptionValue[Nimp]}];
+				,{orb1,1,Norb}, {orb2,1,Norb}, {j,1,OptionValue["Nimp"]}];
 				Hblock = Hblock + Hblock\[ConjugateTranspose];
 				AppendTo[Hsector,Hblock];,
 			(* ----------------------------------- *)
@@ -207,14 +207,14 @@ HLocal[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 						\[CapitalSigma] = CCSign[L, f, {j,j,j,j}, {1,2,1,2}, {orb1,orb1,orb2,orb2}, \[Psi]1];
 						Hblock += SparseArray[pos->\[CapitalSigma],{dim,dim}];
 					];
-				,{orb1,1,Norb}, {orb2,1,Norb}, {j,1,OptionValue[Nimp]}];
+				,{orb1,1,Norb}, {orb2,1,Norb}, {j,1,OptionValue["Nimp"]}];
 				Hblock = Hblock + Hblock\[ConjugateTranspose];
 				AppendTo[Hsector, Hblock];,
 			(* ---------------------------------- *)
 				flag == "Energy_Shift",
 				num = Sum[
 					n[L,f,Norb,j,\[Sigma],orb,\[Psi]]
-				,{\[Sigma],1,f}, {orb,1,Norb}, {j,1,OptionValue[Nimp]}];
+				,{\[Sigma],1,f}, {orb,1,Norb}, {j,1,OptionValue["Nimp"]}];
 				Hblock = SparseArray@DiagonalMatrix[num];
 				AppendTo[Hsector, Hblock];,
 			(* ----------------------------------- *)
@@ -222,8 +222,8 @@ HLocal[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 				Do[
 					num = Sum[
 						n[L, f, Norb, j, \[Sigma], orb, \[Psi]]
-					, {j, 1, OptionValue[Nimp]}];
-					Hblock = SparseArray@DiagonalMatrix[num];
+					, {j, 1, OptionValue["Nimp"]}];
+					Hblock = SparseArray @ DiagonalMatrix[num];
 					AppendTo[Hsector, Hblock];
 				, {orb, Norb}, {\[Sigma], f}],
 			(* ----------------------------------- *)
@@ -232,7 +232,7 @@ HLocal[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 					num = Sum[
 						n[L, f, Norb, j, \[Sigma], orb, \[Psi]]
 					, {j, 1, OptionValue[Nimp]}, {\[Sigma], f}];
-					Hblock = SparseArray@DiagonalMatrix[num];
+					Hblock = SparseArray @ DiagonalMatrix[num];
 					AppendTo[Hsector, Hblock];
 				, {orb, Norb}]
 			];
@@ -241,10 +241,10 @@ HLocal[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 	,{\[Psi],Sectors}];
 	H
 ];
-Options[HLocal] = {Nimp -> 1};
+Options[HLocal] = {"Nimp" -> 1};
 
 (* Get the Hamiltonian structure once for all *)
-GetHamiltonian[L_, f_, Norb_, Sectors_, LoadHamiltonianQ_, HnonlocFile_, HlocFile_, EdMode_] := Module[
+GetHamiltonian[L_, f_, Norb_, Nimp_, Sectors_, LoadHamiltonianQ_, HnonlocFile_, HlocFile_, EdMode_] := Module[
 	{HnonlocBlocks, HlocBlocks},
 	If[LoadHamiltonianQ,
 		Print["Getting Hamiltonians from file"];
@@ -254,9 +254,9 @@ GetHamiltonian[L_, f_, Norb_, Sectors_, LoadHamiltonianQ_, HnonlocFile_, HlocFil
 	(* else *)
 		Print["Computing Hamiltonians..."];
 		Print["Time: ", First @ AbsoluteTiming[
-			HnonlocBlocks = HNonlocal[L, f, Norb, Sectors, EdMode];
+			HnonlocBlocks = HNonlocal[L, f, Norb, Sectors, EdMode, "Nimp" -> Nimp];
 			Export[HnonlocFile, HnonlocBlocks];
-			HlocBlocks = HLocal[L, f, Norb, Sectors, EdMode];
+			HlocBlocks = HLocal[L, f, Norb, Sectors, EdMode, "Nimp" -> Nimp];
 			Export[HlocFile, HlocBlocks];
 		]," sec."];
 		Print["Done! Let's get started! \n"];

@@ -42,7 +42,7 @@ StartingBath[L_, f_, Norb_, \[Delta]_, InitializeBathMode_, EdMode_, OptionsPatt
 				Table[1.,{k,1,Nbath}],
 			f*Norb] * OptionValue[V0],	
 		(*else*)
-			{e,V} = Import[InitializeBathMode,"Table"];
+			{e,V} = Import[InitializeBathMode];
 		];
 		Return[{e, V}],
 (* ---------------------------------------------- *)
@@ -61,7 +61,7 @@ StartingBath[L_, f_, Norb_, \[Delta]_, InitializeBathMode_, EdMode_, OptionsPatt
 				, {k, Nbath}]
 			, Norb] * OptionValue[V0],
 		(*else*)
-			{e, V} = Import[InitializeBathMode, "Table"];
+			{e, V} = Import[InitializeBathMode];
 		];
 		Return[{e, V}],
 (* ---------------------------------------------- *)
@@ -81,7 +81,7 @@ StartingBath[L_, f_, Norb_, \[Delta]_, InitializeBathMode_, EdMode_, OptionsPatt
 				Table[1.,{k,1,Nbath}],
 			Norb] * OptionValue[\[CapitalDelta]0],
 		(*else*)
-			{e,V,\[CapitalDelta]} = Import[InitializeBathMode,"Table"];
+			{e,V,\[CapitalDelta]} = Import[InitializeBathMode];
 		];
 		Return[{e, V, \[CapitalDelta]}],
 (* ---------------------------------------------- *)
@@ -99,7 +99,7 @@ StartingBath[L_, f_, Norb_, \[Delta]_, InitializeBathMode_, EdMode_, OptionsPatt
 			f*Norb] * OptionValue[V0];
 	        \[CapitalXi] = OptionValue[\[CapitalXi]0] * Table[1., {k,1,Nbath}],
 		(*else*)
-			{e,V,\[CapitalXi]} = Import[InitializeBathMode,"Table"];
+			{e,V,\[CapitalXi]} = Import[InitializeBathMode];
 		];
 	   Return[{e,V,\[CapitalXi]}],
 (* ---------------------------------------------- *)
@@ -120,7 +120,7 @@ StartingBath[L_, f_, Norb_, \[Delta]_, InitializeBathMode_, EdMode_, OptionsPatt
 			Norb] * OptionValue[\[CapitalDelta]0];
 	        \[CapitalXi] = OptionValue[\[CapitalXi]0] * Table[1.,{k,1,Nbath}],
 		(*else*)
-			{e,V,\[CapitalDelta],\[CapitalXi]} = Import[InitializeBathMode,"Table"];
+			{e,V,\[CapitalDelta],\[CapitalXi]} = Import[InitializeBathMode];
 		];
 	   Return[{e,V,\[CapitalDelta],\[CapitalXi]}];
 	]

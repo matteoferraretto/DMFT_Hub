@@ -115,7 +115,7 @@ CdgCdg[L_, f_, Norb_, {i_,j_}, {\[Sigma]1_,\[Sigma]2_}, {orb1_,orb2_}, Sectors_,
 	];
 	\[Phi]/Length[GsSectorIndex]
 ];
-Options[CdgCdg] = {DegeneracyThreshold -> 1.*10^(-9)}
+Options[CdgCdg] = {DegeneracyThreshold -> 1.*10^(-9)};
 
 (* < cdg_(i \[Sigma]1 orb1) c_(j \[Sigma]2 orb2) > *)
 CdgC[L_, f_, Norb_, {i_,j_}, {\[Sigma]1_,\[Sigma]2_}, {orb1_,orb2_}, Sectors_, EgsSectorList_, GsSectorList_, T_, OptionsPattern[]] := Module[

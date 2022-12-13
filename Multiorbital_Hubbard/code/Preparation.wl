@@ -52,7 +52,7 @@ InteractionParameters = Flatten[{\[Delta], U, Ust, Usec, Jph, Jse, - \[Mu] + shi
 
 
 (* GET BATH PARAMETERS *)
-BathParameters = StartingBath[L, f, Norb, \[Delta]-\[Mu], InitializeBathMode, EdMode, V0 -> 0.1, \[CapitalDelta]0 -> 0.1, \[CapitalXi]0 -> 0.1];
+BathParameters = StartingBath[L, f, Norb, \[Delta]-\[Mu], InitializeBathMode, EdMode, V0 -> 0.1, \[CapitalDelta]0 -> 1.0, \[CapitalXi]0 -> 1.0];
 Nparams = Length[BathParameters];
 
 
@@ -93,7 +93,7 @@ HnonlocFile = OutputDirectory<>"Hnonloc_L="<>ToString[L]<>"_f="<>ToString[f]<>"_
 (* file name for import / export of local Hamiltonian blocks *)
 HlocFile = OutputDirectory<>"Hloc_L="<>ToString[L]<>"_f="<>ToString[f]<>"_Norb="<>ToString[Norb]<>"_EdMode="<>EdMode<>".mx";
 (* get hamiltonians *)
-{HnonlocBlocks, HlocBlocks} = GetHamiltonian[L, f, Norb, Sectors, LoadHamiltonianQ, HnonlocFile, HlocFile, EdMode];
+{HnonlocBlocks, HlocBlocks} = GetHamiltonian[L, f, Norb, Nimp, Sectors, LoadHamiltonianQ, HnonlocFile, HlocFile, EdMode];
 
 
 (* COPY INPUT FILE *)
@@ -101,4 +101,4 @@ CopyFile[
 	CodeDirectory<>"InputFile_Template.wl",
 	OutputDirectory<>"InputFile_Used.wl",
 	OverwriteTarget -> True
-]
+];

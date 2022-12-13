@@ -2,22 +2,20 @@
 
 $Path = Join[$Path, {"C:\\Users\\matte\\Desktop\\Mathematica_package\\"}];
 (* Import the code *)
-<<("DMFT.wl");
+<<"DMFT.wl";
 
 
 (* Import the input file *)
-<<("InputFile_Template.wl");
+<<"InputFile_Template.wl";
 
 
 (* Prepare everything *)
-<<("Preparation.wl");
+<<"Preparation.wl";
 
 
 (* Start DMFT Loops ... *)
-<<("DMFT_Loop.wl");
+Off[Eigensystem::arh];
+<<"DMFT_Loop.wl";
 
 
-<<("Post_Processing.wl");
-
-
-
+<<"Post_Processing.wl";
