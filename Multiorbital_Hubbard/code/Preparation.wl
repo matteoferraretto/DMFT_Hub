@@ -19,6 +19,16 @@ If[Length[CGWeight] != CGNMatsubara,
 	CGWeight = ConstantArray[1., CGNMatsubara];
 ];
 
+(* avoid stupid bugs related to sublattice calculation mode *)
+If[SublatticesQ && V == 0.0,
+	Print[Style["Error. The different sublattices need a small on-site energy difference, but V=0.0 was required. Proceeding with default value V=0.05", Red]];
+	V = 0.005;
+];
+If[!SublatticesQ && V != 0.0,
+	Print[Style["Error. On-site energy splitting between sublattices (V) is different from 0.0, but SublatticeQ = False. Proceeding with V=0.0", Red]];
+	V = 0.0;
+];
+
 
 (* GET INTERACTION PARAMETERS *)
 (* avoid stupid bugs: if Norb = 1 set all interorbital couplings to 0 *)
@@ -52,8 +62,12 @@ InteractionParameters = Flatten[{\[Delta], U, Ust, Usec, Jph, Jse, - \[Mu] + shi
 
 
 (* GET BATH PARAMETERS *)
-BathParameters = StartingBath[L, f, Norb, \[Delta]-\[Mu], InitializeBathMode, EdMode, V0 -> 0.1, \[CapitalDelta]0 -> 1.0, \[CapitalXi]0 -> 1.0];
-Nparams = Length[BathParameters];
+BathParameters = StartingBath[L, f, Norb, \[Delta]-\[Mu], InitializeBathMode, EdMode, V0 -> 1.0, \[CapitalDelta]0 -> 0.0, \[CapitalXi]0 -> 0.5];
+Nparams = Length[ Flatten[BathParameters] ];
+(* if there are sublattices, duplicate the bath parameters *)
+If[SublatticesQ,
+	BathParameters = {BathParameters, BathParameters};
+];
 
 
 (* GET SYMBOLIC GREEN FUNCTION AND WEISS FIELD *)

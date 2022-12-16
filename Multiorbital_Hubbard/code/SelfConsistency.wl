@@ -4,9 +4,17 @@ BeginPackage["SelfConsistency`", {"MyLinearAlgebra`"}]
 
 
 (* Self consistency *)
-WeissField::usage = "WeissField[L_, f_, Norb_, \[Mu]_, symbols_, z_, EdMode_]"
+WeissField::usage = "WeissField[L_, f_, Norb_, \[Mu]_, symbols_, z_, EdMode]"
+
+WeissFieldNumeric::usage = "WeissFieldNumeric[DBethe, \[Mu], LocalG, LocalGold, \[CapitalSigma], \[CapitalSigma]old, zlist, EdMode, OptionsPattern] gives a numeric evaluation of the Weiss field at the n-th iteration.
+The calculation is based on the knowledge of the n-th and (n-1)-th local Green function and the n-th and (n-1)-th self energy, that are mixed up when setting the option Mix -> ...
+The calculation depends on the lattice type: it takes advantage of the simplified algebra when Lattice -> ''Bethe'' and LatticeDimension -> Infinity; while it is Gloc^-1 + \[CapitalSigma] in general.
+The list of Matsubara frequencies zlist must be provided, along with the effective chemical potential. The parameter DBethe represents the half-bandwidth in case of Bethe lattice, while
+it is ignored when the lattice type is not ''Bethe''. "
 
 SelfConsistency::usage = "SelfConsistency[DBethe_, \[Mu]_, Weiss_, symbols_, z_, IndependentParameters_, LocalG_, LocalGold_, \[CapitalSigma]_, \[CapitalSigma]old_, zlist_, EdMode_]"
+
+SelfConsistencyNew::usage = "SelfConsistencyNew[Weiss_, symbols_, z_, IndependentParameters_, WeissNumeric_, zlist_, EdMode_]" 
 
 DMFTError::usage = "DMFTError[Xnew, Xold, EdMode]"
 
@@ -86,6 +94,108 @@ WeissField[L_, f_, Norb_, \[Mu]_, symbols_, z_, EdMode_] := Module[
 		z * IdentityMatrix[2Norb] - H0 - Sum[Vmat[[k]] . (Inverse[z * IdentityMatrix[2Norb] - H[[k]]] . Vmat[[k]]) , {k, L-1}]
 	]
 ];
+
+(* numeric evaluation of the Weiss field, including the mixing with previous iteration *)
+WeissFieldNumeric[DBethe_, \[Mu]_, LocalG_, LocalGold_, \[CapitalSigma]_, \[CapitalSigma]old_, zlist_, EdMode_, OptionsPattern[]] := Module[
+	{\[Alpha] = OptionValue[Mix], Lattice = OptionValue[Lattice], d = OptionValue[LatticeDimension], \[Sigma]3 = PauliMatrix[3], LocalGeff, Weff},
+	Which[
+		EdMode == "Normal" && Lattice == "Bethe" && d == Infinity,
+		(* Mix up the local Green function *)
+		LocalGeff = \[Alpha] * LocalGold + (1.0 - \[Alpha]) * LocalG;
+		Weff = zlist + \[Mu] - (DBethe^2/4.)*LocalGeff;,
+	(* ------------------------------------ *)
+		EdMode == "Superc" && Lattice == "Bethe" && d == Infinity,
+		(* Mix up the local Green function *)
+		LocalGeff = \[Alpha] * LocalGold + (1.0 - \[Alpha]) * LocalG;
+		Weff = (#*IdentityMatrix[3] + \[Mu]*\[Sigma]3) &/@ zlist - (DBethe^2/4.) * Map[Dot[\[Sigma]3, #, \[Sigma]3]&, LocalGeff];,
+	(* ------------------------------------ *)
+		EdMode == "Normal" && Lattice != "Bethe",
+		(* Mix up the effective Weiss field *)
+		If[\[Alpha] == 0.0,
+			Weff = 1./LocalG + \[CapitalSigma];,
+		(* else, if mixing is active *)
+			Weff = \[Alpha] * (1./LocalGold + \[CapitalSigma]old) + (1.0 - \[Alpha]) * (1./LocalG + \[CapitalSigma]);
+		];,
+	(* ------------------------------------ *)
+		EdMode == "Superc" && Lattice != "Bethe",
+		(* Mix up the effective Weiss field *)
+		If[\[Alpha] == 0.0,
+			Weff = TwoByTwoInverse[LocalG] + \[CapitalSigma];,
+		(* else, if mixing is active *)
+			Weff = \[Alpha] * (TwoByTwoInverse[LocalGold] + \[CapitalSigma]old) + (1.0 - \[Alpha]) * (TwoByTwoInverse[LocalG] + \[CapitalSigma]);
+		];,
+	(* ------------------------------------ *)
+		EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
+		(* Mix up the effective Weiss field *)
+		If[\[Alpha] == 0.0, 
+			Weff = (Inverse /@ LocalG) + \[CapitalSigma];, (* if no mixing, avoid inverting the old local G *)
+		(* else, if mixing is active *)
+			Weff = \[Alpha] * ((Inverse /@ LocalGold) + \[CapitalSigma]old) + (1.0 - \[Alpha]) * ((Inverse /@ LocalG) + \[CapitalSigma]);
+		];
+	];
+	Weff
+];
+Options[WeissFieldNumeric] = {Mix -> 0.0, Lattice -> "Bethe", LatticeDimension -> Infinity};
+
+(* new self cons *)
+SelfConsistencyNew[Weiss_, symbols_, z_, IndependentParameters_, WeissNumeric_, zlist_, EdMode_, OptionsPattern[{SelfConsistencyNew, FindMinimum}]] := Module[
+	{weight = OptionValue[FitWeight], \[Chi], residue, newparameters},
+	Which[
+		EdMode == "Normal",
+		(* distance function *)
+		\[Chi][symbols] = Mean[Abs[ weight * (
+			(Weiss /.{z -> #} &/@ zlist) - WeissNumeric
+		)]^2],
+	(* ------------------------------------ *)
+		EdMode == "Superc",
+		(* distance function *)
+		\[Chi][symbols] = Mean @ First @
+			Mean[Abs[ weight * (
+				(Weiss/.{z -> #} &/@ zlist) - WeissNumeric
+			)]^2],
+	(* ------------------------------------ *)
+		EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
+		(* distance function *)
+		\[Chi][symbols] = Mean[
+			Total[#, 2] &/@ (
+				Abs[
+					weight * (
+					UpperTriangularize[Weiss/.{z -> #}] &/@ zlist
+					- UpperTriangularize[#] &/@ WeissNumeric
+				)]^2 
+			)];
+	];
+	(* perform the fit to find the new bath parameters *)
+	Which[
+		OptionValue[Minimum] == "Local",
+		{residue, newparameters} =
+			FindMinimum[
+				\[Chi][symbols],
+				{symbols, IndependentParameters}\[Transpose],
+				Method -> OptionValue[Method],
+				MaxIterations -> OptionValue[MaxIterations],
+				AccuracyGoal -> OptionValue[AccuracyGoal]
+			];,
+	(* -------------------------------------- *)
+		OptionValue[Minimum] == "Global",
+		{residue, newparameters} =
+			NMinimize[
+				\[Chi][symbols],
+				symbols,
+				Method -> OptionValue[Method],
+				MaxIterations -> OptionValue[MaxIterations],
+				AccuracyGoal -> OptionValue[AccuracyGoal]
+			];
+	];
+	Print["Fit residue: ", residue];
+	symbols/.newparameters
+];
+Options[SelfConsistencyNew] = { 
+	NumberOfFrequencies -> 2000, 
+	Minimum -> "Local", 
+	Method -> "ConjugateGradient", 
+	FitWeight -> ConstantArray[1., 2000]
+};
 
 
 (* Perform minimization according to the self consistency condition *)

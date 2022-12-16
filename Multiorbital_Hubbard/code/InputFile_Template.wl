@@ -12,15 +12,19 @@ L = Nimp + Nbath;
 (* number of spin states *)
 f = 2; 
 (* call the function EdModeInfo[EdMode] to get details *)
-EdMode = "FullSuperc"; 
+EdMode = "Normal"; 
 (* lattice crystal structure: "Bethe", "Hypercubic", etc. *)
-LatticeType = "Hypercubic"; 
+LatticeType = "Bethe"; 
 (* lattice dimensionality *)
-LatticeDim = 2; 
+LatticeDim = Infinity; 
 (* lattice points *)
-LatticePoints = 100;
+LatticePoints = 1000;
+(* compute many-body functions independently for two different sublattices A and B? *)
+SublatticesQ = True;
+(* half of the on-site energy split between the two sublattices *)
+V = 0.05;
 (* set True to enforce orbital symmetry and avoid repeating calculations *)
-OrbitalSymmetry = False; 
+OrbitalSymmetry = True; 
 (* list of half-bandwidths for all the orbitals *)
 W = ConstantArray[1.0, Norb];
 
@@ -31,11 +35,11 @@ W = ConstantArray[1.0, Norb];
 (* interaction energy (list of U values for the orbitals) *)
 U = ConstantArray[0.0, Norb]; 
 (* Hund's J. It's used only when HundMode = True to enforce rotation invariance of the Kanamori model. *)
-JH = 0.0; 
+JH = -3.0; 
 (* density-density opposite spin coupling. It is set automatically if HundMode = True. *)
 Ust = -3.0; 
 (* density-density same spin coupling. It is set automatically if HundMode = True. *)
-Usec = -3.0; 
+Usec = 0.0; 
 (* pair-hopping coupling. It is set automatically if HundMode = True. *)
 Jph = 0.0; 
 (* spin-exchange coupling. It is set automatically if HundMode = True. *)
@@ -87,7 +91,7 @@ DMFTMaxIterations = 30;
 (* threshold for DMFT loop convergence *)
 DMFTerror = 1.0 * 10^(-5); 
 (* InverseG0 = Mixing * InverseG0old + (1 - Mixing) * InverseG0 *)
-Mixing = 0.5; 
+Mixing = 0.8; 
 (* type of minimization: "Global" or "Local" *)
 MinimizationType = "Local";
 (* Method for the minimization procedure *)

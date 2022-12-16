@@ -70,6 +70,19 @@ HighSymmetryPath[LatticePoints_, LatticeType_, LatticeDim_] := Which[
 	True, Print["Not supported."];
 ];
 
+(* split the square lattice into two sublattices *)
+SplitSquareLatticeIntoSublattices[BZ_] := Module[
+	{NumberOfPoints, LE, d, row, col, indexes, BZA, BZB},
+	{NumberOfPoints, d} = Dimensions[BZ];
+	LE = NumberOfPoints^(1/d);
+	indexes = Range[NumberOfPoints];
+	row = Table[Mod[indexes[[i]]-1, LE], {i, NumberOfPoints}];
+	col = Table[Quotient[indexes[[i]]-1, LE], {i, NumberOfPoints}];
+	BZA = Pick[BZ, EvenQ[row + col]];
+	BZB = Pick[BZ, OddQ[row + col]];
+	{BZA, BZB}
+];
+
 (* Return the energy and weight lists for computing local G.F. *)
 GetLatticeEnergies[HalfBandwidths_, \[Delta]_, LatticeType_, LatticeDim_, NumberOfPoints_] := Module[
 	{energies, weights, Norb = Length[HalfBandwidths], d\[Epsilon], LE, BZ},
