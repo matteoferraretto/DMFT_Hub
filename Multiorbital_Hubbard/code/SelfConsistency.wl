@@ -87,9 +87,6 @@ WeissField[L_, f_, Norb_, \[Mu]_, symbols_, z_, EdMode_] := Module[
 			H[[k]] = ArrayFlatten[H[[k]]];
 			Vmat[[k]] = ArrayFlatten[Vmat[[k]]];
 		, {k, L-1}];
-		Print[ MatrixForm[H0] ];
-		Print[ MatrixForm /@ H ];
-		Print[ MatrixForm /@ Vmat ];
 		(* compute Weiss field *)
 		z * IdentityMatrix[2Norb] - H0 - Sum[Vmat[[k]] . (Inverse[z * IdentityMatrix[2Norb] - H[[k]]] . Vmat[[k]]) , {k, L-1}]
 	]
@@ -107,7 +104,7 @@ WeissFieldNumeric[DBethe_, \[Mu]_, LocalG_, LocalGold_, \[CapitalSigma]_, \[Capi
 		EdMode == "Superc" && Lattice == "Bethe" && d == Infinity,
 		(* Mix up the local Green function *)
 		LocalGeff = \[Alpha] * LocalGold + (1.0 - \[Alpha]) * LocalG;
-		Weff = (#*IdentityMatrix[3] + \[Mu]*\[Sigma]3) &/@ zlist - (DBethe^2/4.) * Map[Dot[\[Sigma]3, #, \[Sigma]3]&, LocalGeff];,
+		Weff = (#*IdentityMatrix[2] + \[Mu]*\[Sigma]3) &/@ zlist - (DBethe^2/4.) * Map[Dot[\[Sigma]3, #, \[Sigma]3]&, LocalGeff];,
 	(* ------------------------------------ *)
 		EdMode == "Normal" && Lattice != "Bethe",
 		(* Mix up the effective Weiss field *)
@@ -160,8 +157,8 @@ SelfConsistencyNew[Weiss_, symbols_, z_, IndependentParameters_, WeissNumeric_, 
 			Total[#, 2] &/@ (
 				Abs[
 					weight * (
-					UpperTriangularize[Weiss/.{z -> #}] &/@ zlist
-					- UpperTriangularize[#] &/@ WeissNumeric
+					(UpperTriangularize[Weiss/.{z -> #}] &/@ zlist)
+					- (UpperTriangularize[#] &/@ WeissNumeric)
 				)]^2 
 			)];
 	];

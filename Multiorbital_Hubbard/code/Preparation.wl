@@ -62,7 +62,7 @@ InteractionParameters = Flatten[{\[Delta], U, Ust, Usec, Jph, Jse, - \[Mu] + shi
 
 
 (* GET BATH PARAMETERS *)
-BathParameters = StartingBath[L, f, Norb, \[Delta]-\[Mu], InitializeBathMode, EdMode, V0 -> 1.0, \[CapitalDelta]0 -> 0.0, \[CapitalXi]0 -> 0.5];
+BathParameters = StartingBath[L, f, Norb, \[Delta]-\[Mu], InitializeBathMode, EdMode, V0 -> 1.0, \[CapitalDelta]0 -> 0.2, \[CapitalXi]0 -> 0.2];
 Nparams = Length[ Flatten[BathParameters] ];
 (* if there are sublattices, duplicate the bath parameters *)
 If[SublatticesQ,
@@ -116,3 +116,9 @@ CopyFile[
 	OutputDirectory<>"InputFile_Used.wl",
 	OverwriteTarget -> True
 ];
+
+
+(* TURN OFF ANNOYING MESSAGES AND ABORT AS SOON AS AN ERROR SHOWS UP *)
+Off[Eigensystem::arh];
+messageHandler = If[Last[#], Abort[]] &;
+Internal`AddHandler["Message", messageHandler]

@@ -12,7 +12,7 @@ Do[
 	Print["Bath parameters: ", BathParameters];
 
 	(* Build and diagonalize the AIM Hamiltonian + print timing *)
-	Print["E.D. time: ", AbsoluteTiming[
+	Print["E.D. time: ", First @ AbsoluteTiming[
 	
 		Hsectors = HImp[Norb, HnonlocBlocks, HlocBlocks, BathParameters, InteractionParameters, EdMode];
 		eigs = Map[
@@ -179,6 +179,14 @@ Do[
 			LocalG = Table[
 				LocalGreenFunction[LatticeEnergies[[All, orb, orb]], LatticeWeights, \[Mu], \[CapitalSigma][[orb]], i\[Omega], EdMode]
 			, {orb, Norb}];
+			(* Weiss field (numerical) *)
+			WeissNumeric = Table[
+				WeissFieldNumeric[
+					W[[orb]], \[Mu] - \[Delta][[orb]], LocalG[[orb]], LocalGold[[orb]], \[CapitalSigma][[orb]], \[CapitalSigma]old[[orb]], i\[Omega], EdMode, 
+					Mix -> If[DMFTiterator>2, Mixing, 0.0],
+					Lattice -> LatticeType, 
+					LatticeDimension -> LatticeDim
+				], {orb, Norb}];
 			
 			(* z *)
 			Z = Table[ QuasiparticleWeight[\[CapitalSigma][[orb]], i\[Omega], EdMode, FitCutoff -> 50], {orb, Norb} ];
@@ -189,9 +197,9 @@ Do[
 			
 			(* Self consistency *)
 			Print[Style["\t\t Self Consistency start", 16, Bold, Magenta]];
-			Print["S.C. time: ", First@AbsoluteTiming[
+			Print["S.C. time: ", First @ AbsoluteTiming[
 			
-			BathParameters = ReshapeBathParameters[L, f, Norb, Table[
+			(*BathParameters = ReshapeBathParameters[L, f, Norb, Table[
 				SelfConsistency[
 					W[[orb]], \[Mu] - \[Delta][[orb]], Weiss[[orb]], symbols, z, IndependentParameters[[orb]], 
 					LocalG[[orb]], LocalGold[[orb]], \[CapitalSigma][[orb]], \[CapitalSigma]old[[orb]], i\[Omega], EdMode,
@@ -205,7 +213,18 @@ Do[
 					AccuracyGoal -> CGAccuracy,
 					FitWeight -> CGWeight
 				]
-			, {orb, Norb}], OrbitalSymmetry, EdMode];
+			, {orb, Norb}], OrbitalSymmetry, EdMode]; *)
+			BathParameters = ReshapeBathParameters[L, f, Norb, Table[
+				SelfConsistencyNew[
+					Weiss[[orb]], symbols, z, IndependentParameters[[orb]], WeissNumeric[[orb]], i\[Omega], EdMode,
+					Minimum -> MinimizationType, 
+					Method -> MinimizationMethod,
+					NumberOfFrequencies -> CGNMatsubara, 
+					MaxIterations -> CGMaxIterations, 
+					AccuracyGoal -> CGAccuracy,
+					FitWeight -> CGWeight
+				]
+				, {orb, Norb}], OrbitalSymmetry, EdMode];
 			
 			], " sec." ];
 			
@@ -217,7 +236,7 @@ Do[
 		(*   Interorb Superc   *)
 		(* ------------------ *)
 			(EdMode == "InterorbSuperc" || EdMode == "FullSuperc") && !OrbitalSymmetry,
-			Print["\n Green functions calculation time: ", First@AbsoluteTiming[
+			Print["\n Green functions calculation time: ", First @ AbsoluteTiming[
 			
 			IndependentParameters = TakeIndependentParameters[L, f, Norb, 1, 1, BathParameters, EdMode];
 			(* G(i\[Omega]) *)
@@ -240,6 +259,13 @@ Do[
 			(* Gloc(i\[Omega]) *)
 			LocalGold = If[DMFTiterator == 1, 0*InverseG, LocalG];
 			LocalG = LocalGreenFunction[LatticeEnergies, LatticeWeights, \[Mu], \[CapitalSigma], i\[Omega], EdMode];
+			(* Weiss field (numerical) *)
+			WeissNumeric = WeissFieldNumeric[
+				W, \[Mu] - \[Delta], LocalG, LocalGold, \[CapitalSigma], \[CapitalSigma]old, i\[Omega], EdMode, 
+				Mix -> If[DMFTiterator>2, Mixing, 0.0],
+				Lattice -> LatticeType, 
+				LatticeDimension -> LatticeDim
+			];
 			
 			Z = Table[QuasiparticleWeight[\[CapitalSigma], i\[Omega], EdMode, Orb -> orb], {orb, Norb}];
 			Print["Quasiparticle weight z = ", Z];
@@ -251,7 +277,7 @@ Do[
 			Print[Style["\t\t Self Consistency start", 16, Bold, Magenta]];
 			Print["S.C. time: ", First@AbsoluteTiming[
 			
-			BathParameters = ReshapeBathParameters[L, f, Norb, 
+			(* BathParameters = ReshapeBathParameters[L, f, Norb, 
 				SelfConsistency[
 					W[[1]], 
 					\[Mu] - \[Delta], 
@@ -268,7 +294,17 @@ Do[
 					AccuracyGoal -> CGAccuracy,
 					FitWeight -> CGWeight
 				]
-			, OrbitalSymmetry, EdMode];
+			, OrbitalSymmetry, EdMode]; *)
+			BathParameters = ReshapeBathParameters[L, f, Norb, 
+				SelfConsistencyNew[
+					Weiss, symbols, z, IndependentParameters, WeissNumeric, i\[Omega], EdMode,
+					Minimum -> MinimizationType, 
+					Method -> MinimizationMethod,
+					NumberOfFrequencies -> CGNMatsubara, 
+					MaxIterations -> CGMaxIterations, 
+					AccuracyGoal -> CGAccuracy,
+					FitWeight -> CGWeight
+				], OrbitalSymmetry, EdMode];
 			
 			error = DMFTError[InverseG0, InverseG0old, EdMode];
 			
