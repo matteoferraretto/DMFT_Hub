@@ -5,6 +5,9 @@ BeginPackage["Parameters`"]
 StartingBath::usage = "StartingBath[L, f, Norb, \[Delta], InitializeBathMode, EdMode] returns a list containing the bath parameters to start the DMFT loop.
 If EdMode = ''Normal'' then the output has the form {e,V}, where e and V are lists of Norb x (L-1) elements, representing the bath energies and the bath-impurity hybridizations.
 If EdMode = ''Superc'' then the output has the form {e,V,\[CapitalDelta]}, where e and V are defined as above, and \[CapitalDelta] is the Norb x Nbath dimensional list of pairs creation (annihilation) amplitudes.
+If EdMode = ''Raman'' then the output has the form {e, V}, where both e and V are lists of fxf matrices, one for every bath site. The diagonal components of e[[i]] are
+on-site flavor-resolved energies for the bath sites; while the off-diagonal components are hybridizations between different flavors of the same bath site. The diagonal components of V[[i]]
+are flavor-diagonal tunnelings between the impurity and the i-th bath site; while the off-diagonal components are the flavor-swapping tunnelings between the impurity and the i-th site.
 If EdMode = ''InterorbSuperc'' then the output has the form {e,V,\[CapitalDelta],\[CapitalXi]}, where e, V, \[CapitalDelta] are as above, and \[CapitalXi] is the Nbath - dimensional list of interorbital pairs creation (annihilation) amplitudes
 InitializeBathMode is a string with the path to the file containing the bath parameters; if it is set to ''Default'', default parameters are dropped.
 The input \[Delta] is the list of crystal field splittings (with Norb elements) and it's used to set the starting bath energy levels around the corresponding non-interacting energies."
