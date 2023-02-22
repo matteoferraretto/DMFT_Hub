@@ -181,7 +181,7 @@ HLocal[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 				Hblock = SparseArray @ DiagonalMatrix[num];
 				AppendTo[Hsector,Hblock];,
 			(* ---------------------------------- *)
-				flag == "Pair_Hopping" && Norb > 1 && (EdMode == "InterorbNormal" || EdMode == "InterorbSuperc" || EdMode == "Superc" || EdMode == "FullSuperc"),
+				(*flag == "Pair_Hopping" && Norb > 1 && (EdMode == "InterorbNormal" || EdMode == "InterorbSuperc" || EdMode == "Superc" || EdMode == "FullSuperc"),
 				Hblock = SparseArray[{},{dim,dim}];
 				Do[
 					If[orb2 > orb1,
@@ -189,12 +189,27 @@ HLocal[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 						If[Length[\[Psi]1] == 0, Continue[];];
 						\[Chi] = PairHopping[L, f, 1, orb1, orb2, \[Psi]1];
 						rows=\[Chi]/.dispatch;(* *)cols=\[Psi]1/.dispatch;(* *)pos={rows,cols}\[Transpose];
-						\[CapitalSigma] = CCSign[L, f, {j,j,j,j}, {1,2,1,2}, {orb1,orb1,orb2,orb2}, \[Psi]1];
+						\[CapitalSigma] = CCSign[L, f, {j,j,j,j}, {1,2,2,1}, {orb1,orb1,orb2,orb2}, \[Psi]1];
 						Hblock += SparseArray[pos->\[CapitalSigma],{dim,dim}];
 					];
 				,{orb1,1,Norb}, {orb2,1,Norb}, {j,1,OptionValue["Nimp"]}];
 				Hblock = Hblock + Hblock\[ConjugateTranspose];
-				AppendTo[Hsector,Hblock];,
+				AppendTo[Hsector,Hblock];*)
+				flag == "Pair_Hopping" && Norb > 1 && (EdMode == "InterorbNormal" || EdMode == "InterorbSuperc" || EdMode == "Superc" || EdMode == "FullSuperc"),
+				Hblock = SparseArray[{}, {dim,dim}];
+				Do[
+					If[orb2 >= orb1,
+						\[Psi]1 = PairHoppingSelect[L, f, 1, orb1, orb2, \[Psi]];
+						If[Length[\[Psi]1] == 0, AppendTo[Hsector, Hblock]; Continue[];];
+						\[Chi] = PairHopping[L, f, 1, orb1, orb2, \[Psi]1];
+						rows=\[Chi]/.dispatch;(* *)cols=\[Psi]1/.dispatch;(* *)pos={rows,cols}\[Transpose];
+						(* adg_up adg_dw b_dw b_up = - adg_up adg_dw b_up b_dw <---- with this choice the operators do not leap over themselves when applied to a state *)
+						\[CapitalSigma] = - CCSign[L, f, {j,j,j,j}, {1,2,1,2}, {orb1,orb1,orb2,orb2}, \[Psi]1];
+						Hblock = SparseArray[pos -> \[CapitalSigma], {dim,dim}];
+						If[orb2 > orb1, Hblock = Hblock + Hblock\[ConjugateTranspose]; ];
+						AppendTo[Hsector, Hblock];
+					];
+				,{orb1,1,Norb}, {orb2,1,Norb}, {j,1,OptionValue["Nimp"]}];,
 			(* ----------------------------------- *)
 				flag == "Spin_Exchange" && Norb > 1 && (EdMode == "InterorbNormal" || EdMode == "InterorbSuperc" || EdMode == "FullSuperc"),
 				Hblock = SparseArray[{},{dim,dim}];
@@ -270,19 +285,25 @@ HImp[Norb_, HnonlocBlocks_, HlocBlocks_, BathParameters_, InteractionParameters_
 	EffectiveInteractionParameters = Which[
 		Norb == 1,
 		(* with 1 orbital, delete Jse, Jph, Usec, Ust, at positions -2, -3, -4, -5 *)
-		Delete[InteractionParameters, {{-2},{-3},{-4},{-5}}],
+		Flatten[
+			Delete[InteractionParameters, {{-2},{-3},{-4},{-5}}]
+		],
 	(* --------------------------------------------------- *)
 		Norb > 1 && (EdMode == "InterorbNormal" || EdMode == "InterorbSuperc" || EdMode == "FullSuperc"),
 		(* this is the most complicated scenario, you don't remove anything here *)
-		InteractionParameters,
+		Flatten[InteractionParameters],
 	(* --------------------------------------------------- *)
 		Norb > 1 && EdMode == "Superc", 
 		(* pair hopping is possible, but spin exchange is not *)
-		Delete[InteractionParameters, -2],
+		Flatten[
+			Delete[InteractionParameters, -2]
+		],
 	(* --------------------------------------------------- *)
 		Norb > 1 && EdMode == "Normal",
 		(* pair hopping and spin exchange are not possible *)
-		Delete[InteractionParameters, {{-2},{-3}}]
+		Flatten[
+			Delete[InteractionParameters, {{-2},{-3}}]
+		]
 	];
 	(* build non local Hamiltonian -> avoid Dot[] as it returns dense array *)
 	Hnonloc = SparseArray[#]&/@(

@@ -53,7 +53,7 @@ Do[
 		(* print some observables *)
 		Print["\n\t\t Observables:"];
 		density = Table[ Sum[Density[L, f, Norb, 1, \[Sigma], orb, Sectors, EgsSectorList, GsSectorList, T], {\[Sigma], f}], {orb, Norb}];
-		Print["Impurity density = ", density ];
+		Print["Impurity density = ", density, "; total density = ", Total[density] ];
 		docc = Table[ SquareDensity[L, f, Norb, {1,1}, {1,2}, {orb,orb}, Sectors, EgsSectorList, GsSectorList, T], {orb, Norb}];
 		Print["Impurity double occupancy = ", docc ];
 		If[EdMode == "Superc" || EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
@@ -339,6 +339,14 @@ Do[
 , {DMFTiterator, DMFTMaxIterations}]
 
 ]
+
+(* when DMFT is done, store observables *) 
+WriteOutput[True, OutputDirectory, "density", density];
+WriteOutput[True, OutputDirectory, "double_occupancy", docc];
+WriteOutput[True, OutputDirectory, "phi", \[Phi]];
+WriteOutput[True, OutputDirectory, "\[CapitalXi]", \[CapitalXi]];
+WriteOutput[True, OutputDirectory, "z", Z];
+
 
 
 (* ::Subtitle:: *)

@@ -15,6 +15,7 @@ DimSector::usage = "DimSector[L, f, Norb, qns, EdMode] returns the theoretical v
 BuildSector::usage = "BuildSector[L, f, Norb, qns, EdMode] creates a list of basis states of the Fock subpace with given quantum numbers qns. 
 If EdMode = ''Normal'', then qns = {n_orb1_spin1, n_orb1_spin2, ..., n_orb2_spin1, n_orb2_spin2, ...}.
 If EdMode = ''InterorbNormal'', then qns = {n_spin1, n_spin2, ...} where n_spin is the total number of particles with a given spin.
+If EdMode = ''Raman'', then qns = {n_orb1, n_orb2, ...} where n_orb is the total number of particles in a given orbital.
 If EdMode = ''Superc'', then qns = {sz_orb1, sz_orb2, ...} are the total spin-z in the given orbital, i.e. sz_orb = n_orb_up - n_orb_dw.
 If EdMode = ''InterorbSuperc'', then qns = sz is the total spin-z.
 The states are created in the integer represenation. L is the total number of sites, f is the number of flavours and Norb is the number of orbitals. 
@@ -38,7 +39,7 @@ basis = Compile[{
 BASIS[L_, flavors_, qns_] := Flatten[Outer[{##}&,##]&@@Table[basis[L,qns[[\[Sigma]]]],{\[Sigma],1,flavors}],flavors-1];
 
 (* list of all the quantum numbers that label the sectors *)
-SectorList[L_, f_, Norb_, EdMode_]:=Module[
+SectorList[L_, f_, Norb_, EdMode_] := Module[
 	{QnsSectorList},
 	Which[
 		EdMode == "Normal",
@@ -60,10 +61,10 @@ SectorList[L_, f_, Norb_, EdMode_]:=Module[
 		,Norb], Min[1,Norb-1]],
 (* --------------------------------------- *)
 		EdMode == "Superc",
-		QnsSectorList=Flatten[
+		QnsSectorList = Flatten[
 		Outer[{##}&,##]&@@ConstantArray[
-			Range[-L,L]
-		,Norb], Min[1,Norb-1]],
+			Range[-L, L]
+		,Norb], Min[1, Norb-1]],
 (* --------------------------------------- *)
 		EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
 		QnsSectorList = Range[-Norb*L,Norb*L];
@@ -84,6 +85,11 @@ DimSector[L_, f_, Norb_, qns_, EdMode_] := Module[
 		dim = Product[
 			Binomial[Norb*L,qns[[i]]]
 		,{i,1,f}],
+(* ---------------------------------------------- *)
+		EdMode == "Raman",
+		dim = Product[
+			Binomial[2*L, qns[[orb]]]
+		, {orb, Norb}],
 (* --------------------------------------- *)	
 		EdMode == "Superc",
 		dim = Product[

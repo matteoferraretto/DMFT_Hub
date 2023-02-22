@@ -33,11 +33,14 @@ If[!SublatticesQ && V != 0.0,
 (* GET INTERACTION PARAMETERS *)
 (* avoid stupid bugs: if Norb = 1 set all interorbital couplings to 0 *)
 If[Norb == 1,
-	HundMode = False; Ust = 0.0; Usec = 0.0; Jph = 0.0; Jse = 0.0; JH = 0.0;
+	HundMode = False; Ust = 0.0; Usec = 0.0; Jse = 0.0; JH = 0.0;
 ];
 (* reset couplings if HundMode = True to enforce rotational invariance *)
 If[HundMode,
-	Ust = U[[1]] - 2*JH; Usec = U[[1]] - 3*JH; Jph = 0*JH; Jse = -0*JH;
+	Ust = U[[1]] - 2*JH; 
+	Usec = U[[1]] - 3*JH; 
+	Jph = 0 * JH * (ConstantArray[1, {Norb, Norb}] - IdentityMatrix[Norb]); (* just off diagonal pair hopping *)
+	Jse = - 0 * JH;
 ];
 (* shift on site energy if HFMode = True *)
 If[HFMode, 
@@ -57,8 +60,14 @@ If[OrbitalSymmetry && Norb > 1,
 	\[Delta] = ConstantArray[0.0, Norb];
 ];
 
-(* get flat list of interaction parameters *)
-InteractionParameters = Flatten[{\[Delta], U, Ust, Usec, Jph, Jse, - \[Mu] + shift}];
+(* just pick upper triangular part of the pair hopping matrix *)
+Jph = Flatten[ Pick[
+	Jph, 
+	UpperTriangularize[ConstantArray[1, {Norb, Norb}]],
+	1
+] ];
+(* get list of interaction parameters in correct order *)
+InteractionParameters = {\[Delta], U, Ust, Usec, Jph, Jse, - \[Mu] + shift};
 
 
 (* GET BATH PARAMETERS *)
@@ -85,9 +94,9 @@ If[EdMode != "FullSuperc",
 (* list of quantum numbers of all the sectors *)
 QnsSectorList = SectorList[L, f, Norb, EdMode]; 
 (* list of dimensions of all the sectors *)
-DimSectorList = DimSector[L, f, Norb, #, EdMode]&/@QnsSectorList; 
+DimSectorList = DimSector[L, f, Norb, #, EdMode] &/@ QnsSectorList; 
 (* list of all the sectors *)
-Sectors = BuildSector[L, f, Norb, #, EdMode]&/@QnsSectorList; 
+Sectors = BuildSector[L, f, Norb, #, EdMode] &/@ QnsSectorList; 
 (* list of rules that assigns every element of QnsSectorList to an integer *)
 SectorsDispatch = Dispatch[Flatten[MapIndexed[{#1->#2[[1]]}&, QnsSectorList], 1]]; 
 (* if full diagonalization is required, make sure that Lanczos will never be used *)
@@ -103,19 +112,20 @@ Print["Nsectors: ", Length[QnsSectorList], ". Dim. of the largest sector: ", Max
 
 (* GET IMPURITY HAMILTONIAN *)
 (* file name for import / export of nonlocal Hamiltonian blocks *)
-HnonlocFile = OutputDirectory<>"Hnonloc_L="<>ToString[L]<>"_f="<>ToString[f]<>"_Norb="<>ToString[Norb]<>"_EdMode="<>EdMode<>".mx";
+HnonlocFile = CodeDirectory<>"Hnonloc_L="<>ToString[L]<>"_f="<>ToString[f]<>"_Norb="<>ToString[Norb]<>"_EdMode="<>EdMode<>".mx";
 (* file name for import / export of local Hamiltonian blocks *)
-HlocFile = OutputDirectory<>"Hloc_L="<>ToString[L]<>"_f="<>ToString[f]<>"_Norb="<>ToString[Norb]<>"_EdMode="<>EdMode<>".mx";
+HlocFile = CodeDirectory<>"Hloc_L="<>ToString[L]<>"_f="<>ToString[f]<>"_Norb="<>ToString[Norb]<>"_EdMode="<>EdMode<>".mx";
 (* get hamiltonians *)
 {HnonlocBlocks, HlocBlocks} = GetHamiltonian[L, f, Norb, Nimp, Sectors, LoadHamiltonianQ, HnonlocFile, HlocFile, EdMode];
 
 
 (* COPY INPUT FILE *)
-CopyFile[
-	CodeDirectory<>"InputFile_Template.wl",
+Save[
 	OutputDirectory<>"InputFile_Used.wl",
-	OverwriteTarget -> True
-];
+	{Nbath, Norb, Nimp, L, f, EdMode, LatticeType, LatticeDim, LatticePoints, SublatticesQ, V, OrbitalSymmetry, W, U, JH, Ust, Usec, Jph, Jse, HundMode, \[Mu], \[Delta], T, TMats, NMatsubara, 
+	\[Omega]min, \[Omega]max, NReal, d\[Omega], \[Eta], CodeDirectory, OutputDirectory, LoadHamiltonianQ, InitializeBathMode, HFMode, FullDiagonalizationMode, DegeneracyThreshold, MinLanczosDim, MaxLanczosIter, 
+	MinNumberOfEigs, DMFTMinIterations, DMFTMaxIterations, DMFTerror, Mixing, MinimizationType, MinimizationMethod, CGMaxIterations, CGNMatsubara, CGAccuracy, CGWeight}
+]
 
 
 (* TURN OFF ANNOYING MESSAGES AND ABORT AS SOON AS AN ERROR SHOWS UP *)

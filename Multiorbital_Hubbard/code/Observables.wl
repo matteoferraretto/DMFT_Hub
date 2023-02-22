@@ -19,6 +19,8 @@ SuperfluidStiffness::usage = "SuperfluidStiffness[DBethe, \[CapitalSigma], i\[Om
 
 KineticEnergy::usage = "KineticEnergy[DBethe, \[Mu], \[CapitalSigma], i\[Omega], EdMode] computes the Kinetic energy (expectation value of non-local impurity Hamiltonian). "
 
+KineticEnergyNew::usage = "KineticEnergyNormal[\[Mu], LatticeEnergies, LatticeWeights, \[CapitalSigma], i\[Omega], EdMode]"
+
 SpectralFunction::usage = "SpectralFunction[LatticeEnergies_, weights_, \[Mu]_, \[CapitalSigma]_, zlist_, EdMode_]"
 
 MomentumResolvedSpectralFunction::usage = "MomentumResolvedSpectralFunction"
@@ -298,6 +300,135 @@ KineticEnergy[DBethe_, \[Mu]_, \[CapitalSigma]_, i\[Omega]_, EdMode_] := Module[
 	Re[Ekin]
 ];
 Options[KineticEnergy] = {Lattice -> "Bethe", LatticeDimension -> 2, NumberOfPoints -> 1000};
+
+
+(* EdMode = "Normal" means that the orbitals are decoupled *)
+KineticEnergyNormal[\[Mu]_, LatticeEnergies_, LatticeWeights_, \[CapitalSigma]_, i\[Omega]_, OrbitalSymmetry_] := Module[
+	{Norb, \[CapitalSigma]0, TMats, NMats, LE, G, Ekin},
+	Norb = Length[\[CapitalSigma]];
+	Ekin = ConstantArray[0., Norb]; (* initialize Norb orbital contributions to the kinetic energy *)
+	TMats = Im[ i\[Omega][[2]] - i\[Omega][[1]] ] / (2*Pi);
+	NMats = Length[i\[Omega]];
+	LE = Length[LatticeWeights];
+	Do[
+		\[CapitalSigma]0 = Last[\[CapitalSigma][[orb]]];
+		(* one factor 2 accounts for spin degeneracy, the other one for sum over negative Matsubara frequencies *)
+		Ekin[[orb]] = 2. * 2. * TMats * Total @ Table[
+			LatticeWeights[[k]] * (LatticeEnergies[[k, orb, orb]] - \[Mu]) * Total @ Table[
+				Re[ 1./( (i\[Omega][[n]] + \[Mu]) - LatticeEnergies[[k, orb, orb]] - \[CapitalSigma][[orb, n]] ) ]
+				- (LatticeEnergies[[k, orb, orb]] + \[CapitalSigma]0)/(i\[Omega][[n]]^2)
+			, {n, NMats}]
+		, {k, LE}] + 
+		0.5 * Total @ Table[
+			LatticeWeights[[k]] * (LatticeEnergies[[k, orb, orb]] - \[Mu])
+		, {k, LE}] - 
+		(1./(2.*TMats)) * Total @ Table[
+			LatticeWeights[[k]] * (LatticeEnergies[[k, orb, orb]] - \[Mu]) * (LatticeEnergies[[k, orb, orb]] + \[CapitalSigma]0)
+		, {k, LE}];
+		(* if there is orbital symmetry, avoid the calculation for all the other orbitals *)
+		If[OrbitalSymmetry,
+			Ekin = Norb * Ekin;
+			Break[];
+		];
+	, {orb, 1, Norb}];
+	Chop[Total[Ekin], 10^(-8)]
+];
+
+KineticEnergyInterorbNormal[\[Mu]_, LatticeEnergies_, LatticeWeights_, \[CapitalSigma]_, i\[Omega]_] := Module[
+	{Norb, \[CapitalSigma]0, TMats, NMats, LE, G, Ekin},
+	Norb = Length[\[CapitalSigma]];
+	\[CapitalSigma]0 = Last /@ \[CapitalSigma];
+	TMats = Im[ i\[Omega][[2]] - i\[Omega][[1]] ] / (2*Pi);
+	NMats = Length[i\[Omega]];
+	LE = Length[LatticeWeights];
+	(* one factor 2 accounts for spin degeneracy, the other one for sum over negative Matsubara frequencies *)
+	Ekin = 2. * 2. * TMats * Sum[
+		LatticeWeights[[k]] * Tr[
+			(LatticeEnergies[[k]] - \[Mu]) * Sum[
+				Re[ Inverse[ (i\[Omega][[n]] + \[Mu])*IdentityMatrix[Norb] - LatticeEnergies[[k]] - DiagonalMatrix[\[CapitalSigma][[All, n]]] ] ]
+				- (LatticeEnergies[[k]] + \[CapitalSigma]0)/(i\[Omega][[n]]^2)
+		, {n, NMats}]]
+	, {k, LE}] + 
+	0.5 * Sum[
+		LatticeWeights[[k]] * Tr[(LatticeEnergies[[k]] - \[Mu])]
+	, {k, LE}] - 
+	(1./(2.*TMats)) * Sum[
+		LatticeWeights[[k]] * Tr[(LatticeEnergies[[k]] - \[Mu]) * (LatticeEnergies[[k]] + \[CapitalSigma]0)]
+	, {k, LE}];
+	Chop[Ekin, 10^(-8)]
+];
+
+KineticEnergySuperc[\[Mu]_, LatticeEnergies_, LatticeWeights_, \[CapitalSigma]_, i\[Omega]_, OrbitalSymmetry_] := Module[
+	{Norb, \[CapitalSigma]0, TMats, NMats, LE, \[Sigma]0 = IdentityMatrix[2], \[Sigma]3 = PauliMatrix[3], Ekin},
+	Norb = Length[\[CapitalSigma]];
+	Ekin = ConstantArray[0., Norb]; (* initialize Norb orbital contributions to the kinetic energy *)
+	TMats = Im[ i\[Omega][[2]] - i\[Omega][[1]] ] / (2*Pi);
+	NMats = Length[i\[Omega]];
+	LE = Length[LatticeWeights];
+	Do[
+		\[CapitalSigma]0 = Last[\[CapitalSigma][[orb]]];
+		\[CapitalSigma]0[[2,2]] = - Conjugate[ \[CapitalSigma]0[[2,2]] ];
+		(* here we do not assume spin degeneracy: we sum spin up and spin down contributions *)
+		(* one factor 2 accounts for sum over negative Matsubara frequencies *)
+		Ekin[[orb]] = 2. * TMats * Sum[
+			LatticeWeights[[k]] * (LatticeEnergies[[k, orb, orb]] - \[Mu]) * Sum[
+				Re[ Tr[ TwoByTwoInverse[ i\[Omega][[n]]*\[Sigma]0 + (\[Mu] - LatticeEnergies[[k, orb, orb]])*\[Sigma]3 - \[CapitalSigma][[orb, n]] ] . \[Sigma]3 ] ]
+				- (2.*LatticeEnergies[[k, orb, orb]] + Tr[\[CapitalSigma]0])/(i\[Omega][[n]]^2)
+			, {n, NMats}]
+		, {k, LE}] + 
+		0.5 * Sum[
+			LatticeWeights[[k]] * (LatticeEnergies[[k, orb, orb]] - \[Mu])
+		, {k, LE}] - 
+		(1./(4.*TMats)) * Sum[
+			LatticeWeights[[k]] * (LatticeEnergies[[k, orb, orb]] - \[Mu]) * (2.*LatticeEnergies[[k, orb, orb]] + Tr[\[CapitalSigma]0])
+		, {k, LE}];
+		(* if there is orbital symmetry, avoid the calculation for all the other orbitals *)
+		If[OrbitalSymmetry,
+			Ekin = Norb * Ekin;
+			Break[];
+		];
+	, {orb, 1, Norb}];
+	Chop[Total[Ekin], 10^(-8)]
+];
+
+KineticEnergyFullSuperc[\[Mu]_, LatticeEnergies_, LatticeWeights_, \[CapitalSigma]_, i\[Omega]_] := Module[
+	{Norb, \[CapitalSigma]0, TMats, NMats, Energies, LE, \[Sigma]0 = IdentityMatrix[4], \[Sigma]3 = DiagonalMatrix[{1,-1,1,-1}], Ekin},
+	\[CapitalSigma]0 = Last[\[CapitalSigma]];
+	Norb = Length[\[CapitalSigma]0]/2;
+	TMats = Im[ i\[Omega][[2]] - i\[Omega][[1]] ] / (2*Pi);
+	NMats = Length[i\[Omega]];
+	LE = Length[LatticeWeights];
+	Energies = ConstantArray[0., {LE, 2*Norb, 2*Norb}];
+	Do[
+		Do[
+			Energies[[All, 2*(orb1-1)+1, 2*(orb2-1)+1]] = LatticeEnergies[[All, orb1, orb2]];
+			Energies[[All, 2*(orb1-1)+2, 2*(orb2-1)+2]] = - LatticeEnergies[[All, orb1, orb2]];
+		, {orb2, Norb}];
+	, {orb1, Norb}];
+	(**)
+	Ekin = 2. * TMats * Sum[
+		LatticeWeights[[k]] * Tr[ (Energies[[k]] - \[Mu]*\[Sigma]0) . Sum[
+			Re[ Inverse[ i\[Omega][[n]]*\[Sigma]0 + \[Mu]*\[Sigma]3 - Energies[[k]] - \[CapitalSigma][[n]] ] ] 
+			- Tr[ (Energies[[k]] + \[CapitalSigma]0) . \[Sigma]3 ]/(i\[Omega][[n]]^2)
+		, {n, NMats}] ]
+	, {k, LE}] + 
+	0.5 * Sum[
+		LatticeWeights[[k]] * Tr[ (Energies[[k]] - \[Mu] . \[Sigma]3) . \[Sigma]3 ]
+	, {k, LE}] - 
+	(1./(4.*TMats)) * Sum[
+		LatticeWeights[[k]] * Tr[ (Energies[[k]] - \[Mu]*\[Sigma]3) . (Energies[[k]] + \[CapitalSigma]0) ]
+	, {k, LE}];
+	Ekin
+];
+
+(* call the proper function depending on EdMode *)
+KineticEnergyNew[\[Mu]_, LatticeEnergies_, LatticeWeights_, \[CapitalSigma]_, i\[Omega]_, EdMode_, OptionsPattern[]] := Which[
+	EdMode == "Normal", KineticEnergyNormal[\[Mu], LatticeEnergies, LatticeWeights, \[CapitalSigma], i\[Omega], OptionValue["OrbitalSymmetry"]],
+	EdMode == "Superc", KineticEnergySuperc[\[Mu], LatticeEnergies, LatticeWeights, \[CapitalSigma], i\[Omega], OptionValue["OrbitalSymmetry"]],
+	EdMode == "InterorbNormal", KineticEnergyInterorbNormal[\[Mu], LatticeEnergies, LatticeWeights, \[CapitalSigma], i\[Omega]],
+	EdMode == "FullSuperc", KineticEnergyFullSuperc[\[Mu], LatticeEnergies, LatticeWeights, \[CapitalSigma], i\[Omega]]
+];
+Options[KineticEnergyNew] = {"OrbitalSymmetry" -> False};
 
 End[]
 

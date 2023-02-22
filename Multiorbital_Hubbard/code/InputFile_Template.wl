@@ -12,11 +12,11 @@ L = Nimp + Nbath;
 (* number of spin states *)
 f = 2; 
 (* call the function EdModeInfo[EdMode] to get details *)
-EdMode = "FullSuperc"; 
+EdMode = "Raman"; 
 (* lattice crystal structure: "Bethe", "Hypercubic", etc. *)
-LatticeType = "Bethe"; 
+LatticeType = "Hypercubic"; 
 (* lattice dimensionality *)
-LatticeDim = Infinity; 
+LatticeDim = 2; 
 (* lattice points *)
 LatticePoints = 1000;
 (* compute many-body functions independently for two different sublattices A and B? *)
@@ -33,15 +33,15 @@ W = ConstantArray[1.0, Norb];
 
 (*      INPUT PHYSICAL PARAMETERS        *)
 (* interaction energy (list of U values for the orbitals) *)
-U = ConstantArray[0.0, Norb]; 
+U = ConstantArray[0.005, Norb]; 
 (* Hund's J. It's used only when HundMode = True to enforce rotation invariance of the Kanamori model. *)
 JH = 0.0; 
 (* density-density opposite spin coupling. It is set automatically if HundMode = True. *)
-Ust = -3.0; 
+Ust = 0.00; 
 (* density-density same spin coupling. It is set automatically if HundMode = True. *)
-Usec = 0.0; 
+Usec = 0.00; 
 (* pair-hopping coupling. It is set automatically if HundMode = True. *)
-Jph = 0.0; 
+Jph = 0.0*(IdentityMatrix[2] - 0.875 * PauliMatrix[1]); 
 (* spin-exchange coupling. It is set automatically if HundMode = True. *)
 Jse = 0.0; 
 (* if this is True, interorbital couplings are authomatically set to Ust=U-2JH; Usec=U-3JH, Jph=JH, Jse=-JH enforcing the rotational invariance *)
@@ -49,7 +49,7 @@ HundMode = False;
 (* chemical potential *)
 \[Mu] = 0.0; 
 (* Crystal field splitting *)
-\[Delta] = {0.0, 0.0};
+\[Delta] = {0, 0};
 (* temperature *)
 T = 0; 
 
@@ -67,6 +67,15 @@ NReal = 10000;
 d\[Omega] = (\[Omega]max - \[Omega]min)/NReal; 
 (* small shift of the pole in the imaginary axis: this avoids singularities, but introduces an artificial broadening of the spectrum *)
 \[Eta] = 0.02;
+
+
+(* INPUT-OUTPUT MANAGEMENT *)
+(* directory where the code is *)
+CodeDirectory = NotebookDirectory[];
+(* directory where the output will be stored *)
+OutputDirectory = CodeDirectory<>"Jph="<>ToString[Jph[[1,2]]]<>"\\";
+(* load Hamiltonian from a file? *)
+LoadHamiltonianQ = False;
 
 
 (* NUMERICAL DETAILS OF THE ALGORITHM *)
@@ -91,7 +100,7 @@ DMFTMaxIterations = 30;
 (* threshold for DMFT loop convergence *)
 DMFTerror = 1.0 * 10^(-5); 
 (* InverseG0 = Mixing * InverseG0old + (1 - Mixing) * InverseG0 *)
-Mixing = 0.2; 
+Mixing = 0.25; 
 (* type of minimization: "Global" or "Local" *)
 MinimizationType = "Local";
 (* Method for the minimization procedure *)
@@ -104,15 +113,6 @@ CGNMatsubara = 500;
 CGAccuracy = 7;
 (* list of weights attributed to each Matsubara frequency w(i\[Omega]): IT SHOULD BE >= CGNMatsubara *)
 CGWeight = ConstantArray[1., CGNMatsubara];
-
-
-(* INPUT-OUTPUT MANAGEMENT *)
-(* directory where the code is *)
-CodeDirectory = NotebookDirectory[];
-(* directory where the output will be stored *)
-OutputDirectory = CodeDirectory<>"U="<>ToString[U[[1]]]<>"\\";
-(* load Hamiltonian from a file? *)
-LoadHamiltonianQ = False;
 
 
 Print["Input file imported successfully. "]
