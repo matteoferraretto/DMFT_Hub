@@ -59,15 +59,18 @@ If[OrbitalSymmetry && Norb > 1,
 	];
 	\[Delta] = ConstantArray[0.0, Norb];
 ];
-
 (* just pick upper triangular part of the pair hopping matrix *)
 Jph = Flatten[ Pick[
 	Jph, 
 	UpperTriangularize[ConstantArray[1, {Norb, Norb}]],
 	1
 ] ];
+(* if EdMode = "Raman", use eigenvalues of Raman matrices as magnetic field *)
+If[EdMode == "Raman",
+	h = Eigenvalues[#] &/@ M;
+];
 (* get list of interaction parameters in correct order *)
-InteractionParameters = {\[Delta], U, Ust, Usec, Jph, Jse, - \[Mu] + shift};
+InteractionParameters = {h, \[Delta], U, Ust, Usec, Jph, Jse, - \[Mu] + shift};
 
 
 (* GET BATH PARAMETERS *)

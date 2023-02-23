@@ -233,7 +233,7 @@ HLocal[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 				Hblock = SparseArray@DiagonalMatrix[num];
 				AppendTo[Hsector, Hblock];,
 			(* ----------------------------------- *)
-				flag == "Magnetic_Field" && EdMode == "Raman", (* <--- can be extended easily to other EdModes upon changing Main accordingly *)
+				flag == "Magnetic_Field",
 				Do[
 					num = Sum[
 						n[L, f, Norb, j, \[Sigma], orb, \[Psi]]
@@ -251,7 +251,7 @@ HLocal[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 					AppendTo[Hsector, Hblock];
 				, {orb, Norb}]
 			];
-		,{flag, {"Crystal_Field","Hubbard","Interorb_Hubbard_Opposite_Spin","Interorb_Hubbard_Same_Spin","Pair_Hopping","Spin_Exchange","Energy_Shift","Magnetic_Field"}}];
+		,{flag, {"Magnetic_Field","Crystal_Field","Hubbard","Interorb_Hubbard_Opposite_Spin","Interorb_Hubbard_Same_Spin","Pair_Hopping","Spin_Exchange","Energy_Shift"}}];
 		AppendTo[H, Hsector];
 	,{\[Psi],Sectors}];
 	H

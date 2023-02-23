@@ -50,6 +50,10 @@ HundMode = False;
 \[Mu] = 0.0; 
 (* Crystal field splitting *)
 \[Delta] = {0, 0};
+(* Explicit magnetic field: (can be different for different orbitals) *)
+h = ConstantArray[0.0, {Norb, f}];
+(* Raman hopping matrix (can be different for different orbitals) *)
+M = ConstantArray[0.0, {Norb, f, f}];
 (* temperature *)
 T = 0; 
 

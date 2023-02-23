@@ -135,6 +135,13 @@ WeissFieldNumeric[DBethe_, \[Mu]_, LocalG_, LocalGold_, \[CapitalSigma]_, \[Capi
 			Weff = \[Alpha] * (TwoByTwoInverse[LocalGold] + \[CapitalSigma]old) + (1.0 - \[Alpha]) * (TwoByTwoInverse[LocalG] + \[CapitalSigma]);
 		];,
 	(* ------------------------------------ *)
+		EdMode == "Raman",
+		If[\[Alpha] == 0.0,
+			Weff = Inverse[LocalG] + \[CapitalSigma];,
+		(* else, if mixing is active *)
+			Weff = \[Alpha] * (Inverse[LocalGold] + \[CapitalSigma]old) + (1.0 - \[Alpha]) * (Inverse[LocalG] + \[CapitalSigma]);
+		],
+	(* ------------------------------------ *)
 		EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
 		(* Mix up the effective Weiss field *)
 		If[\[Alpha] == 0.0, 

@@ -80,19 +80,3 @@ FullSimplify[
 {a, 0},
 {0, b}
 } . udg)] // MatrixForm
-
-
-flav = 3;
-params = Symbols[L, flav, Norb, EdMode]
-
-mat = SparseArray[
-        Rule[#, #2] & @@@ 
-        Thread@{Flatten[Table[{i, j}, {i, flav}, {j, i, flav}], 1], params[[1;;flav*(flav+1)/2]]}
-      ];
-mat//MatrixForm
-
-Array[If[#2 > #1, mat[[#1, #2]], mat[[#2, #1]]] &, {flav, flav}] // MatrixForm
-
-
-
-
