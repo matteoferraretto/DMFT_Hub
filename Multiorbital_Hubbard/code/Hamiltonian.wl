@@ -211,7 +211,7 @@ HLocal[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 					];
 				,{orb1,1,Norb}, {orb2,1,Norb}, {j,1,OptionValue["Nimp"]}];,
 			(* ----------------------------------- *)
-				flag == "Spin_Exchange" && Norb > 1 && (EdMode == "InterorbNormal" || EdMode == "InterorbSuperc" || EdMode == "FullSuperc"),
+				flag == "Spin_Exchange" && Norb > 1 && (EdMode == "InterorbNormal" || EdMode == "Raman" || EdMode == "InterorbSuperc" || EdMode == "FullSuperc"),
 				Hblock = SparseArray[{},{dim,dim}];
 				Do[
 					If[orb2 > orb1,
@@ -269,7 +269,11 @@ GetHamiltonian[L_, f_, Norb_, Nimp_, Sectors_, LoadHamiltonianQ_, HnonlocFile_, 
 	(* else *)
 		Print["Computing Hamiltonians..."];
 		Print["Time: ", First @ AbsoluteTiming[
-			HnonlocBlocks = HNonlocal[L, f, Norb, Sectors, EdMode, "Nimp" -> Nimp];
+			If[EdMode != "Raman",
+				HnonlocBlocks = HNonlocal[L, f, Norb, Sectors, EdMode, "Nimp" -> Nimp];,
+			(* else, EdMode == "Raman" *)
+				HnonlocBlocks = HNonlocalRaman[L, f, Norb, Sectors, EdMode, "Nimp" -> Nimp];
+			];
 			Export[HnonlocFile, HnonlocBlocks];
 			HlocBlocks = HLocal[L, f, Norb, Sectors, EdMode, "Nimp" -> Nimp];
 			Export[HlocFile, HlocBlocks];
@@ -282,6 +286,7 @@ GetHamiltonian[L_, f_, Norb_, Nimp_, Sectors_, LoadHamiltonianQ_, HnonlocFile_, 
 (* build the impurity Hamiltonian from the local and nonlocal blocks and the respective parameters *)
 HImp[Norb_, HnonlocBlocks_, HlocBlocks_, BathParameters_, InteractionParameters_, EdMode_] := Module[
 	{EffectiveInteractionParameters, FlatBathParameters = Flatten[BathParameters], Hloc, Hnonloc},
+	(* general structure of interaction parameters: {\[Delta], U, Ust, Usec, Jph, Jse, - \[Mu] + shift} *)
 	EffectiveInteractionParameters = Which[
 		Norb == 1,
 		(* with 1 orbital, delete Jse, Jph, Usec, Ust, at positions -2, -3, -4, -5 *)
@@ -299,6 +304,12 @@ HImp[Norb_, HnonlocBlocks_, HlocBlocks_, BathParameters_, InteractionParameters_
 			Delete[InteractionParameters, -2]
 		],
 	(* --------------------------------------------------- *)
+		Norb > 1 && EdMode == "Raman",
+		(* pair hopping is not possible (it changes the number of particles per orbital), but spin exchange is ok *)
+		Flatten[
+			Delete[InteractionParameters, -3]
+		],
+	(* --------------------------------------------------- *)
 		Norb > 1 && EdMode == "Normal",
 		(* pair hopping and spin exchange are not possible *)
 		Flatten[
@@ -309,13 +320,13 @@ HImp[Norb_, HnonlocBlocks_, HlocBlocks_, BathParameters_, InteractionParameters_
 	Hnonloc = SparseArray[#]&/@(
 		Sum[
 			FlatBathParameters[[i]]*#[[i]],
-		{i, 1, Length@FlatBathParameters}]&/@HnonlocBlocks
+		{i, 1, Length@FlatBathParameters}] &/@ HnonlocBlocks
 	);
 	(* build local Hamiltonian -> avoid Dot[] as it returns dense array *)
 	Hloc = SparseArray[#]&/@(
 		Sum[
 			EffectiveInteractionParameters[[i]]*#[[i]],
-		{i, 1, Length@EffectiveInteractionParameters}]&/@HlocBlocks
+		{i, 1, Length@EffectiveInteractionParameters}] &/@ HlocBlocks
 	);
 	Hnonloc + Hloc
 ];

@@ -9,6 +9,8 @@ GreenFunctionImpurityNormal::usage = "GreenFunctionImpurity[L_, f_, Norb_, \[Sig
 
 GreenFunctionImpurityNambu::usage = "GreenFunctionImpurityNambu[L_, f_, Norb_, orb_, Egs_, Gs_, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, EdMode_, zlist_]"
 
+GreenFunctionImpurityRaman::usage = "GreenFunctionImpurityRaman[L_, f_, Norb_, orb_, Egs_, Gs_, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, EdMode_, zlist_]"
+
 GreenFunctionImpurity::usage = "."
 
 InverseGreenFunction::usage = "InverseGreenFunction[L, f, Norb, \[Sigma], orb, Egs, gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, zlist] evaluates numerically the inverse Green function 
@@ -507,6 +509,14 @@ GreenFunctionImpurityNambu[L_, f_, Norb_, Egs_, Gs_, GsQns_, Hsectors_, Sectors_
     GF
 ];
 Options[GreenFunctionImpurityNambu] = {Orb -> 1, OrbitalSymmetry -> False};
+
+
+(* compute the Green function using Raman formalism *)
+GreenFunctionImpurityRaman[L_, f_, Norb_, orb_, Egs_, Gs_, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, EdMode_, zlist_, OptionsPattern[]] := Module[
+	{},
+	Return[0]
+];
+Options[GreenFunctionImpurityRaman] = {Orb -> 1, OrbitalSymmetry -> False};
 
 
 (* Evaluate impurity Green function calling the right function depending on EdMode *)

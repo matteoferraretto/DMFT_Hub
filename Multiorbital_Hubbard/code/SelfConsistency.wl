@@ -47,6 +47,19 @@ WeissField[L_, f_, Norb_, \[Mu]_, symbols_, z_, EdMode_] := Module[
 		(* compute Weiss field *)
 		z*IdentityMatrix[2] - H0 - Sum[Vmat[[k]] . Inverse[z*IdentityMatrix[2] - H[[k]]] . Vmat[[k]] , {k, L-1}],
 	(* ---------------------------------------- *)
+		EdMode == "Raman",
+		e = Partition[ symbols[[ ;; (L-1)*f*(f+1)/2]], f*(f+1)/2];
+		V = Partition[ symbols[[-(L-1)*f*(f+1)/2 ;; ]], f*(f+1)/2];
+		(* initialize stuff *)
+		H = ConstantArray[0, {L-1, f, f}];
+		Vmat = H;
+		(* define the hamiltonian blocks *)
+		H0 = \[Mu] * IdentityMatrix[f];
+		(H[[#]] = SymmetricMatrixFromArray[e[[#]], f]) &/@ Range[L-1];
+		(Vmat[[#]] = SymmetricMatrixFromArray[V[[#]], f]) &/@ Range[L-1];
+		(* compute Weiss field *)
+		z*IdentityMatrix[f] - H0 - Sum[Vmat[[k]] . Inverse[z*IdentityMatrix[f] - H[[k]]] . Vmat[[k]] , {k, L-1}],
+	(* ---------------------------------------- *)
 		EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
 		(* split symbols according to their meaning, e, V ... *)
 		e = symbols[[1 ;; Norb*(L-1)]];

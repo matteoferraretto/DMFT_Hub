@@ -5,14 +5,15 @@ BeginPackage["Parameters`"]
 StartingBath::usage = "StartingBath[L, f, Norb, \[Delta], InitializeBathMode, EdMode] returns a list containing the bath parameters to start the DMFT loop.
 If EdMode = ''Normal'' then the output has the form {e,V}, where e and V are lists of Norb x (L-1) elements, representing the bath energies and the bath-impurity hybridizations.
 If EdMode = ''Superc'' then the output has the form {e,V,\[CapitalDelta]}, where e and V are defined as above, and \[CapitalDelta] is the Norb x Nbath dimensional list of pairs creation (annihilation) amplitudes.
-If EdMode = ''Raman'' then the output has the form {e, V}, where both e and V are lists of fxf matrices, one for every bath site. The diagonal components of e[[i]] are
-on-site flavor-resolved energies for the bath sites; while the off-diagonal components are hybridizations between different flavors of the same bath site. The diagonal components of V[[i]]
-are flavor-diagonal tunnelings between the impurity and the i-th bath site; while the off-diagonal components are the flavor-swapping tunnelings between the impurity and the i-th site.
+If EdMode = ''Raman'' then the output has the form {e, V}, where both e and V are lists with dimension (Norb x Nbath), where each element is a fxf matrix. 
+The diagonal components of e[[orb, i]] are on-site flavor-resolved energies for the bath sites; while the off-diagonal components are hybridizations between different flavors 
+of the same bath site. The diagonal components of V[[i]] are flavor-diagonal tunnelings between the impurity and the i-th bath site; while the off-diagonal components are the 
+flavor-swapping tunnelings between the impurity and the i-th site.
 If EdMode = ''InterorbSuperc'' then the output has the form {e,V,\[CapitalDelta],\[CapitalXi]}, where e, V, \[CapitalDelta] are as above, and \[CapitalXi] is the Nbath - dimensional list of interorbital pairs creation (annihilation) amplitudes
 InitializeBathMode is a string with the path to the file containing the bath parameters; if it is set to ''Default'', default parameters are dropped.
 The input \[Delta] is the list of crystal field splittings (with Norb elements) and it's used to set the starting bath energy levels around the corresponding non-interacting energies."
 
-Symbols::usage = "Symbols[L, f, EdMode] returns a list of symbols representing the independent bath parameters. 
+Symbols::usage = "Symbols[L, f, Norb, EdMode] returns a list of symbols representing the independent bath parameters. 
 The word ''independent'' means that in case there is some symmetry, for example orbital and spin symmetry, we just extract a representative subset of the bath parameters. "
 
 TakeIndependentParameters::usage = "TakeIndependentParameters[L, f, Norb, \[Sigma], orb, BathParameters, EdMode] returns a flat list of independent bath parameters depending on EdMode.
@@ -149,7 +150,7 @@ Symbols[L_, f_, Norb_, EdMode_] := Which[
 	Join[
 		Flatten[
 			Table[
-				Symbol["e"<>ToString[i]<>ToString[n]<>ToString[m]]
+				Symbol["e"<>ToString[i]<>ToString[m]<>ToString[n]]
 			, {i, 1, L-1}, {m, 1, f}, {n, m, f}]
 		, 3],
 		Flatten[

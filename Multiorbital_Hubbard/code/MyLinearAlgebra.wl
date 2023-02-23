@@ -13,6 +13,9 @@ InverseElement::usage = "InverseElement[m_, {i_,j_}]"
 
 TwoByTwoInverse::usage = "TwoByTwoInverse[A] returns the inverse of the 2x2 complex invertible matrix A. The function is listable. "
 
+SymmetricMatrixFromArray::usage = "SymmetricMatrixFromArray[list, n] takes a list of n(n+1)/2 symbols or numbers and transforms it into a n x n symmetric matrix. For example, if n=2, 
+the list {a11, a12, a22} is transformed into {{a11, a12}, {a12, a22}}."
+
 
 Begin["Private`"]
 
@@ -94,6 +97,17 @@ TridiagonalInverseFirstElement = Compile[{
 	\[Phi][[2]]/\[Theta][[n]]
 	],
 	CompilationTarget->"C", RuntimeAttributes->{Listable}, Parallelization->True
+];
+
+
+(* transform list of symbols / numbers into a suitable symmetric matrix *)
+SymmetricMatrixFromArray[list_, n_] := Module[
+	{mat},
+	mat = SparseArray[
+        Rule[#, #2] & @@@ 
+        Thread @ {Flatten[Table[{i, j}, {i, n}, {j, i, n}], 1], list[[1 ;; n*(n+1)/2]]}
+    ];
+    Array[If[#2 > #1, mat[[#1, #2]], mat[[#2, #1]]] &, {n, n}]
 ];
 
 
