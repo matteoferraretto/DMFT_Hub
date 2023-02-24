@@ -24,7 +24,7 @@ SublatticesQ = False;
 (* half of the on-site energy split between the two sublattices *)
 V = 0.0;
 (* set True to enforce orbital symmetry and avoid repeating calculations *)
-OrbitalSymmetry = False; 
+OrbitalSymmetry = True; 
 (* list of half-bandwidths for all the orbitals *)
 W = ConstantArray[1.0, Norb];
 
@@ -54,6 +54,10 @@ HundMode = False;
 h = ConstantArray[0.0, {Norb, f}];
 (* Raman hopping matrix (can be different for different orbitals) *)
 M = ConstantArray[0.0, {Norb, f, f}];
+(* Gauge field associated with Raman tunneling *)
+\[Gamma] = 0.0 * Pi;
+(* unit vector giving the spatial direction where tunneling is modified by the gauge field *)
+u = {1.0, 0.0}; 
 (* temperature *)
 T = 0; 
 
@@ -100,7 +104,7 @@ MinNumberOfEigs = 10;
 (* minimum number of DMFT loops *)
 DMFTMinIterations = 2; 
 (* maximum number of DMFT loops *)
-DMFTMaxIterations = 30; 
+DMFTMaxIterations = 3; 
 (* threshold for DMFT loop convergence *)
 DMFTerror = 1.0 * 10^(-5); 
 (* InverseG0 = Mixing * InverseG0old + (1 - Mixing) * InverseG0 *)

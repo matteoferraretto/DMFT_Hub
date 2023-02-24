@@ -73,7 +73,7 @@ Do[
 		(* ----------------------------------------------------------------------------------------- *)
 		(* if there is orbital symmetry, you compute many body functions just for ONE representative orbital *)
 		(* ----------------------------------------------------------------------------------------- *)
-			(EdMode == "Normal" || EdMode == "Superc") && OrbitalSymmetry,
+			(EdMode == "Normal" || EdMode == "Superc" || EdMode == "Raman") && OrbitalSymmetry,
 			Print["\n Green functions calculation time: ", First@AbsoluteTiming[
 			
 			(* identify independent parameters, i.e. the minimal set of bath parameters that you need to compute stuff *)

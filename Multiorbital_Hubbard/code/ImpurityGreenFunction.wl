@@ -37,6 +37,10 @@ FinalSector[L_, f_, Norb_, j_, \[Sigma]_, orb_, qns_, operator_, EdMode_] := Mod
 			If[qns[[\[Sigma]]] == Norb*L, Return[]]; (* trivial case: return Null if sector does not exist *)
 			newqns[[\[Sigma]]] += 1;,
 		(* ---------------------------- *)
+			EdMode == "Raman",
+			If[qns[[orb]] == f*L, Return[]]; (* trivial case: return Null if sector does not exist *)
+			newqns[[orb]] += 1;,
+		(* ---------------------------- *)
 			EdMode == "Superc",
 			If[f>2, Return["error. f>2 not supported with EdMode = ''Superc''"];];
 			If[(qns[[orb]] == -L && \[Sigma] == 2) || (qns[[orb]] == L && \[Sigma] == 1), Return[]];  (* trivial case: return Null if sector does not exist *)
@@ -63,6 +67,10 @@ FinalSector[L_, f_, Norb_, j_, \[Sigma]_, orb_, qns_, operator_, EdMode_] := Mod
 			EdMode == "InterorbNormal",
 			If[qns[[\[Sigma]]] == 0, Return[]];  (* trivial case *)
 			newqns[[\[Sigma]]] -= 1;,
+		(* ---------------------------- *)
+			EdMode == "Raman",
+			If[qns[[orb]] == 0, Return[]]; (* trivial case: return Null if sector does not exist *)
+			newqns[[orb]] -= 1;,
 		(* ---------------------------- *)
 			EdMode == "Superc",
 			If[f>2, Return["error. f>2 not supported with EdMode = ''Superc''"];];
@@ -99,6 +107,10 @@ ApplyCdg[L_, f_, Norb_, j_, \[Sigma]_, orb_, gs_, qns_, Sectors_, SectorsDispatc
 		EdMode == "InterorbNormal",
 		If[qns[[\[Sigma]]] == Norb*L, Return[0]];  (* trivial case *)
 		newqns[[\[Sigma]]]+=1;,
+	(* ---------------------------- *)
+		EdMode == "Raman",
+		If[qns[[orb]] == f*L, Return[0]]; (* trivial case *)
+		newqns[[orb]] += 1;,	
 	(* ---------------------------- *)
 		EdMode == "Superc",
 		If[f>2, Return["error. f>2 not supported with EdMode = ''Superc''"];];
@@ -147,6 +159,10 @@ ApplyC[L_, f_, Norb_, j_, \[Sigma]_, orb_, gs_, qns_, Sectors_, SectorsDispatch_
 		EdMode =="InterorbNormal",
 		If[qns[[\[Sigma]]]==0, Return[0]];  (* trivial case *)
 		newqns[[\[Sigma]]]-=1;,
+	(* ---------------------------- *)
+		EdMode == "Raman",
+		If[qns[[orb]] == 0, Return[0]]; (* trivial case *)
+		newqns[[orb]] -= 1;,
 	(* ---------------------------- *)
 		EdMode == "Superc",
 		If[f>2, Return["error. f>2 not supported with EdMode = ''Superc''"];];
@@ -512,11 +528,87 @@ Options[GreenFunctionImpurityNambu] = {Orb -> 1, OrbitalSymmetry -> False};
 
 
 (* compute the Green function using Raman formalism *)
-GreenFunctionImpurityRaman[L_, f_, Norb_, orb_, Egs_, Gs_, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, EdMode_, zlist_, OptionsPattern[]] := Module[
-	{},
-	Return[0]
+(* compute the Green function < c_{orb, \[Sigma]} 1/(z-H) cdg_{orb, \[Sigma]} > + < cdg_{orb, \[Sigma]} 1/(z+H) c_{orb, \[Sigma]} > *)
+(* where O = c1 c_{orb, \[Sigma]} + c2 c_{orb, \[Rho]} *)
+GreenFunctionImpurityNormalRaman[L_, f_, Norb_, orb_, {\[Sigma]_, \[Rho]_}, Egs_, Gs_, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, EdMode_, zlist_, OptionsPattern[]] := Module[
+	{
+	(* compute cdg_{orb, \[Sigma]}|gs> and c_{orb, \[Rho]}|gs> *)
+	adg\[Sigma], a\[Sigma], adg\[Rho], a\[Rho],
+	c1 = OptionValue[c1], c2 = OptionValue[c2],
+	Odggs, Ogs, newqns, H, E0, a, b, GFOparticle, GFOhole, GFO
+	},	
+	If[c1 != 0,
+		adg\[Sigma] = ApplyCdg[L, f, Norb, 1, \[Sigma], orb, Normalize[Gs], GsQns, Sectors, SectorsDispatch, EdMode];
+		a\[Sigma] = ApplyC[L, f, Norb, 1, \[Sigma], orb, Normalize[Gs], GsQns, Sectors, SectorsDispatch, EdMode];
+	];
+	If[c2 != 0,
+		adg\[Rho] = ApplyCdg[L, f, Norb, 1, \[Rho], orb, Normalize[Gs], GsQns, Sectors, SectorsDispatch, EdMode];
+		a\[Rho] = ApplyC[L, f, Norb, 1, \[Rho], orb, Normalize[Gs], GsQns, Sectors, SectorsDispatch, EdMode];
+	];
+(* compute all the main contributions to the Green function *)
+(*          G_O(z) "Particle" contribution             *)
+	Odggs = c1 * adg\[Sigma] + c2 * adg\[Rho];
+	newqns = FinalSector[L, f, Norb, 1, \[Sigma], orb, GsQns, "Creation", EdMode]; (* evaluate the quantum numbers of the final sector *)
+	If[newqns === Null, (* if there is no final state, this does not contribute to the GF *)
+		GFOparticle = ConstantArray[0.0+0.0*I, Length[zlist]];, 
+	(* else *)
+		H = Hsectors[[newqns/.SectorsDispatch]]; (* Hamiltonian on that sector *)
+		If[Length[H] == 1, (* if the Hamiltonian in the final sector is just a number, avoid Lanczos *)
+			GFOparticle = ((Norm[Odggs]^2)/(# - H[[1,1]] + Egs)) &/@ zlist;,
+		(* else *)
+			{E0,a,b} = Lanczos[H, Normalize[Odggs] ]; (* Apply Lanczos starting from Odg|gs> *)
+			H = SparseArray[DiagonalMatrix[b, 1] + DiagonalMatrix[b, -1] + DiagonalMatrix[a] ]; (* Krylov matrix in the final sector *)
+			GFOparticle = (Norm[Odggs]^2)*(
+				InverseElement[
+					SparseArray[(# + Egs) * IdentityMatrix[Length[a] ] - H]
+				, {1, 1}] &/@ zlist);
+		];
+	];
+(*           G_O(z) "Hole" contribution               *)
+	Ogs = (c1\[Conjugate])*a\[Sigma] + (c2\[Conjugate])*a\[Rho]; 
+	newqns = FinalSector[L, f, Norb, 1, \[Sigma], orb, GsQns, "Annihilation", EdMode]; (* evaluate the quantum numbers of the final sector *)
+	If[newqns === Null, (* if there is no final state, this does not contribute to the GF *)
+		GFOhole = ConstantArray[0.0+0.0*I, Length[zlist]];, 
+	(* else *)
+		H = Hsectors[[newqns/.SectorsDispatch]]; (* Hamiltonian on that sector *)
+		If[Length[H] == 1, (* if the Hamiltonian in the final sector is just a number, avoid Lanczos *)
+			GFOhole = ((Norm[Ogs]^2)/(# + H[[1,1]] - Egs)) &/@ zlist;,
+		(* else *)
+			{E0,a,b} = Lanczos[H, Normalize[Ogs] ]; (* Apply Lanczos starting from O|gs> *)
+			H = SparseArray[DiagonalMatrix[b, 1] + DiagonalMatrix[b, -1] + DiagonalMatrix[a] ]; (* Krylov matrix in the final sector *)
+			GFOhole = (Norm[Ogs]^2)*(
+				InverseElement[
+					SparseArray[(# - Egs) * IdentityMatrix[Length[a] ] + H]
+				, {1, 1}] &/@ zlist);
+		];
+	];
+	GFOparticle + GFOhole
 ];
-Options[GreenFunctionImpurityRaman] = {Orb -> 1, OrbitalSymmetry -> False};
+Options[GreenFunctionImpurityNormalRaman] = {c1 -> 1.0, c2 -> 0.0}; (* by default Odg = cdg_{orb,\[Sigma]} *)
+
+(* compute the Green function in the Raman formalism *)
+GreenFunctionImpurityRaman[L_, f_, Norb_, Egs_, Gs_, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, EdMode_, zlist_, OptionsPattern[] ] := Module[{
+	NMatsubara = Length[zlist], orb = OptionValue[Orb], OrbitalSymmetry = OptionValue[OrbitalSymmetry], GF, GFO, GFP
+    },
+	(* initialize Green function as a NMatsubara x f x f tensor *)
+    GF = ConstantArray[0, {NMatsubara, f, f}];
+    (* compute diagonal component of the tensor *)
+    Table[
+         GF[[All, \[Sigma], \[Sigma]]] = GreenFunctionImpurityNormalRaman[L, f, Norb, orb, {\[Sigma], \[Sigma]}, Egs, Gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, zlist];
+    , {\[Sigma], f}];
+    (* compute off-diagonal component of the tensor *)
+    Table[
+         (* compute GFO, where Odg = adg_\[Sigma] + adg_\[Rho] *)
+         GFO = GreenFunctionImpurityNormalRaman[L, f, Norb, orb, {\[Sigma], \[Rho]}, Egs, Gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, zlist, c2 -> 1.0];
+         (* compute GFP, where Pdg = adg_\[Sigma] + I adg_\[Rho] *)
+         GFP = GreenFunctionImpurityNormalRaman[L, f, Norb, orb, {\[Sigma], \[Rho]}, Egs, Gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, zlist, c2 -> 1.0*I];
+         (* compute the off-diagonal part using the diagonal part and GFO, GFP *)
+	     GF[[All, \[Rho], \[Sigma]]] = (1./2.)*(GFO - I*GFP - 1.*(1 - I)*(GF[[All, \[Sigma], \[Sigma]]] + GF[[All, \[Rho], \[Rho]]]));
+	     GF[[All, \[Sigma], \[Rho]]] = (1./2.)*(GFO + I*GFP - 1.*(1 + I)*(GF[[All, \[Sigma], \[Sigma]]] + GF[[All, \[Rho], \[Rho]]]));
+    , {\[Sigma], f}, {\[Rho], \[Sigma]+1, f}];
+    GF
+];
+Options[GreenFunctionImpurityRaman] = {Orb -> 1, OrbitalSymmetry -> True};
 
 
 (* Evaluate impurity Green function calling the right function depending on EdMode *)
@@ -524,6 +616,9 @@ GreenFunctionImpurity[L_, f_, Norb_, \[Sigma]_, orb_, Egs_, gs_, GsQns_, Hsector
 	Which[
 		EdMode == "Normal", 
 		GreenFunctionImpurityNormal[L, f, Norb, {orb,orb}, Egs, gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, zlist],
+	(* ------------------------------------------- *)
+		EdMode == "Raman",
+		GreenFunctionImpurityRaman[L, f, Norb, Egs, gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, zlist, Orb -> orb],
 	(* ------------------------------------------- *)
 		EdMode == "Superc" || EdMode == "InterorbSuperc" || EdMode == "FullSuperc", 
 		GreenFunctionImpurityNambu[L, f, Norb, Egs, gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, zlist, Orb -> orb]
@@ -533,6 +628,7 @@ GreenFunctionImpurity[L_, f_, Norb_, \[Sigma]_, orb_, Egs_, gs_, GsQns_, Hsector
 InverseGreenFunction[G_, EdMode_] := 
 	Which[
 		EdMode == "Normal", 1./G,
+		EdMode == "Raman", Inverse /@ G,
 		EdMode == "Superc", TwoByTwoInverse[G],
 		EdMode == "InterorbSuperc" || EdMode == "FullSuperc", Inverse /@ G
 	];

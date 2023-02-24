@@ -3,17 +3,22 @@
 BeginPackage["Lattices`", {"MyLinearAlgebra`"}]
 
 
-DoSBethe::usage = "."
+DoSBethe::usage = "DoSBethe[\[Epsilon], DBethe] returns the density of states for the infinite dimensional Bethe lattice with half bandwidth DBethe and energy \[Epsilon]"
 
-BrillouinZone::usage = "."
+BrillouinZone::usage = "BrillouinZone[LE, d] returns a list of LE points in the first Brillouin zone for a given lattice passed by option, for example Lattice -> ''Hypercubic''.
+d represents the dimensionality of such lattice, hence the dimension of each point in the Brillouin zone. "
 
 GetLatticeEnergies::usage = "."
 
 DispersionHypercubic::usage = "."
 
+DispersionHypercubicRaman::usage = "DispersionHypercubicRaman[k, t, f, \[Gamma], u] returns a fxf matrix that represents the energy associated to the given point k in the 1st Brillouin zone
+in presence of a gauge field of magnitude \[Gamma] along the direction specified by the unit vector u. The gauge field shifts anti-symmetrically the dispersion relations for different spin states. The input
+t is the nearest neighbor hopping energy scale. Notice that there is no Raman tunneling in these matrices."
+
 HighSymmetryPath::usage = "."
 
-LocalGreenFunction::usage = "LocalGreenFunction[LatticeEnergies_, weights_, \[Mu]_, \[CapitalSigma]_, zlist_, EdMode_]"
+LocalGreenFunction::usage = "LocalGreenFunction[LatticeEnergies, weights, \[Mu], \[CapitalSigma], zlist, EdMode]"
 
 
 Begin["Private`"]
@@ -31,6 +36,19 @@ DoSBethe = Compile[
 DispersionHypercubic = Compile[
 	{{k,_Real,1}, {t,_Real}},
 	-2.*t*Sum[Cos[ka], {ka, k}],
+	CompilationTarget -> "C", RuntimeAttributes -> {Listable}
+];
+
+(* dispersion relation for a d-dimensional hypercubic lattice in presence of Raman field with gauge field *)
+DispersionHypercubicRaman = Compile[
+	{{k,_Real,1}, {t,_Real}, {f,_Integer}, {\[Gamma],_Real}, {u,_Real,1}},
+	-2.*t*DiagonalMatrix[
+		Table[
+			Sum[
+				Cos[k[[a]] + \[Sigma] * \[Gamma] * u[[a]]]
+			, {a, Length[k]}]
+		, {\[Sigma], -(f-1)/2, (f-1)/2}]
+	],
 	CompilationTarget -> "C", RuntimeAttributes -> {Listable}
 ];
 
@@ -115,6 +133,29 @@ GetLatticeEnergies[HalfBandwidths_, \[Delta]_, LatticeType_, LatticeDim_, Number
 	(* ---------------------------------------------------------------------- *)
 		LatticeType != "Hypercubic",
 		Print["WARNING!!! If e(-k) != e(k), the local Green function is WRONG in case Nambu formalism is needed."]
+	];
+	{energies, weights}
+];
+
+(* Return the energy and weight lists for computing local G.F. when EdMode = "Raman" and spin states are not symmetric *)
+GetLatticeEnergiesRaman[HalfBandwidths_, \[Delta]_, M_, \[Gamma]_, u_, LatticeType_, LatticeDim_, NumberOfPoints_] := Module[
+	{LE, BZ, energies, weights, f = Length[M], Norb = Length[HalfBandwidths], P, Pdg},
+	Which[
+		LatticeType == "Hypercubic" && LatticeDim != Infinity,
+		(* number of points per lattice direction *)
+		LE = Floor[NumberOfPoints^(1./LatticeDim)];
+		(* get the Brillouin Zone *)
+		BZ = BrillouinZone[LE, LatticeDim, Lattice -> "Hypercubic"];
+		(* get the unitary matrix that diagonalizes M: P.M.Pdg = \[CapitalLambda], where \[CapitalLambda] is diagonal *)
+		Pdg = Normalize[#] &/@ Eigenvectors[M]\[Transpose];
+		P = ConjugateTranspose[Pdg];
+		(* initialize energies list of rank LE x Norb x Norb x f x f *)
+		energies = ConstantArray[ConstantArray[0, {f, f}], {Length[BZ], Norb, Norb}];
+		(* equal weights to all the energies since we are sampling the Brillouin zone *)
+		weights = ConstantArray[1./(Length[BZ]), Length[BZ]];
+		Do[
+			energies[[All, orb, orb]] = (P . # . Pdg) &/@ ((DispersionHypercubicRaman[#, HalfBandwidths[[orb]], f, \[Gamma], u] + \[Delta][[orb]] * IdentityMatrix[f]) &/@ BZ);
+		, {orb, Norb}];
 	];
 	{energies, weights}
 ];
