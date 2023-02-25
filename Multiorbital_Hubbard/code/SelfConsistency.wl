@@ -135,9 +135,9 @@ WeissFieldNumeric[DBethe_, \[Mu]_, LocalG_, LocalGold_, \[CapitalSigma]_, \[Capi
 	(* ------------------------------------ *)
 		EdMode == "Raman",
 		If[\[Alpha] == 0.0,
-			Weff = Inverse[LocalG] + \[CapitalSigma];,
+			Weff = (Inverse[#] &/@ LocalG) + \[CapitalSigma];,
 		(* else, if mixing is active *)
-			Weff = \[Alpha] * (Inverse[LocalGold] + \[CapitalSigma]old) + (1.0 - \[Alpha]) * (Inverse[LocalG] + \[CapitalSigma]);
+			Weff = \[Alpha] * ((Inverse[#] &/@ LocalGold) + \[CapitalSigma]old) + (1.0 - \[Alpha]) * ((Inverse[#] &/@ LocalG) + \[CapitalSigma]);
 		],
 	(* ------------------------------------ *)
 		EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
@@ -153,8 +153,8 @@ WeissFieldNumeric[DBethe_, \[Mu]_, LocalG_, LocalGold_, \[CapitalSigma]_, \[Capi
 Options[WeissFieldNumeric] = {Mix -> 0.0, Lattice -> "Bethe", LatticeDimension -> Infinity};
 
 (* new self cons *)
-SelfConsistency[Weiss_, symbols_, z_, IndependentParameters_, WeissNumeric_, zlist_, EdMode_, OptionsPattern[{SelfConsistencyNew, FindMinimum}]] := Module[
-	{weight = OptionValue[FitWeight], \[Chi], residue, newparameters},
+SelfConsistency[Weiss_, symbols_, z_, IndependentParameters_, WeissNumeric_, zlist_, EdMode_, OptionsPattern[{SelfConsistency, FindMinimum}]] := Module[
+	{weight = OptionValue[FitWeight], \[Chi], residue, newparameters, f},
 	Which[
 		EdMode == "Normal",
 		(* distance function *)
@@ -168,6 +168,18 @@ SelfConsistency[Weiss_, symbols_, z_, IndependentParameters_, WeissNumeric_, zli
 			Mean[Abs[ weight * (
 				(Weiss/.{z -> #} &/@ zlist) - WeissNumeric
 			)]^2],
+	(* ------------------------------------ *)
+		EdMode == "Raman",
+		f = Length[WeissNumeric[[1]]];
+		(* distance function *) 
+		(* 2/(Subscript[N, Mats ]f(f+1)) \!\(
+\*SubscriptBox[\(\[Sum]\), \(\[Alpha], \[Beta] >= \[Alpha]\)]\ \(
+\*SubscriptBox[\(\[Sum]\), \(i\[Omega]\)]\ \(\(|\)\(w\((i\[Omega])\)\ *\ \((Weiss_analytic _\[Alpha]\[Beta]\  - \ Weiss_numeric _\[Alpha]\[Beta])\)\)
+\*SuperscriptBox[\(|\), \(2\)]\)\)\) *)
+		\[Chi][symbols] = (2/(f*(f+1)))* Total[#,2]&@ UpperTriangularize[
+			Mean[Abs[ weight * (
+				(Weiss/.{z -> #} &/@ zlist) - WeissNumeric
+			)]^2]],
 	(* ------------------------------------ *)
 		EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
 		(* distance function *)
@@ -343,6 +355,23 @@ DMFTError[Xnew_, Xold_, EdMode_] := Module[
 				Total[Abs[Xnew[[All, 1, 2]]]], Total[Abs[Xold[[All, 1, 2]]]]		
 			]
 		}],
+(* --------------------------------- *)
+		EdMode == "Raman",
+		error = {};
+		Do[
+			If[
+				Max[Total[Abs[Xnew[[All, \[Alpha], \[Beta]]]]], Total[Abs[Xold[[All, \[Alpha], \[Beta]]]]]] < 0.1,
+				Continue[]; 
+			]; (* skip elements when they are zero *)
+			Print["\[Alpha]=",\[Alpha]," \[Beta]=",\[Beta]];
+			AppendTo[error, Total[
+					Abs[Xnew[[All, \[Alpha], \[Beta]]] - Xold[[All, \[Alpha], \[Beta]]]]
+				]/Max[
+					Total[Abs[Xnew[[All, \[Alpha], \[Beta]]]]], Total[Abs[Xold[[All, \[Alpha], \[Beta]]]]]		
+				]
+			];
+		, {\[Alpha], Length[Xnew[[1]]]}, {\[Beta], \[Alpha], Length[Xnew[[1]]]}];
+		error = Mean[error],
 (* ----------------------------------- *)
 		EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
 		error = {};

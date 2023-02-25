@@ -2,7 +2,7 @@
 
 (*             GENERAL INPUT              *)
 (* number of bath sites *)
-Nbath = 2; 
+Nbath = 3; 
 (* number of orbitals *)
 Norb = 2; 
 (* number of impurity sites *)
@@ -53,11 +53,11 @@ HundMode = False;
 (* Explicit magnetic field: (can be different for different orbitals) *)
 h = ConstantArray[0.0, {Norb, f}];
 (* Raman hopping matrix (can be different for different orbitals) *)
-M = 0.3 * ConstantArray[PauliMatrix[1], Norb];
+M = 0.75 * ConstantArray[PauliMatrix[1], Norb];
 (* Gauge field associated with Raman tunneling *)
-\[Gamma] = 0.0 * Pi;
+\[Gamma] = 0.25 * Pi;
 (* unit vector giving the spatial direction where tunneling is modified by the gauge field *)
-u = {1.0, 0.0}; 
+u = {1.0}; 
 (* temperature *)
 T = 0; 
 
@@ -104,7 +104,7 @@ MinNumberOfEigs = 10;
 (* minimum number of DMFT loops *)
 DMFTMinIterations = 2; 
 (* maximum number of DMFT loops *)
-DMFTMaxIterations = 3; 
+DMFTMaxIterations = 30; 
 (* threshold for DMFT loop convergence *)
 DMFTerror = 1.0 * 10^(-5); 
 (* InverseG0 = Mixing * InverseG0old + (1 - Mixing) * InverseG0 *)
@@ -121,6 +121,9 @@ CGNMatsubara = 500;
 CGAccuracy = 7;
 (* list of weights attributed to each Matsubara frequency w(i\[Omega]): IT SHOULD BE >= CGNMatsubara *)
 CGWeight = ConstantArray[1., CGNMatsubara];
+
+(* turn off annoying messages from Eigensystem and stop evaluation after the first error occurs *)
+AbortAtFirstErrorQ = False;
 
 
 Print["Input file imported successfully. "]

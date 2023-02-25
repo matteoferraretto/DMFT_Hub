@@ -1,6 +1,6 @@
 (* ::Package:: *)
 
-BeginPackage["Parameters`"]
+BeginPackage["Parameters`", {"MyLinearAlgebra`"}]
 
 StartingBath::usage = "StartingBath[L, f, Norb, \[Delta], InitializeBathMode, EdMode] returns a list containing the bath parameters to start the DMFT loop.
 If EdMode = ''Normal'' then the output has the form {e,V}, where e and V are lists of Norb x (L-1) elements, representing the bath energies and the bath-impurity hybridizations.
@@ -268,10 +268,30 @@ ReshapeBathParameters[L_, f_, Norb_, IndependentParameters_, OrbitalSymmetry_, E
 		},
 	(* ----------------------------------------- *)
 		EdMode == "Raman" && OrbitalSymmetry,
-		Return[0],
+		{(* e *)
+			ConstantArray[(
+					SymmetricMatrixFromArray[#,f] &/@ Partition[IndependentParameters, f*(f+1)/2]
+				)[[ ;; L-1]]
+			, Norb],
+		 (* V *)
+		 	ConstantArray[(
+					SymmetricMatrixFromArray[#,f] &/@ Partition[IndependentParameters, f*(f+1)/2]
+				)[[-(L-1) ;; ]]
+			, Norb]
+		},
 	(* ----------------------------------------- *)
 		EdMode == "Raman" && !OrbitalSymmetry,
-		Return[0],	
+		{(* e *)
+			Table[(
+					SymmetricMatrixFromArray[#,f] &/@ Partition[IndependentParameters[[orb]], f*(f+1)/2]
+				)[[ ;; L-1]]
+			, {orb, Norb}],
+		 (* V *)
+		 	Table[(
+					SymmetricMatrixFromArray[#,f] &/@ Partition[IndependentParameters[[orb]], f*(f+1)/2]
+				)[[-(L-1) ;; ]]
+			, {orb, Norb}]
+		},	
 	(* ----------------------------------------- *)
 		EdMode == "InterorbNormal",
 		{Partition[Take[IndependentParameters, (L-1)*f*Norb], L-1], (* e *)

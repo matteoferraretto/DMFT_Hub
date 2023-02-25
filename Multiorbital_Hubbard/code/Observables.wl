@@ -222,12 +222,22 @@ MomentumResolvedSpectralFunction[LatticeEnergies_, \[Mu]_, \[CapitalSigma]_, kin
 
 (* Quasiparticle weight *)
 \[NonBreakingSpace]QuasiparticleWeight[\[CapitalSigma]_, i\[Omega]_, EdMode_, OptionsPattern[]] := Module[
-	{Selfenergy, data, a, z, cutoff = OptionValue[FitCutoff], orb = OptionValue[Orb]},
+	{Selfenergy, data, a, z, cutoff = OptionValue[FitCutoff], orb = OptionValue[Orb], f = Length[\[CapitalSigma][[1]]]},
 	Selfenergy = Which[
 		EdMode == "Normal", \[CapitalSigma], 
 		EdMode == "Superc", \[CapitalSigma][[All,1,1]],
 		EdMode == "InterorbSuperc" || EdMode == "FullSuperc", \[CapitalSigma][[All, 2(orb-1)+1, 2(orb-1)+1]]
 	];
+	(* if EdMode == "Raman" there are f distinct weights, one per effective flavor *)
+	If[EdMode == "Raman",
+		z = Table[
+			data = ({Im[i\[Omega]], Im[\[CapitalSigma][[All, \[Alpha], \[Alpha]]]]}\[Transpose])[[;;cutoff]];
+			a = Fit[data, {x, x^2}, x, "BestFitParameters"][[1]];
+			1./(1.-a)
+		, {\[Alpha], f}];
+		Return[z]; (* quit the function *)
+	];
+	(* in all the other cases it is just one number (orbital asymmetries are accounted at higher level in the code) *)
 	data = ({Im[i\[Omega]], Im[Selfenergy]}\[Transpose])[[;;cutoff]];
 	a = Fit[data, {x, x^2}, x, "BestFitParameters"][[1]];
 	z = 1./(1.-a)

@@ -153,6 +153,8 @@ Save[
 
 
 (* TURN OFF ANNOYING MESSAGES AND ABORT AS SOON AS AN ERROR SHOWS UP *)
-Off[Eigensystem::arh];
-messageHandler = If[Last[#], Abort[]] &;
-Internal`AddHandler["Message", messageHandler]
+If[AbortAtFirstErrorQ,
+	Off[Eigensystem::arh];
+	messageHandler = If[Last[#], Abort[]] &;
+	Internal`AddHandler["Message", messageHandler]
+]
