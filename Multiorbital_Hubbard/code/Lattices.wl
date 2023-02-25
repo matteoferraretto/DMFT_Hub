@@ -8,7 +8,16 @@ DoSBethe::usage = "DoSBethe[\[Epsilon], DBethe] returns the density of states fo
 BrillouinZone::usage = "BrillouinZone[LE, d] returns a list of LE points in the first Brillouin zone for a given lattice passed by option, for example Lattice -> ''Hypercubic''.
 d represents the dimensionality of such lattice, hence the dimension of each point in the Brillouin zone. "
 
-GetLatticeEnergies::usage = "."
+GetLatticeEnergies::usage = "GetLatticeEnergies[HalfBandwidths, \[Delta], LatticeType, LatticeDim, NumberOfPoints] returns a list with two objects:
+{LatticeEnergies, LatticeWeights}. LatticeWeights is a list of weights used when performing sums over the momenta/energies; if summing over momenta this is simply a uniform list that
+is normalized to 1; if summing over energies this is a sampling of the density of states. LatticeEnergies is a nested list with dimension {NumberOfPoints, Norb, Norb}. 
+The first index labels the momentum value; for every momentum k we have a matrix \[Epsilon]_orb1,orb2(k). Here \[Delta] is the crystal field splitting."
+
+GetLatticeEnergiesRaman::usage = "GetLatticeEnergiesRaman[HalfBandwidths, \[Delta], M, \[Gamma], u, LatticeType, LatticeDim, NumberOfPoints] returns a list with two objects:
+{LatticeEnergies, LatticeWeights}. LatticeWeights is a list of weights used when performing sums over the momenta/energies; if summing over momenta this is simply a uniform list that
+is normalized to 1; if summing over energies this is a sampling of the density of states. LatticeEnergies is a nested list with dimension {NumberOfPoints, Norb, Norb, f, f}. 
+The first index labels the momentum value; for every momentum k we have a matrix \[Epsilon]_orb1,orb2,\[Sigma],\[Rho](k) written in the basis where the Raman matrix M is diagonal. Here \[Gamma] and u represent the
+magnitude and direction of the gauge field, while \[Delta] is the crystal field splitting. "
 
 DispersionHypercubic::usage = "."
 
@@ -154,7 +163,9 @@ GetLatticeEnergiesRaman[HalfBandwidths_, \[Delta]_, M_, \[Gamma]_, u_, LatticeTy
 		(* equal weights to all the energies since we are sampling the Brillouin zone *)
 		weights = ConstantArray[1./(Length[BZ]), Length[BZ]];
 		Do[
-			energies[[All, orb, orb]] = (P . # . Pdg) &/@ ((DispersionHypercubicRaman[#, HalfBandwidths[[orb]], f, \[Gamma], u] + \[Delta][[orb]] * IdentityMatrix[f]) &/@ BZ);
+			energies[[All, orb, orb]] = (P . # . Pdg) &/@ (
+				(DispersionHypercubicRaman[#, HalfBandwidths[[orb]], f, \[Gamma], u] + \[Delta][[orb]] * IdentityMatrix[f] + M) &/@ BZ
+			)
 		, {orb, Norb}];
 	];
 	{energies, weights}
@@ -176,8 +187,8 @@ LocalGreenFunctionNormal = Compile[{
 	RuntimeAttributes->{Listable}, Parallelization->True
 ];
 
-(* when EdMode == "Superc" *)
-LocalGreenFunctionSuperc = Compile[{
+(* when EdMode == "Superc". This is based on analytic inversion of the matrix *)
+LocalGreenFunctionSupercAnalytic = Compile[{
 	{Energies,_Real,1}, {weights, _Real,1},{\[Mu], _Real}, {\[CapitalSigma], _Complex, 3}, {zlist, _Complex, 1}
 	},
 	Module[
@@ -198,7 +209,7 @@ LocalGreenFunctionSuperc = Compile[{
 	RuntimeAttributes->{Listable}, Parallelization->True
 ];
 (* use explicit inversion of 2x2 matrices *)
-LocalGreenFunctionSupercNew = Compile[{
+LocalGreenFunctionSuperc = Compile[{
 	{Energies,_Real,1}, {weights, _Real,1}, {\[Mu], _Real}, {\[CapitalSigma], _Complex, 3}, {zlist, _Complex, 1}
 	},
 	Module[
@@ -210,6 +221,24 @@ LocalGreenFunctionSupercNew = Compile[{
 						(\[Mu] - Energies[[i]]) * DiagonalMatrix[{1., -1.}]
 					, NMatsubara] - \[CapitalSigma])
 				, {i, 2, LE-1}]
+			]
+	],
+	RuntimeAttributes->{Listable}, Parallelization->True
+];
+
+(* when EdMode == "Raman" --- IN PROGRESS --- *)
+LocalGreenFunctionRaman = Compile[{
+	{Energies,_Real,2}, {weights, _Real,1}, {\[Mu], _Real}, {\[CapitalSigma], _Complex, 3}, {zlist, _Complex, 1}
+	},
+	Module[
+		{LE = Length[Energies], NMatsubara = Length[zlist], f = Length[Energies]},
+		Total @ Inverse[
+				Table[(1./weights[[i]]) * (
+					(IdentityMatrix[f] * #) &/@ zlist +
+					ConstantArray[
+						(\[Mu]*IdentityMatrix[f] - Energies[[i]])
+					, NMatsubara] - \[CapitalSigma])
+				, {i, 1, LE}]
 			]
 	],
 	RuntimeAttributes->{Listable}, Parallelization->True
@@ -262,10 +291,14 @@ LocalGreenFunction[LatticeEnergies_, weights_, \[Mu]_, \[CapitalSigma]_, zlist_,
 		EdMode == "Superc",
 		energies = Flatten[LatticeEnergies];
 		If[Re[zlist[[-1]]] == 0.0, (* if we are using Matsubara frequencies, use a shortcut *)
-			LocalGreenFunctionSuperc[energies, weights, \[Mu], \[CapitalSigma], zlist],
+			LocalGreenFunctionSupercAnalytic[energies, weights, \[Mu], \[CapitalSigma], zlist],
 		(* else if we are using real frequencies let's be safe and invert the matrix *)
-			LocalGreenFunctionSupercNew[energies, weights, \[Mu], \[CapitalSigma], zlist]
+			LocalGreenFunctionSuperc[energies, weights, \[Mu], \[CapitalSigma], zlist]
 		],
+	(* ------------------------------------------------------------------- *)
+		EdMode == "Raman",
+		energies = LatticeEnergies; (* the input will be a list of fxf matrices (orbital indexes will be specified) *)
+		LocalGreenFunctionRaman[energies, weights, \[Mu], \[CapitalSigma], zlist],
 	(* ------------------------------------------------------------------- *)
 		EdMode == "InterorbNormal",
 		energies = LatticeEnergies; (* in this situation the input tensor has the correct shape *)
