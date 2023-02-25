@@ -155,7 +155,7 @@ Symbols[L_, f_, Norb_, EdMode_] := Which[
 		, 3],
 		Flatten[
 			Table[
-				Symbol["V"<>ToString[i]<>ToString[n]<>ToString[m]]
+				Symbol["V"<>ToString[i]<>ToString[m]<>ToString[n]]
 			, {i, 1, L-1}, {m, 1, f}, {n, m, f}]
 		, 3]
 	],

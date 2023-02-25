@@ -152,11 +152,11 @@ ApplyC[L_, f_, Norb_, j_, \[Sigma]_, orb_, gs_, qns_, Sectors_, SectorsDispatch_
 	{newqns = qns,startingsector = Sectors[[qns/.SectorsDispatch]],finalsector, newdim,sign,dispatch,pos,newpos,coeff,\[Psi]1,\[Chi]},
 	(* build the final sector quantum numbers *)
 	Which[
-		EdMode=="Normal",
+		EdMode == "Normal",
 		If[qns[[f*(orb-1)+\[Sigma]]]==0, Return[0]];  (* trivial case *)
 		newqns[[f*(orb-1)+\[Sigma]]]-=1;,
 	(* ---------------------------- *)
-		EdMode =="InterorbNormal",
+		EdMode == "InterorbNormal",
 		If[qns[[\[Sigma]]]==0, Return[0]];  (* trivial case *)
 		newqns[[\[Sigma]]]-=1;,
 	(* ---------------------------- *)

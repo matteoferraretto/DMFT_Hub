@@ -12,9 +12,7 @@ The calculation depends on the lattice type: it takes advantage of the simplifie
 The list of Matsubara frequencies zlist must be provided, along with the effective chemical potential. The parameter DBethe represents the half-bandwidth in case of Bethe lattice, while
 it is ignored when the lattice type is not ''Bethe''. "
 
-SelfConsistency::usage = "SelfConsistency[DBethe_, \[Mu]_, Weiss_, symbols_, z_, IndependentParameters_, LocalG_, LocalGold_, \[CapitalSigma]_, \[CapitalSigma]old_, zlist_, EdMode_]"
-
-SelfConsistencyNew::usage = "SelfConsistencyNew[Weiss_, symbols_, z_, IndependentParameters_, WeissNumeric_, zlist_, EdMode_]" 
+SelfConsistency::usage = "SelfConsistency[Weiss, symbols, z, IndependentParameters, WeissNumeric, zlist, EdMode]" 
 
 DMFTError::usage = "DMFTError[Xnew, Xold, EdMode]"
 
@@ -155,7 +153,7 @@ WeissFieldNumeric[DBethe_, \[Mu]_, LocalG_, LocalGold_, \[CapitalSigma]_, \[Capi
 Options[WeissFieldNumeric] = {Mix -> 0.0, Lattice -> "Bethe", LatticeDimension -> Infinity};
 
 (* new self cons *)
-SelfConsistencyNew[Weiss_, symbols_, z_, IndependentParameters_, WeissNumeric_, zlist_, EdMode_, OptionsPattern[{SelfConsistencyNew, FindMinimum}]] := Module[
+SelfConsistency[Weiss_, symbols_, z_, IndependentParameters_, WeissNumeric_, zlist_, EdMode_, OptionsPattern[{SelfConsistencyNew, FindMinimum}]] := Module[
 	{weight = OptionValue[FitWeight], \[Chi], residue, newparameters},
 	Which[
 		EdMode == "Normal",
@@ -207,7 +205,7 @@ SelfConsistencyNew[Weiss_, symbols_, z_, IndependentParameters_, WeissNumeric_, 
 	Print["Fit residue: ", residue];
 	symbols/.newparameters
 ];
-Options[SelfConsistencyNew] = { 
+Options[SelfConsistency] = { 
 	NumberOfFrequencies -> 2000, 
 	Minimum -> "Local", 
 	Method -> "ConjugateGradient", 
@@ -216,7 +214,7 @@ Options[SelfConsistencyNew] = {
 
 
 (* Perform minimization according to the self consistency condition *)
-SelfConsistency[DBethe_, \[Mu]_, Weiss_, symbols_, z_, IndependentParameters_, LocalG_, LocalGold_, \[CapitalSigma]_, \[CapitalSigma]old_, zlist_, EdMode_, OptionsPattern[{SelfConsistency, FindMinimum}]] := 
+SelfConsistencyOld[DBethe_, \[Mu]_, Weiss_, symbols_, z_, IndependentParameters_, LocalG_, LocalGold_, \[CapitalSigma]_, \[CapitalSigma]old_, zlist_, EdMode_, OptionsPattern[{SelfConsistency, FindMinimum}]] := 
 Module[
 	{Lattice = OptionValue[Lattice],
 	weight = OptionValue[FitWeight],
@@ -310,7 +308,7 @@ Module[
 	Print["Fit residue: ", residue];
 	symbols/.newparameters
 ];
-Options[SelfConsistency] = {
+Options[SelfConsistencyOld] = {
 	Mix -> 0.0,
 	Lattice -> "Bethe", 
 	LatticeDimension -> 2, 

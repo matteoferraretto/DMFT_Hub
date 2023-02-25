@@ -16,7 +16,7 @@ EdMode = "Raman";
 (* lattice crystal structure: "Bethe", "Hypercubic", etc. *)
 LatticeType = "Hypercubic"; 
 (* lattice dimensionality *)
-LatticeDim = 2; 
+LatticeDim = 1; 
 (* lattice points *)
 LatticePoints = 1000;
 (* compute many-body functions independently for two different sublattices A and B? *)
@@ -53,7 +53,7 @@ HundMode = False;
 (* Explicit magnetic field: (can be different for different orbitals) *)
 h = ConstantArray[0.0, {Norb, f}];
 (* Raman hopping matrix (can be different for different orbitals) *)
-M = ConstantArray[0.0, {Norb, f, f}];
+M = 0.3 * ConstantArray[PauliMatrix[1], Norb];
 (* Gauge field associated with Raman tunneling *)
 \[Gamma] = 0.0 * Pi;
 (* unit vector giving the spatial direction where tunneling is modified by the gauge field *)

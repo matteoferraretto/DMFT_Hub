@@ -1,6 +1,6 @@
 (* ::Package:: *)
 
-(*                   DMFT LOOP                     *)
+(*                   DMFT LOOP (NO SUBLATTICES)                    *)
 If[!SublatticesQ,
 
 Do[
@@ -69,6 +69,7 @@ Do[
 		];
 		
 		
+		(* COMPUTE GREEN FUNCTIONS *)
 		Which[
 		(* ----------------------------------------------------------------------------------------- *)
 		(* if there is orbital symmetry, you compute many body functions just for ONE representative orbital *)
@@ -82,7 +83,7 @@ Do[
 			Gimp = Mean[Apply[
 				GreenFunctionImpurity[L, f, Norb, 1, 1, Egs, ##, Hsectors, Sectors, SectorsDispatch, EdMode, i\[Omega]]&,
 				{Gs, GsQns}\[Transpose]
-			, {1}]];
+			, {1}]]; (* when EdMode == "Raman", the \[Sigma]=1 input is simply ignored, so this is fine! *)
 			(* G^-1(i\[Omega]) *)
 			InverseG = InverseGreenFunction[Gimp, EdMode];
 			(* G_0^-1(i\[Omega]) *)
@@ -110,27 +111,12 @@ Do[
 			], " sec."];
 			
 			
-			(* Self consistency *)
+			(* SELF CONSISTENCY *)
 			Print[Style["\t\t Self Consistency start", 16, Bold, Magenta]];
-			Print["S.C. time: ", First@AbsoluteTiming[
-			
-			(*BathParameters = ReshapeBathParameters[L, f, Norb,	
-				SelfConsistency[
-					W[[1]], \[Mu] - \[Delta][[1]], Weiss, symbols, z, IndependentParameters, 
-					LocalG, LocalGold, \[CapitalSigma], \[CapitalSigma]old, i\[Omega], EdMode,
-					Mix -> If[DMFTiterator > 2, Mixing, (* else *) 0.0],
-					Lattice -> LatticeType, 
-					LatticeDimension -> LatticeDim, 
-					Minimum -> MinimizationType, 
-					Method -> MinimizationMethod,
-					NumberOfFrequencies -> CGNMatsubara, 
-					MaxIterations -> CGMaxIterations, 
-					AccuracyGoal -> CGAccuracy,
-					FitWeight -> CGWeight
-				],
-			OrbitalSymmetry, EdMode]; *)
+			Print["S.C. time: ", First@AbsoluteTiming[	
+				
 			BathParameters = ReshapeBathParameters[L, f, Norb,	
-				SelfConsistencyNew[
+				SelfConsistency[
 					Weiss, symbols, z, IndependentParameters, WeissNumeric, i\[Omega], EdMode,
 					Minimum -> MinimizationType, 
 					Method -> MinimizationMethod,
@@ -195,27 +181,12 @@ Do[
 			], " sec."];
 			
 			
-			(* Self consistency *)
+			(* SELF CONSISTENCY *)
 			Print[Style["\t\t Self Consistency start", 16, Bold, Magenta]];
 			Print["S.C. time: ", First @ AbsoluteTiming[
 			
-			(*BathParameters = ReshapeBathParameters[L, f, Norb, Table[
-				SelfConsistency[
-					W[[orb]], \[Mu] - \[Delta][[orb]], Weiss[[orb]], symbols, z, IndependentParameters[[orb]], 
-					LocalG[[orb]], LocalGold[[orb]], \[CapitalSigma][[orb]], \[CapitalSigma]old[[orb]], i\[Omega], EdMode,
-					Mix -> If[DMFTiterator > 2, Mixing, (* else *) 0.0],
-					Lattice -> LatticeType, 
-					LatticeDimension -> LatticeDim, 
-					Minimum -> MinimizationType, 
-					Method -> MinimizationMethod,
-					NumberOfFrequencies -> CGNMatsubara, 
-					MaxIterations -> CGMaxIterations, 
-					AccuracyGoal -> CGAccuracy,
-					FitWeight -> CGWeight
-				]
-			, {orb, Norb}], OrbitalSymmetry, EdMode]; *)
 			BathParameters = ReshapeBathParameters[L, f, Norb, Table[
-				SelfConsistencyNew[
+				SelfConsistency[
 					Weiss[[orb]], symbols, z, IndependentParameters[[orb]], WeissNumeric[[orb]], i\[Omega], EdMode,
 					Minimum -> MinimizationType, 
 					Method -> MinimizationMethod,
@@ -277,26 +248,8 @@ Do[
 			Print[Style["\t\t Self Consistency start", 16, Bold, Magenta]];
 			Print["S.C. time: ", First@AbsoluteTiming[
 			
-			(* BathParameters = ReshapeBathParameters[L, f, Norb, 
-				SelfConsistency[
-					W[[1]], 
-					\[Mu] - \[Delta], 
-					Weiss, 
-					symbols, z, IndependentParameters, 
-					LocalG, LocalGold, \[CapitalSigma], \[CapitalSigma]old, i\[Omega], EdMode,
-					Mix -> If[DMFTiterator > 2, Mixing, (* else *) 0.0],
-					Lattice -> LatticeType, 
-					LatticeDimension -> LatticeDim, 
-					Minimum -> MinimizationType, 
-					Method -> MinimizationMethod,
-					NumberOfFrequencies -> CGNMatsubara, 
-					MaxIterations -> CGMaxIterations, 
-					AccuracyGoal -> CGAccuracy,
-					FitWeight -> CGWeight
-				]
-			, OrbitalSymmetry, EdMode]; *)
 			BathParameters = ReshapeBathParameters[L, f, Norb, 
-				SelfConsistencyNew[
+				SelfConsistency[
 					Weiss, symbols, z, IndependentParameters, WeissNumeric, i\[Omega], EdMode,
 					Minimum -> MinimizationType, 
 					Method -> MinimizationMethod,
@@ -353,6 +306,7 @@ WriteOutput[True, OutputDirectory, "z", Z];
 (*When you include lattice ordering in two sublattices*)
 
 
+(*                   DMFT LOOP (SUBLATTICES)                    *)
 If[SublatticesQ,
 
 Gimp = {0,0}; InverseG = {0,0}; InverseG0old = {0,0}; InverseG0 = {0,0}; \[CapitalSigma] = {0,0}; \[CapitalSigma]old = {0,0}; LocalG = {0,0}; LocalGold = {0,0}; WeissNumeric = {0,0}; IndependentParameters = {0,0};
@@ -470,7 +424,7 @@ Do[
 			(* ----------------------------------------------------------------------------------------- *)
 			(EdMode == "Normal" || EdMode == "Superc") && OrbitalSymmetry,
 			BathParameters[[2]] = ReshapeBathParameters[L, f, Norb,	
-				SelfConsistencyNew[
+				SelfConsistency[
 					Weiss, symbols, z, IndependentParameters[[2]], WeissNumeric[[1]], i\[Omega], EdMode,
 					Minimum -> MinimizationType, 
 					Method -> MinimizationMethod,
@@ -482,7 +436,7 @@ Do[
 			OrbitalSymmetry, EdMode];
 			(* *)
 			BathParameters[[1]] = ReshapeBathParameters[L, f, Norb,	
-				SelfConsistencyNew[
+				SelfConsistency[
 					Weiss, symbols, z, IndependentParameters[[1]], WeissNumeric[[2]], i\[Omega], EdMode,
 					Minimum -> MinimizationType, 
 					Method -> MinimizationMethod,

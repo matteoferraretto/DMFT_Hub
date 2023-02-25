@@ -164,7 +164,7 @@ GetLatticeEnergiesRaman[HalfBandwidths_, \[Delta]_, M_, \[Gamma]_, u_, LatticeTy
 		weights = ConstantArray[1./(Length[BZ]), Length[BZ]];
 		Do[
 			energies[[All, orb, orb]] = (P . # . Pdg) &/@ (
-				(DispersionHypercubicRaman[#, HalfBandwidths[[orb]], f, \[Gamma], u] + \[Delta][[orb]] * IdentityMatrix[f] + M) &/@ BZ
+				(DispersionHypercubicRaman[#, HalfBandwidths[[orb]], f, \[Gamma], u] + \[Delta][[orb]] * IdentityMatrix[f] + M[[orb]]) &/@ BZ
 			)
 		, {orb, Norb}];
 	];
@@ -228,18 +228,29 @@ LocalGreenFunctionSuperc = Compile[{
 
 (* when EdMode == "Raman" --- IN PROGRESS --- *)
 LocalGreenFunctionRaman = Compile[{
-	{Energies,_Real,2}, {weights, _Real,1}, {\[Mu], _Real}, {\[CapitalSigma], _Complex, 3}, {zlist, _Complex, 1}
+	{Energies,_Real,3}, {weights, _Real,1}, {\[Mu], _Real}, {\[CapitalSigma], _Complex, 3}, {zlist, _Complex, 1}
 	},
 	Module[
-		{LE = Length[Energies], NMatsubara = Length[zlist], f = Length[Energies]},
-		Total @ Inverse[
+		{LE = Length[Energies], NMatsubara = Length[zlist], f = Length[Energies[[1]]]},
+		If[f == 2, (* in this case use faster inversion algorithm *)
+			Total @ TwoByTwoInverse[
 				Table[(1./weights[[i]]) * (
 					(IdentityMatrix[f] * #) &/@ zlist +
 					ConstantArray[
 						(\[Mu]*IdentityMatrix[f] - Energies[[i]])
 					, NMatsubara] - \[CapitalSigma])
 				, {i, 1, LE}]
-			]
+			],
+		(* else, if f>2 use built in inversion procedure *)
+			Total @ Table[
+				weights[[i]] * Inverse[#]&/@(
+					(IdentityMatrix[f]*#)&/@zlist +
+					ConstantArray[
+						\[Mu] * IdentityMatrix[f] - Energies[[i]]
+					, NMatsubara] - \[CapitalSigma]
+				)
+			,{i,LE}]
+		]
 	],
 	RuntimeAttributes->{Listable}, Parallelization->True
 ];

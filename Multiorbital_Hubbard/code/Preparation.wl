@@ -42,6 +42,9 @@ If[\[Gamma] != 0.0 && Length[u] != LatticeDim && EdMode == "Raman",
 	Print[Style["Error. The vector u should have the same dimension as the lattice.", Red]];
 	Abort[];
 ];
+If[M == ConstantArray[0.0, {Norb, f, f}] && EdMode == "Raman",
+	Print[Style["Warning. The Raman matrix is zero but EdMode = ''Raman''. You should either add a small Raman coupling or change EdMode to ''Normal''.", Red]];
+];
 
 
 (* GET INTERACTION PARAMETERS *)
