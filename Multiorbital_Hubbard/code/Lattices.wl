@@ -148,23 +148,23 @@ GetLatticeEnergies[HalfBandwidths_, \[Delta]_, LatticeType_, LatticeDim_, Number
 
 (* Return the energy and weight lists for computing local G.F. when EdMode = "Raman" and spin states are not symmetric *)
 GetLatticeEnergiesRaman[HalfBandwidths_, \[Delta]_, M_, \[Gamma]_, u_, LatticeType_, LatticeDim_, NumberOfPoints_] := Module[
-	{LE, BZ, energies, weights, f = Length[M], Norb = Length[HalfBandwidths], P, Pdg},
+	{LE, BZ, energies, weights, f = Length[M[[1]]], Norb = Length[HalfBandwidths], P, Pdg},
 	Which[
 		LatticeType == "Hypercubic" && LatticeDim != Infinity,
 		(* number of points per lattice direction *)
 		LE = Floor[NumberOfPoints^(1./LatticeDim)];
 		(* get the Brillouin Zone *)
 		BZ = BrillouinZone[LE, LatticeDim, Lattice -> "Hypercubic"];
-		(* get the unitary matrix that diagonalizes M: P.M.Pdg = \[CapitalLambda], where \[CapitalLambda] is diagonal *)
-		Pdg = Normalize[#] &/@ Eigenvectors[M]\[Transpose];
-		P = ConjugateTranspose[Pdg];
 		(* initialize energies list of rank LE x Norb x Norb x f x f *)
-		energies = ConstantArray[ConstantArray[0, {f, f}], {Length[BZ], Norb, Norb}];
+		energies = ConstantArray[ConstantArray[0.0, {f, f}], {Length[BZ], Norb, Norb}];
 		(* equal weights to all the energies since we are sampling the Brillouin zone *)
 		weights = ConstantArray[1./(Length[BZ]), Length[BZ]];
 		Do[
+			(* get the unitary matrix that diagonalizes M: P.M.Pdg = \[CapitalLambda], where \[CapitalLambda] is diagonal *)
+			Pdg = (Normalize[#] &/@ Eigenvectors[M[[orb]]])\[Transpose];
+			P = ConjugateTranspose[Pdg];
 			energies[[All, orb, orb]] = (P . # . Pdg) &/@ (
-				(DispersionHypercubicRaman[#, HalfBandwidths[[orb]], f, \[Gamma], u] + \[Delta][[orb]] * IdentityMatrix[f] + M[[orb]]) &/@ BZ
+				(DispersionHypercubicRaman[#, HalfBandwidths[[orb]], f, \[Gamma], u] + \[Delta][[orb]]*IdentityMatrix[f] + M[[orb]]) &/@ BZ
 			)
 		, {orb, Norb}];
 	];

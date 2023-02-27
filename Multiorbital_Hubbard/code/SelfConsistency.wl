@@ -170,16 +170,18 @@ SelfConsistency[Weiss_, symbols_, z_, IndependentParameters_, WeissNumeric_, zli
 			)]^2],
 	(* ------------------------------------ *)
 		EdMode == "Raman",
-		f = Length[WeissNumeric[[1]]];
 		(* distance function *) 
 		(* 2/(Subscript[N, Mats ]f(f+1)) \!\(
-\*SubscriptBox[\(\[Sum]\), \(\[Alpha], \[Beta] >= \[Alpha]\)]\ \(
-\*SubscriptBox[\(\[Sum]\), \(i\[Omega]\)]\ \(\(|\)\(w\((i\[Omega])\)\ *\ \((Weiss_analytic _\[Alpha]\[Beta]\  - \ Weiss_numeric _\[Alpha]\[Beta])\)\)
-\*SuperscriptBox[\(|\), \(2\)]\)\)\) *)
-		\[Chi][symbols] = (2/(f*(f+1)))* Total[#,2]&@ UpperTriangularize[
-			Mean[Abs[ weight * (
-				(Weiss/.{z -> #} &/@ zlist) - WeissNumeric
-			)]^2]],
+\*SubscriptBox[\(\[Sum]\), \(\[Alpha], \[Beta] >= \[Alpha]\)]\ 
+\*SubscriptBox[\(\[Sum]\), \(i\[Omega]\)]\) |w(i\[Omega]) * (Weiss_analytic_\[Alpha]\[Beta] - Weiss_numeric_\[Alpha]\[Beta])|^2 *)
+		\[Chi][symbols] = Mean[
+			Total[#, 2] &/@ (
+				Abs[ 
+					weight * (
+					(UpperTriangularize[Weiss/.{z -> #}] &/@ zlist) 
+					- (UpperTriangularize[#] &/@ WeissNumeric)
+				)]^2
+			)];,
 	(* ------------------------------------ *)
 		EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
 		(* distance function *)

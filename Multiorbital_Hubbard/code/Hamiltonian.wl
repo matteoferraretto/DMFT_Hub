@@ -110,14 +110,21 @@ HNonlocalRaman[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 			Hblock = SparseArray[{}, {dim,dim}];
 			Which[
 				flag == "Bath" && EdMode == "Raman",
-				(*Print["flag=",flag,". orb=", orb,". {\[Rho],\[Sigma]}=",{\[Rho],\[Sigma]},". j=",j];*)
-				\[Psi]1 = HopSelect[L, f, j, j, \[Rho], \[Sigma], orb, orb, \[Psi]];
-				If[Length[\[Psi]1] != 0, 
-					\[Chi] = Hop[L, f, j, j, \[Rho], \[Sigma], orb, orb, \[Psi]1];
-					rows = \[Chi]/.dispatch;(* *)cols=\[Psi]1/.dispatch;(* *)pos={rows,cols}\[Transpose];
-					\[CapitalSigma] = CCSign[L, f, {j,j}, {\[Rho],\[Sigma]}, {orb,orb}, \[Psi]1];
-					Hblock += SparseArray[pos->\[CapitalSigma],{dim,dim}];
-					Hblock = Hblock + Hblock\[ConjugateTranspose];
+				If[\[Rho] == \[Sigma],
+					num = n[L, f, Norb, j, \[Sigma], orb, \[Psi]];(* local density*)
+					Hblock += SparseArray@DiagonalMatrix[num];,
+				(* else *)
+					\[Psi]1 = HopSelect[L, f, j, j, \[Rho], \[Sigma], orb, orb, \[Psi]];
+					If[Length[\[Psi]1] != 0, 
+						\[Chi] = Hop[L, f, j, j, \[Rho], \[Sigma], orb, orb, \[Psi]1];
+						rows = \[Chi]/.dispatch;(* *)cols=\[Psi]1/.dispatch;(* *)pos={rows,cols}\[Transpose];
+						\[CapitalSigma] = CCSign[L, f, {j,j}, {\[Rho],\[Sigma]}, {orb,orb}, \[Psi]1];
+						If[Index[L, f, Norb, j, \[Rho], orb] > Index[L, f, Norb, j, \[Sigma], orb], 
+							\[CapitalSigma] = -\[CapitalSigma]
+						];(* if \[Rho] > \[Sigma], we are applying e.g. cdg_2 c_1. When moving cdg_2 before position 2, it jumps over c_1 and the sign changes! *)
+						Hblock += SparseArray[pos->\[CapitalSigma],{dim,dim}];
+						(*Hblock = Hblock + Hblock\[ConjugateTranspose];*)
+					];
 				];
 				AppendTo[Hsector, Hblock];,
 			(* --------------------------------------------------------------- *)
@@ -128,6 +135,9 @@ HNonlocalRaman[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 					\[Chi] = Hop[L, f, 1, j, \[Rho], \[Sigma], orb, orb, \[Psi]1];
 					rows = \[Chi]/.dispatch;(* *)cols=\[Psi]1/.dispatch;(* *)pos={rows,cols}\[Transpose];
 					\[CapitalSigma] = CCSign[L, f, {1,j}, {\[Rho],\[Sigma]}, {orb,orb}, \[Psi]1];
+					If[Index[L, f, Norb, 1, \[Rho], orb] > Index[L, f, Norb, j, \[Sigma], orb], 
+						\[CapitalSigma] = -\[CapitalSigma]
+					];(* if \[Rho] > \[Sigma], we are applying e.g. cdg_2 c_1. When moving cdg_2 before position 2, it jumps over c_1 and the sign changes! *)
 					Hblock += SparseArray[pos->\[CapitalSigma],{dim,dim}];
 					Hblock = Hblock + Hblock\[ConjugateTranspose];
 				];

@@ -26,6 +26,7 @@ Do[
 		EgsSectorList = eigs[[All, 1]];
 		GsSectorList = eigs[[All, 2]];
 		ClearAll[eigs];
+		Print[EgsSectorList];
 		
 	]," sec.\n"];
 	
@@ -66,6 +67,21 @@ Do[
 				};
 				Print["Order parameter interorbital {<adg_up bdg_dw>, <bdg_up adg_dw>} = ", \[CapitalXi]];
 			]
+		];
+		If[EdMode == "Raman",
+			(* spin and orbital resolved density *)
+			Table[
+				Print["density (spin = ",\[Sigma],", orb = ",orb,") = ",
+					Density[L, f, Norb, 1, \[Sigma], orb, Sectors, EgsSectorList, GsSectorList, T]
+				];
+			, {\[Sigma], f}, {orb, Norb}];
+			(* < cdg c > *)
+			Table[
+				If[\[Sigma] != \[Rho],
+					Print["cdg_",\[Sigma],"c_",\[Rho]," = ",
+						CdgC[L, f, Norb, {1,1}, {\[Sigma], \[Rho]}, {orb, orb}, Sectors, EgsSectorList, GsSectorList, T]
+				]; ]
+			, {orb, Norb}, {\[Sigma], f}, {\[Rho], f}];
 		];
 		
 		

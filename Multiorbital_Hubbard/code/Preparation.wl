@@ -82,16 +82,16 @@ Jph = Flatten[ Pick[
 	UpperTriangularize[ConstantArray[1, {Norb, Norb}]],
 	1
 ] ];
-(* if EdMode = "Raman", use eigenvalues of Raman matrices as magnetic field *)
+(* effective magnetic field applied on the impurity by Raman field *)
 If[EdMode == "Raman",
-	h = Eigenvalues[#] &/@ M;
+	h = Flatten[ Eigenvalues[#] &/@ M ];
 ];
 (* get list of interaction parameters in correct order *)
 InteractionParameters = {h, \[Delta], U, Ust, Usec, Jph, Jse, - \[Mu] + shift};
 
 
 (* GET BATH PARAMETERS *)
-BathParameters = StartingBath[L, f, Norb, \[Delta]-\[Mu], InitializeBathMode, EdMode, V0 -> 1.0, \[CapitalDelta]0 -> 0.2, \[CapitalXi]0 -> 0.2];
+BathParameters = StartingBath[L, f, Norb, \[Delta]-\[Mu], InitializeBathMode, EdMode, V0 -> 1.0, \[CapitalDelta]0 -> 0.2, \[CapitalXi]0 -> 0.2, \[CapitalOmega]0 -> 0.3];
 Nparams = Length[ Flatten[BathParameters] ];
 (* if there are sublattices, duplicate the bath parameters *)
 If[SublatticesQ,

@@ -66,6 +66,22 @@ MomentumDistributionDensity[k_, Dispersion_, \[Mu]_, \[CapitalSigma]_, i\[Omega]
 	];
 ]
 
+(* returns a list of {n_k,\[Sigma]=1 ; n_k,\[Sigma]=2, ...} where k is the i-th point in the BZ *)
+MomentumDistributedDensityRaman[i_, orb_, Energies_, M_, \[Mu]_, \[CapitalSigma]_, i\[Omega]_, \[Eta]_] := Module[
+	{Pdg, P, TMats = i\[Omega][[2]]-i\[Omega][[1]], f = Length[\[CapitalSigma][[1]]]},
+	(* get the unitary matrix that diagonalizes M: P.M.Pdg = \[CapitalLambda], where \[CapitalLambda] is diagonal *)
+	Pdg = (Normalize[#] &/@ Eigenvectors[M[[orb]]])\[Transpose];
+	P = ConjugateTranspose[Pdg];
+	(* compute the density: TMats \!\(
+\*SubscriptBox[\(\[Sum]\), \(i\[Omega]\)]\ \(\(Exp[\(-i\[Omega]\[Eta]\)]\)\ [P\  . \ G\((k, \ i\[Omega])\)\  . \ Pdg]_\[Sigma]\[Sigma]\)\) *)
+	Table[
+		TMats * Total[
+			Exp[-i\[Omega]*\[Eta]] * (P . # . Pdg)[[\[Sigma],\[Sigma]]] &/@ (
+				Inverse[#] &/@ (((#+\[Mu])*IdentityMatrix[f] - Energies[[i]]) &/@ i\[Omega])
+		)]
+	, {\[Sigma], f}]
+]
+
 
 (* Density-Density *)
 SquareDensity[L_, f_, Norb_, {i_,j_}, {\[Sigma]1_,\[Sigma]2_}, {orb1_,orb2_}, Sectors_, EgsSectorList_, GsSectorList_, T_, OptionsPattern[]] := Module[
@@ -139,7 +155,9 @@ CdgC[L_, f_, Norb_, {i_,j_}, {\[Sigma]1_,\[Sigma]2_}, {orb1_,orb2_}, Sectors_, E
 				\[Chi] = Hop[L, f, i, j, \[Sigma]1, \[Sigma]2, orb1, orb2, \[Psi]1];
 				rows = \[Chi]/.dispatch;(* *)cols = \[Psi]1/.dispatch;(* *)pos = {rows,cols}\[Transpose];
 				\[CapitalSigma] = CCSign[L, f, {i,j}, {\[Sigma]1,\[Sigma]2}, {orb1,orb2}, \[Psi]1];
-				If[j < i, \[CapitalSigma] = -\[CapitalSigma]];(* if j=L, we are applying cdg_L c_1. When moving cdg_L before position L, it jumps over c_1 and the sign changes! *)
+				If[Index[L, f, Norb, i, \[Sigma]1, orb1] > Index[L, f, Norb, j, \[Sigma]2, orb2], 
+					\[CapitalSigma] = -\[CapitalSigma]
+				];
 				cdgc += SparseArray[pos -> \[CapitalSigma], {dim,dim}];
 			];
 			Conjugate[gs] . (cdgc . gs)
@@ -147,7 +165,7 @@ CdgC[L_, f_, Norb_, {i_,j_}, {\[Sigma]1_,\[Sigma]2_}, {orb1_,orb2_}, Sectors_, E
 	];
 	hop/Length[GsSectorIndex]
 ];
-Options[CdgC] = {DegeneracyThreshold -> 1.*10^(-9)}
+Options[CdgC] = {DegeneracyThreshold -> 1.*10^(-9)};
 
 (* Spectral function of the impurity problem *)
 SpectralFunctionImpurity[L_, f_, Norb_, \[Sigma]_, orb_, Egs_, Gs_, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, EdMode_, \[Omega]_, \[Eta]_] := Module[

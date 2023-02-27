@@ -61,7 +61,8 @@ StartingBath[L_, f_, Norb_, \[Delta]_, InitializeBathMode_, EdMode_, OptionsPatt
 			, Norb];
 			V = ConstantArray[
 				Table[
-					ConstantArray[1., {f, f}]
+					DiagonalMatrix[ ConstantArray[1.0 - OptionValue[\[CapitalOmega]0], f] ] + 
+					ConstantArray[OptionValue[\[CapitalOmega]0], {f, f}]
 				, {k, Nbath}]
 			, Norb] * OptionValue[V0],
 		(*else*)

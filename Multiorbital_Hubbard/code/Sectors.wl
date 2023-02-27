@@ -148,6 +148,12 @@ BuildSector[L_, f_, Norb_, qns_, EdMode_] := Module[
 	states
 ];
 
+(* returns the position of state (i,\[Sigma],orb) in the flattened version of a given Fock state *)
+Index = Compile[
+	{{L, _Integer}, {f, _Integer}, {Norb, _Integer}, {i, _Integer}, {\[Sigma], _Integer}, {orb, _Integer}},
+	L(f(orb - 1) + \[Sigma] - 1) + i
+];
+
 
 (*               MANIPULATION OF STATES                *)
 (* gives True if it is possible to create a particle on site (i,\[Sigma],orb), False otherwise *)
