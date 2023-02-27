@@ -42,8 +42,12 @@ If[\[Gamma] != 0.0 && Length[u] != LatticeDim && EdMode == "Raman",
 	Print[Style["Error. The vector u should have the same dimension as the lattice.", Red]];
 	Abort[];
 ];
-If[M == ConstantArray[0.0, {Norb, f, f}] && EdMode == "Raman",
-	Print[Style["Warning. The Raman matrix is zero but EdMode = ''Raman''. You should either add a small Raman coupling or change EdMode to ''Normal''.", Red]];
+If[M == ConstantArray[0.0, {Norb, f, f}] && h == ConstantArray[0.0, {Norb,f}] && EdMode == "Raman",
+	Print[Style["Warning. The Raman matrix and magnetic field are zero but EdMode = ''Raman''. You should either add a small Raman coupling or change EdMode to ''Normal''.", Red]];
+];
+If[EdMode != "Raman" && (h != ConstantArray[0.0, {Norb,f}] || M != ConstantArray[0.0, {Norb,f,f}]),
+	Print[Style["Error. A magnetic field or Raman matrix is provided, but EdMode is not set to ''Raman''. Switch EdMode to ''Raman'' or remove the magnetic field.", Red]];
+	Abort[];
 ];
 
 
@@ -91,7 +95,7 @@ InteractionParameters = {h, \[Delta], U, Ust, Usec, Jph, Jse, - \[Mu] + shift};
 
 
 (* GET BATH PARAMETERS *)
-BathParameters = StartingBath[L, f, Norb, \[Delta]-\[Mu], InitializeBathMode, EdMode, V0 -> 1.0, \[CapitalDelta]0 -> 0.2, \[CapitalXi]0 -> 0.2, \[CapitalOmega]0 -> 0.3];
+BathParameters = StartingBath[L, f, Norb, \[Delta]-\[Mu], InitializeBathMode, EdMode, V0 -> 1.0, \[CapitalDelta]0 -> 0.2, \[CapitalXi]0 -> 0.2, \[CapitalOmega]0 -> 0.0];
 Nparams = Length[ Flatten[BathParameters] ];
 (* if there are sublattices, duplicate the bath parameters *)
 If[SublatticesQ,

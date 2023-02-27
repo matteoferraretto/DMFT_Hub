@@ -103,7 +103,9 @@ Do[
 			(* G^-1(i\[Omega]) *)
 			InverseG = InverseGreenFunction[Gimp, EdMode];
 			(* G_0^-1(i\[Omega]) *)
-			If[DMFTiterator == 1, Weiss = WeissField[L, f, Norb, \[Mu] - \[Delta][[1]], symbols, z, EdMode]; ];
+			If[DMFTiterator == 1, 
+				Weiss = WeissField[L, f, Norb, \[Mu] - \[Delta][[1]] - If[EdMode=="Raman", h[[;;f]], 0], symbols, z, EdMode]; 
+			];
 			InverseG0old = If[DMFTiterator == 1, 0*InverseG, InverseG0]; (* memorize the previous one *)
 			InverseG0 = (Weiss/.Thread[symbols -> IndependentParameters])/.{z -> #} &/@ i\[Omega];
 			(* \[CapitalSigma](i\[Omega]) *)

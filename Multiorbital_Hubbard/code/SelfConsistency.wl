@@ -52,7 +52,7 @@ WeissField[L_, f_, Norb_, \[Mu]_, symbols_, z_, EdMode_] := Module[
 		H = ConstantArray[0, {L-1, f, f}];
 		Vmat = H;
 		(* define the hamiltonian blocks *)
-		H0 = \[Mu] * IdentityMatrix[f];
+		H0 = -DiagonalMatrix[\[Mu]]; (* in this case \[Mu] is a list of f values given by \[Mu] - \[Delta][[orb]] - h, where h is the magnetic field *)
 		(H[[#]] = SymmetricMatrixFromArray[e[[#]], f]) &/@ Range[L-1];
 		(Vmat[[#]] = SymmetricMatrixFromArray[V[[#]], f]) &/@ Range[L-1];
 		(* compute Weiss field *)
@@ -178,8 +178,8 @@ SelfConsistency[Weiss_, symbols_, z_, IndependentParameters_, WeissNumeric_, zli
 			Total[#, 2] &/@ (
 				Abs[ 
 					weight * (
-					(UpperTriangularize[Weiss/.{z -> #}] &/@ zlist) 
-					- (UpperTriangularize[#] &/@ WeissNumeric)
+					(Weiss/.{z -> #} &/@ zlist) 
+					- (WeissNumeric)
 				)]^2
 			)];,
 	(* ------------------------------------ *)
