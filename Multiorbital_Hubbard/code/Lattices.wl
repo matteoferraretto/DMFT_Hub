@@ -50,11 +50,11 @@ DispersionHypercubic = Compile[
 
 (* dispersion relation for a d-dimensional hypercubic lattice in presence of Raman field with gauge field *)
 DispersionHypercubicRaman = Compile[
-	{{k,_Real,1}, {t,_Real}, {f,_Integer}, {\[Gamma],_Real}, {u,_Real,1}},
+	{{k,_Real,1}, {t,_Real}, {f,_Integer}, {\[Gamma],_Real,1}},
 	-2.*t*DiagonalMatrix[
 		Table[
 			Sum[
-				Cos[k[[a]] + \[Sigma] * \[Gamma] * u[[a]]]
+				Cos[k[[a]] + \[Sigma] * \[Gamma][[a]]]
 			, {a, Length[k]}]
 		, {\[Sigma], -(f-1)/2, (f-1)/2}]
 	],
@@ -164,7 +164,7 @@ GetLatticeEnergiesRaman[HalfBandwidths_, \[Delta]_, M_, \[Gamma]_, u_, LatticeTy
 			Pdg = (Normalize[#] &/@ Eigenvectors[M[[orb]]])\[Transpose];
 			P = ConjugateTranspose[Pdg];
 			energies[[All, orb, orb]] = (P . # . Pdg) &/@ (
-				(DispersionHypercubicRaman[#, HalfBandwidths[[orb]], f, \[Gamma], u] + \[Delta][[orb]]*IdentityMatrix[f] + M[[orb]]) &/@ BZ
+				(DispersionHypercubicRaman[#, HalfBandwidths[[orb]], f, \[Gamma]] + \[Delta][[orb]]*IdentityMatrix[f] + M[[orb]]) &/@ BZ
 			)
 		, {orb, Norb}];
 	];

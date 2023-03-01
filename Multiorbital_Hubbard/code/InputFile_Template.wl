@@ -53,11 +53,9 @@ HundMode = False;
 (* Explicit magnetic field: (can be different for different orbitals) *)
 h = ConstantArray[0.0, {Norb, f}];
 (* Raman hopping matrix (can be different for different orbitals) *)
-M = 2.5 * ConstantArray[PauliMatrix[1], Norb];
-(* Gauge field associated with Raman tunneling *)
-\[Gamma] = 0.00 * Pi;
-(* unit vector giving the spatial direction where tunneling is modified by the gauge field *)
-u = {1.0}; 
+M = 0.5 * ConstantArray[PauliMatrix[1], Norb];
+(* Gauge field associated with Raman tunneling (vector of dimension LatticeDim) *)
+\[Gamma] = 0.25 * Pi * {1};
 (* temperature *)
 T = 0; 
 
@@ -116,7 +114,7 @@ MinimizationMethod = "ConjugateGradient";
 (* Max number of Conjugate Gradient iterations *)
 CGMaxIterations = 1000;
 (* Number of Matsubara frequencies used to perform the fit *)
-CGNMatsubara = 1500;
+CGNMatsubara = 4000;
 (* Accuracy goal for minimization procedure *)
 CGAccuracy = 7;
 (* list of weights attributed to each Matsubara frequency w(i\[Omega]): IT SHOULD BE >= CGNMatsubara *)

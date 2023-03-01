@@ -7,6 +7,8 @@ Density::usage = "Density[L, f, Norb, j, \[Sigma], orb, Sectors, EgsSectorList, 
 
 SquareDensity::usage = "SquareDensity[L, f, Norb, {i, j}, {\[Sigma]1, \[Sigma]2}, {orb1, orb2}, Sectors, EgsSectorList, GsSectorList, T]"
 
+MomentumDistributedDensityRaman::usage = "MomentumDistributedDensityRaman[i_, orb_, Energies_, M_, \[Mu]_, \[CapitalSigma]_, i\[Omega]_, \[Eta]_] "
+
 CdgCdg::usage = "CdgCdg[L, f, Norb, {i,j}, {\[Sigma]1,\[Sigma]2}, {orb1,orb2}, Sectors, EgsSectorList, GsSectorList, T]"
 
 CdgC::usage = "CdgC[L, f, Norb, {i,j}, {\[Sigma]1,\[Sigma]2}, {orb1,orb2}, Sectors, EgsSectorList, GsSectorList, T]"
@@ -66,21 +68,32 @@ MomentumDistributionDensity[k_, Dispersion_, \[Mu]_, \[CapitalSigma]_, i\[Omega]
 	];
 ]
 
-(* returns a list of {n_k,\[Sigma]=1 ; n_k,\[Sigma]=2, ...} where k is the i-th point in the BZ *)
-MomentumDistributedDensityRaman[i_, orb_, Energies_, M_, \[Mu]_, \[CapitalSigma]_, i\[Omega]_, \[Eta]_] := Module[
-	{Pdg, P, TMats = i\[Omega][[2]]-i\[Omega][[1]], f = Length[\[CapitalSigma][[1]]]},
-	(* get the unitary matrix that diagonalizes M: P.M.Pdg = \[CapitalLambda], where \[CapitalLambda] is diagonal *)
-	Pdg = (Normalize[#] &/@ Eigenvectors[M[[orb]]])\[Transpose];
-	P = ConjugateTranspose[Pdg];
+(* returns < cdg_k\[Alpha] c_k\[Beta] > where k is the i-th point in the BZ *)
+MomentumDistributedDensityRaman[i_, orb_, {\[Alpha]_, \[Beta]_}, LatticeEnergies_, M_, \[Mu]_, \[CapitalSigma]_, i\[Omega]_, OptionsPattern[]] := Module[
+	{Pdg, P, TMats = Re[(i\[Omega][[2]]-i\[Omega][[1]])/(2.*Pi*I)], f = Length[\[CapitalSigma][[1]]], \[CapitalSigma]0 = Last @ \[CapitalSigma], flavortype = OptionValue["Flavor"], Energies = LatticeEnergies[[All, orb, orb]]},
+	Which[
+		flavortype == "Effective",
+		Pdg = IdentityMatrix[f]; 
+		P = Pdg;,
+	(* -------------------------------------- *)
+		flavortype == "Real",
+		(* get the unitary matrix that diagonalizes M: P.M.Pdg = \[CapitalLambda], where \[CapitalLambda] is diagonal *)
+		Pdg = (Normalize[#] &/@ Eigenvectors[M[[orb]]])\[Transpose];
+		P = ConjugateTranspose[Pdg];
+	];
 	(* compute the density: TMats \!\(
 \*SubscriptBox[\(\[Sum]\), \(i\[Omega]\)]\ \(\(Exp[\(-i\[Omega]\[Eta]\)]\)\ [P\  . \ G\((k, \ i\[Omega])\)\  . \ Pdg]_\[Sigma]\[Sigma]\)\) *)
-	Table[
-		TMats * Total[
-			Exp[-i\[Omega]*\[Eta]] * (P . # . Pdg)[[\[Sigma],\[Sigma]]] &/@ (
-				Inverse[#] &/@ (((#+\[Mu])*IdentityMatrix[f] - Energies[[i]]) &/@ i\[Omega])
-		)]
-	, {\[Sigma], f}]
-]
+	(
+	2.0 * TMats * Total[
+		(P . # . Pdg)[[\[Beta],\[Alpha]]] &/@ (
+		(* G_numerical - G_tail *)
+			Re[ Inverse[#] &/@ (((#+\[Mu])*IdentityMatrix[f] - Energies[[i]]) &/@ i\[Omega] - \[CapitalSigma]) 
+			- (((Energies[[i]] + \[CapitalSigma]0)/(#^2)) &/@ i\[Omega]) ]
+	)] + (1./2.)*KroneckerDelta[\[Beta],\[Alpha]] - (1./(4.*TMats)) * (P . (Energies[[i]] + \[CapitalSigma]0) . Pdg)[[\[Beta],\[Alpha]]]
+	)
+	(* correction term due to Matsubara sum of  G_tail *)
+];
+Options[MomentumDistributedDensityRaman] = {"Flavor" -> "Real"}
 
 
 (* Density-Density *)
@@ -457,6 +470,17 @@ KineticEnergyNew[\[Mu]_, LatticeEnergies_, LatticeWeights_, \[CapitalSigma]_, i\
 	EdMode == "FullSuperc", KineticEnergyFullSuperc[\[Mu], LatticeEnergies, LatticeWeights, \[CapitalSigma], i\[Omega]]
 ];
 Options[KineticEnergyNew] = {"OrbitalSymmetry" -> False};
+
+
+(* flavor current for Raman coupled systems *)
+FlavorCurrent[t_, \[Gamma]_, \[Sigma]_, a_, flavordistribution_, BZ_] := Module[
+	{LE = Length[flavordistribution], f = Length[flavordistribution[[1]]]},
+	(2.*t/LE) * (
+		Table[Sin[k[[a]] + (\[Sigma]-(f+1)/2)*\[Gamma][[a]]], {k, BZ}] . 
+		Re[ flavordistribution[[All, \[Sigma], \[Sigma]]] ]
+	)
+];
+
 
 End[]
 

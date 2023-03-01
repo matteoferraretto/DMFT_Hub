@@ -26,7 +26,6 @@ Do[
 		EgsSectorList = eigs[[All, 1]];
 		GsSectorList = eigs[[All, 2]];
 		ClearAll[eigs];
-		Print[EgsSectorList];
 		
 	]," sec.\n"];
 	
@@ -169,7 +168,9 @@ Do[
 			InverseG = InverseGreenFunction[#, EdMode] &/@ Gimp;
 			(* { Subscript[G, 0]^-1Subscript[(i\[Omega]), orb=1] , Subscript[G, 0]^-1Subscript[(i\[Omega]), orb=2] , ...} *)
 			If[DMFTiterator == 1, 
-				Weiss = Table[ WeissField[L, f, Norb, \[Mu] - \[Delta][[orb]], symbols, z, EdMode], {orb, Norb}]
+				Weiss = Table[ 
+					WeissField[L, f, Norb, \[Mu] - \[Delta][[orb]] - If[EdMode=="Raman", h[[f*(orb-1);;f*orb]], 0], symbols, z, EdMode]
+				, {orb, Norb}]
 			];
 			InverseG0old = If[DMFTiterator == 1, 0*InverseG, InverseG0];
 			InverseG0 = Table[(

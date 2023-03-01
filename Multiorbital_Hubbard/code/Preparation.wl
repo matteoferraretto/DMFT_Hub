@@ -30,15 +30,11 @@ If[!SublatticesQ && V != 0.0,
 ];
 
 (* avoid stupid bugs related to gauge field in Raman *)
-If[\[Gamma] != 0.0 && LatticeType == "Bethe" && EdMode == "Raman",
+If[Norm[\[Gamma]] != 0.0 && LatticeType == "Bethe" && EdMode == "Raman",
 	Print[Style["Error. Gauge flux is not compatible with Bethe lattice due to lack of geometrical structue. Proceeding with \[Gamma] = 0.", Red]];
 	\[Gamma] = 0.0;
 ];
-If[\[Gamma] != 0.0 && Norm[u] != 1.0 && EdMode == "Raman",
-	Print[Style["Error. The vector u should be a unit vector. The vector is not properly normalized.", Red]];
-	Abort[];
-];
-If[\[Gamma] != 0.0 && Length[u] != LatticeDim && EdMode == "Raman",
+If[Norm[\[Gamma]] != 0.0 && Length[\[Gamma]] != LatticeDim && EdMode == "Raman",
 	Print[Style["Error. The vector u should have the same dimension as the lattice.", Red]];
 	Abort[];
 ];
