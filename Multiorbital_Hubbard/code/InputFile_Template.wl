@@ -4,7 +4,7 @@
 (* number of bath sites *)
 Nbath = 3; 
 (* number of orbitals *)
-Norb = 1; 
+Norb = 2; 
 (* number of impurity sites *)
 Nimp = 1; 
 (* total number of sites: bath+impurity *)
@@ -12,11 +12,11 @@ L = Nimp + Nbath;
 (* number of spin states *)
 f = 2; 
 (* call the function EdModeInfo[EdMode] to get details *)
-EdMode = "Raman"; 
+EdMode = "Normal"; 
 (* lattice crystal structure: "Bethe", "Hypercubic", etc. *)
-LatticeType = "Hypercubic"; 
+LatticeType = "Bethe"; 
 (* lattice dimensionality *)
-LatticeDim = 1; 
+LatticeDim = Infinity; 
 (* lattice points *)
 LatticePoints = 1000;
 (* compute many-body functions independently for two different sublattices A and B? *)
@@ -33,7 +33,7 @@ W = ConstantArray[1.0, Norb];
 
 (*      INPUT PHYSICAL PARAMETERS        *)
 (* interaction energy (list of U values for the orbitals) *)
-U = ConstantArray[0.0, Norb]; 
+U = ConstantArray[0.25, Norb]; 
 (* Hund's J. It's used only when HundMode = True to enforce rotation invariance of the Kanamori model. *)
 JH = 0.0; 
 (* density-density opposite spin coupling. It is set automatically if HundMode = True. *)
@@ -53,9 +53,9 @@ HundMode = False;
 (* Explicit magnetic field: (can be different for different orbitals) *)
 h = ConstantArray[0.0, {Norb, f}];
 (* Raman hopping matrix (can be different for different orbitals) *)
-M = 0.5 * ConstantArray[PauliMatrix[1], Norb];
+M = 0.0 * ConstantArray[IdentityMatrix[f], Norb];
 (* Gauge field associated with Raman tunneling (vector of dimension LatticeDim) *)
-\[Gamma] = 0.25 * Pi * {1};
+\[Gamma] = 0.0 * Pi * UnitVector[LatticeDim, 1];
 (* temperature *)
 T = 0; 
 
@@ -90,7 +90,7 @@ InitializeBathMode = "Default";
 (* if this is True, an extra on-site energy term is added to ensure PH symmetry of the Kanamori Hamiltonian when \[Mu]=0 *)
 HFMode = True; 
 (* use with caution: if this is True, the full spectrum will be automatically determined! *)
-FullDiagonalizationMode = True;
+FullDiagonalizationMode = False;
 (* below this threshold, two energy levels are assumed to be degenerate *)
 DegeneracyThreshold = 10^(-8);
 (* dimension threshold above which Lanczos is used to perform exact diagonalization *)
@@ -106,7 +106,7 @@ DMFTMaxIterations = 30;
 (* threshold for DMFT loop convergence *)
 DMFTerror = 1.0 * 10^(-5); 
 (* InverseG0 = Mixing * InverseG0old + (1 - Mixing) * InverseG0 *)
-Mixing = 0.25; 
+Mixing = 0.0; 
 (* type of minimization: "Global" or "Local" *)
 MinimizationType = "Local";
 (* Method for the minimization procedure *)
@@ -114,9 +114,9 @@ MinimizationMethod = "ConjugateGradient";
 (* Max number of Conjugate Gradient iterations *)
 CGMaxIterations = 1000;
 (* Number of Matsubara frequencies used to perform the fit *)
-CGNMatsubara = 4000;
+CGNMatsubara = NMatsubara;
 (* Accuracy goal for minimization procedure *)
-CGAccuracy = 7;
+CGAccuracy = 4;
 (* list of weights attributed to each Matsubara frequency w(i\[Omega]): IT SHOULD BE >= CGNMatsubara *)
 CGWeight = ConstantArray[1., CGNMatsubara];
 

@@ -7,7 +7,11 @@ Density::usage = "Density[L, f, Norb, j, \[Sigma], orb, Sectors, EgsSectorList, 
 
 SquareDensity::usage = "SquareDensity[L, f, Norb, {i, j}, {\[Sigma]1, \[Sigma]2}, {orb1, orb2}, Sectors, EgsSectorList, GsSectorList, T]"
 
-MomentumDistributedDensityRaman::usage = "MomentumDistributedDensityRaman[i_, orb_, Energies_, M_, \[Mu]_, \[CapitalSigma]_, i\[Omega]_, \[Eta]_] "
+MomentumDistributedDensityRaman::usage = "MomentumDistributedDensityRaman[i, orb, LatticeEnergies, M, \[Mu], \[CapitalSigma], i\[Omega]]"
+
+FlavorCurrent::usage = "FlavorCurrent[t, \[Gamma], \[Sigma], a, flavordistribution, LatticeType, LatticeDim, NumberOfPoints] gives the a-th spatial component of the flavor current 
+associated to the flavor \[Sigma]=1,2,...,f. This function requires as an input ''flavordistribution'', i.e. the flavor-resolved momentum-distributed operator <cdg_k\[Alpha] c_k\[Beta]>, 
+which is a list of fxf matrices, each one associated to a given momentum. "
 
 CdgCdg::usage = "CdgCdg[L, f, Norb, {i,j}, {\[Sigma]1,\[Sigma]2}, {orb1,orb2}, Sectors, EgsSectorList, GsSectorList, T]"
 
@@ -19,9 +23,7 @@ OrderParameter::usage = "OrderParameter[InverseG, TMats] returns the superconduc
 
 SuperfluidStiffness::usage = "SuperfluidStiffness[DBethe, \[CapitalSigma], i\[Omega]] returns the superfluid stiffness computed from the Green function. "
 
-KineticEnergy::usage = "KineticEnergy[DBethe, \[Mu], \[CapitalSigma], i\[Omega], EdMode] computes the Kinetic energy (expectation value of non-local impurity Hamiltonian). "
-
-KineticEnergyNew::usage = "KineticEnergyNormal[\[Mu], LatticeEnergies, LatticeWeights, \[CapitalSigma], i\[Omega], EdMode]"
+KineticEnergy::usage = "KineticEnergy[\[Mu], LatticeEnergies, LatticeWeights, \[CapitalSigma], i\[Omega], EdMode] computes the Kinetic energy (expectation value of non-local impurity Hamiltonian). "
 
 SpectralFunction::usage = "SpectralFunction[LatticeEnergies_, weights_, \[Mu]_, \[CapitalSigma]_, zlist_, EdMode_]"
 
@@ -52,25 +54,29 @@ Density[L_, f_, Norb_, j_, \[Sigma]_, orb_, Sectors_, EgsSectorList_, GsSectorLi
 ];
 Options[Density] = {DegeneracyThreshold -> 1.*10^(-9)}
 
-(* n(k) *)
-MomentumDistributionDensity[k_, Dispersion_, \[Mu]_, \[CapitalSigma]_, i\[Omega]_, \[Eta]_, EdMode_] := Module[
-	{TMats = i\[Omega][[2]]-i\[Omega][[1]]},
-	Which[
-		EdMode == "Normal",
-		{k, TMats * Total[
-			Exp[- i\[Omega] * \[Eta]]/(i\[Omega] + \[Mu] - Dispersion[k] - \[CapitalSigma])
-		]},
-	(* ------------------------------------------ *)
-		EdMode == "Superc",
-		{k, TMats * Total[
-			Exp[- i\[Omega] * \[Eta]]/(i\[Omega] + \[Mu] - Dispersion[k] - \[CapitalSigma][[All, 1, 1]])
-		]}
-	];
-]
+(* n(k) - to be tested *)
+MomentumDistributedDensityNormal[i_, Energies_, \[Mu]_, \[CapitalSigma]_, i\[Omega]_] := Module[
+	{TMats = Re[(i\[Omega][[2]]-i\[Omega][[1]])/(2.*Pi*I)], \[CapitalSigma]0 = Last @ \[CapitalSigma]},
+	2.0 * ( 2.0 * TMats * Total[
+		(* G_numerical - G_tail *)
+		Re[ 1./((# + \[Mu] - Energies[[i]]) &/@ i\[Omega] - \[CapitalSigma]) 
+		- (((Energies[[i]] + \[CapitalSigma]0)/(#^2)) &/@ i\[Omega]) ]
+		] + 1./2. - (1./(4.*TMats)) * (Energies[[i]] + \[CapitalSigma]0) )
+];
 
-(* returns < cdg_k\[Alpha] c_k\[Beta] > where k is the i-th point in the BZ *)
-MomentumDistributedDensityRaman[i_, orb_, {\[Alpha]_, \[Beta]_}, LatticeEnergies_, M_, \[Mu]_, \[CapitalSigma]_, i\[Omega]_, OptionsPattern[]] := Module[
-	{Pdg, P, TMats = Re[(i\[Omega][[2]]-i\[Omega][[1]])/(2.*Pi*I)], f = Length[\[CapitalSigma][[1]]], \[CapitalSigma]0 = Last @ \[CapitalSigma], flavortype = OptionValue["Flavor"], Energies = LatticeEnergies[[All, orb, orb]]},
+(* to be tested *)
+MomentumDistributedDensitySuperc[i_, Energies_, \[Mu]_, \[CapitalSigma]_, i\[Omega]_] := Module[
+	{TMats = Re[(i\[Omega][[2]]-i\[Omega][[1]])/(2.*Pi*I)], \[CapitalSigma]0 = Last @ \[CapitalSigma]},
+	2.0 * ( 2.0 * TMats * Total[
+		(* G_numerical - G_tail *)
+		Re[ TwoByTwoInverse[(#*IdentityMatrix[2] + \[Mu]*PauliMatrix[3] - Energies[[i]]) &/@ i\[Omega] - \[CapitalSigma]] 
+		- (((Energies[[i]] + \[CapitalSigma]0)/(#^2)) &/@ i\[Omega]) ]
+		] + 1./2. - (1./(4.*TMats)) * (Energies[[i]] + \[CapitalSigma]0) )
+];
+
+(* returns a list of matrices < cdg_k\[Alpha] c_k\[Beta] > where k is the i-th point in the BZ and \[Alpha],\[Beta] are flavor indexes *)
+MomentumDistributedDensityRaman[i_, orb_, LatticeEnergies_, M_, \[Mu]_, \[CapitalSigma]_, i\[Omega]_, OptionsPattern[]] := Module[
+	{Pdg, P, eigvecs, TMats = Re[(i\[Omega][[2]]-i\[Omega][[1]])/(2.*Pi*I)], f = Length[\[CapitalSigma][[1]]], \[CapitalSigma]0 = Last @ \[CapitalSigma], flavortype = OptionValue["Flavor"], Energies = LatticeEnergies[[All, orb, orb]]},
 	Which[
 		flavortype == "Effective",
 		Pdg = IdentityMatrix[f]; 
@@ -78,18 +84,19 @@ MomentumDistributedDensityRaman[i_, orb_, {\[Alpha]_, \[Beta]_}, LatticeEnergies
 	(* -------------------------------------- *)
 		flavortype == "Real",
 		(* get the unitary matrix that diagonalizes M: P.M.Pdg = \[CapitalLambda], where \[CapitalLambda] is diagonal *)
-		Pdg = (Normalize[#] &/@ Eigenvectors[M[[orb]]])\[Transpose];
+		eigvecs = Last[ SortBy[Eigensystem[M[[orb]]]\[Transpose], First]\[Transpose] ]; (* list of eigenvectors sorted by eigenvalues (from lower to higher) *)
+		Pdg = (Normalize[#] &/@ eigvecs)\[Transpose];
 		P = ConjugateTranspose[Pdg];
 	];
 	(* compute the density: TMats \!\(
 \*SubscriptBox[\(\[Sum]\), \(i\[Omega]\)]\ \(\(Exp[\(-i\[Omega]\[Eta]\)]\)\ [P\  . \ G\((k, \ i\[Omega])\)\  . \ Pdg]_\[Sigma]\[Sigma]\)\) *)
 	(
 	2.0 * TMats * Total[
-		(P . # . Pdg)[[\[Beta],\[Alpha]]] &/@ (
+		(P . # . Pdg)\[Transpose] &/@ (
 		(* G_numerical - G_tail *)
 			Re[ Inverse[#] &/@ (((#+\[Mu])*IdentityMatrix[f] - Energies[[i]]) &/@ i\[Omega] - \[CapitalSigma]) 
 			- (((Energies[[i]] + \[CapitalSigma]0)/(#^2)) &/@ i\[Omega]) ]
-	)] + (1./2.)*KroneckerDelta[\[Beta],\[Alpha]] - (1./(4.*TMats)) * (P . (Energies[[i]] + \[CapitalSigma]0) . Pdg)[[\[Beta],\[Alpha]]]
+		)] + (1./2.)*IdentityMatrix[f] - (1./(4.*TMats)) * (P . (Energies[[i]] + \[CapitalSigma]0) . Pdg)\[Transpose]
 	)
 	(* correction term due to Matsubara sum of  G_tail *)
 ];
@@ -306,8 +313,8 @@ Re[Ds]
 ];
 Options[SuperfluidStiffness] = {Lattice -> "Bethe", LatticeDimension -> 2, NumberOfPoints -> 1000};
 
-(* Kinetic energy, i.e. < Subscript[H, non interacting] > *)
-KineticEnergy[DBethe_, \[Mu]_, \[CapitalSigma]_, i\[Omega]_, EdMode_] := Module[
+(* Kinetic energy, i.e. < Subscript[H, non interacting] >
+KineticEnergyOld[DBethe_, \[Mu]_, \[CapitalSigma]_, i\[Omega]_, EdMode_] := Module[
 	{LE = OptionValue[NumberOfPoints], Lattice = OptionValue[Lattice], dim = OptionValue[LatticeDimension],TMats = (i\[Omega][[2]]-i\[Omega][[1]])/(2*Pi*I), d\[Epsilon], Glattice, \[CapitalSigma]0, Ekin = 0},
 	Which[
 		EdMode == "Normal", 
@@ -340,10 +347,10 @@ KineticEnergy[DBethe_, \[Mu]_, \[CapitalSigma]_, i\[Omega]_, EdMode_] := Module[
 	];
 	Re[Ekin]
 ];
-Options[KineticEnergy] = {Lattice -> "Bethe", LatticeDimension -> 2, NumberOfPoints -> 1000};
+Options[KineticEnergy] = {Lattice -> "Bethe", LatticeDimension -> 2, NumberOfPoints -> 1000};*)
 
 
-(* EdMode = "Normal" means that the orbitals are decoupled *)
+(* EdMode = "Normal" means that the orbitals are not coupled by tunneling terms *)
 KineticEnergyNormal[\[Mu]_, LatticeEnergies_, LatticeWeights_, \[CapitalSigma]_, i\[Omega]_, OrbitalSymmetry_] := Module[
 	{Norb, \[CapitalSigma]0, TMats, NMats, LE, G, Ekin},
 	Norb = Length[\[CapitalSigma]];
@@ -373,6 +380,24 @@ KineticEnergyNormal[\[Mu]_, LatticeEnergies_, LatticeWeights_, \[CapitalSigma]_,
 		];
 	, {orb, 1, Norb}];
 	Chop[Total[Ekin], 10^(-8)]
+];
+
+(* EdMode = "Raman" means that the orbitals are not coupled by tunneling terms *)
+KineticEnergyRaman[\[Mu]_, LatticeEnergies_, LatticeWeights_, \[CapitalSigma]_, i\[Omega]_, OrbitalSymmetry_] := Module[
+	{flavdist, Energies, Norb, f, LE, \[CapitalSigma]0 = Last[\[CapitalSigma]]},
+	Norb = Length[LatticeEnergies[[1]]];
+	f = Length[\[CapitalSigma]0];
+	LE = Length[LatticeWeights];
+	Table[
+		Energies = LatticeEnergies[[All, orb, orb]];
+		(* <cdg_k\[Alpha] c_k\[Beta]> for the effective flavors for a given orbital *)
+		flavdist = Table[
+			MomentumDistributedDensityRaman[i, orb, Energies, IdentityMatrix[f], \[Mu], \[CapitalSigma], i\[Omega], "Flavor" -> "Effective"]
+		, {i, LE}]; (* in place of M we can use any matrix, because we need effective flavors *)
+		Sum[
+			LatticeWeights[[i]] * Tr[ Energies[[i]] . Re[flavdist[[i]]] ]
+		, {i, LE}]
+	, {orb, 1, Norb}]
 ];
 
 KineticEnergyInterorbNormal[\[Mu]_, LatticeEnergies_, LatticeWeights_, \[CapitalSigma]_, i\[Omega]_] := Module[
@@ -463,22 +488,34 @@ KineticEnergyFullSuperc[\[Mu]_, LatticeEnergies_, LatticeWeights_, \[CapitalSigm
 ];
 
 (* call the proper function depending on EdMode *)
-KineticEnergyNew[\[Mu]_, LatticeEnergies_, LatticeWeights_, \[CapitalSigma]_, i\[Omega]_, EdMode_, OptionsPattern[]] := Which[
+KineticEnergy[\[Mu]_, LatticeEnergies_, LatticeWeights_, \[CapitalSigma]_, i\[Omega]_, EdMode_, OptionsPattern[]] := Which[
 	EdMode == "Normal", KineticEnergyNormal[\[Mu], LatticeEnergies, LatticeWeights, \[CapitalSigma], i\[Omega], OptionValue["OrbitalSymmetry"]],
 	EdMode == "Superc", KineticEnergySuperc[\[Mu], LatticeEnergies, LatticeWeights, \[CapitalSigma], i\[Omega], OptionValue["OrbitalSymmetry"]],
+	EdMode == "Raman", KineticEnergyRaman[\[Mu], LatticeEnergies, LatticeWeights, \[CapitalSigma], i\[Omega], OptionValue["OrbitalSymmetry"]],
 	EdMode == "InterorbNormal", KineticEnergyInterorbNormal[\[Mu], LatticeEnergies, LatticeWeights, \[CapitalSigma], i\[Omega]],
 	EdMode == "FullSuperc", KineticEnergyFullSuperc[\[Mu], LatticeEnergies, LatticeWeights, \[CapitalSigma], i\[Omega]]
 ];
-Options[KineticEnergyNew] = {"OrbitalSymmetry" -> False};
+Options[KineticEnergy] = {"OrbitalSymmetry" -> False};
 
 
 (* flavor current for Raman coupled systems *)
-FlavorCurrent[t_, \[Gamma]_, \[Sigma]_, a_, flavordistribution_, BZ_] := Module[
-	{LE = Length[flavordistribution], f = Length[flavordistribution[[1]]]},
-	(2.*t/LE) * (
-		Table[Sin[k[[a]] + (\[Sigma]-(f+1)/2)*\[Gamma][[a]]], {k, BZ}] . 
-		Re[ flavordistribution[[All, \[Sigma], \[Sigma]]] ]
-	)
+FlavorCurrent[t_, \[Gamma]_, \[Sigma]_, a_, flavordistribution_, LatticeType_, LatticeDim_, NumberOfPoints_] := Module[
+	{LE, BZ, Iflavor, f = Length[flavordistribution[[1]]]},
+	Which[
+		LatticeType == "Hypercubic",
+		(* get Brillouin zone *)
+		LE = Floor[NumberOfPoints^(1./LatticeDim)];
+		BZ = BrillouinZone[LE, LatticeDim, Lattice -> "Hypercubic"];
+		(* get flavor current *)
+		Iflavor = (2.*t / (LE^LatticeDim)) * (
+			Table[Sin[k[[a]] + (\[Sigma]-(f+1)/2)*\[Gamma][[a]]], {k, BZ}] . 
+			Re[ flavordistribution[[All, \[Sigma], \[Sigma]]] ]
+		);,
+	(* ----------------------------------------- *)
+		LatticeType == "Bethe",
+		Return["Error. Bethe lattice is incompatible with a gauge field. "]
+	];
+	Iflavor
 ];
 
 

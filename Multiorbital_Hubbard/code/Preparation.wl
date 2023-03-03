@@ -35,7 +35,7 @@ If[Norm[\[Gamma]] != 0.0 && LatticeType == "Bethe" && EdMode == "Raman",
 	\[Gamma] = 0.0;
 ];
 If[Norm[\[Gamma]] != 0.0 && Length[\[Gamma]] != LatticeDim && EdMode == "Raman",
-	Print[Style["Error. The vector u should have the same dimension as the lattice.", Red]];
+	Print[Style["Error. The vector \[Gamma] should have the same dimension as the lattice.", Red]];
 	Abort[];
 ];
 If[M == ConstantArray[0.0, {Norb, f, f}] && h == ConstantArray[0.0, {Norb,f}] && EdMode == "Raman",
@@ -84,7 +84,7 @@ Jph = Flatten[ Pick[
 ] ];
 (* effective magnetic field applied on the impurity by Raman field *)
 If[EdMode == "Raman",
-	h = Flatten[ Eigenvalues[#] &/@ M ];
+	h = Flatten[ Sort[#] &/@ (Eigenvalues[#] &/@ M) ];
 ];
 (* get list of interaction parameters in correct order *)
 InteractionParameters = {h, \[Delta], U, Ust, Usec, Jph, Jse, - \[Mu] + shift};
@@ -97,17 +97,8 @@ Nparams = Length[ Flatten[BathParameters] ];
 If[SublatticesQ,
 	BathParameters = {BathParameters, BathParameters};
 ];
-
-
-(* GET SYMBOLIC GREEN FUNCTION AND WEISS FIELD *)
 (* define a suitable list of symbols depending on EdMode *)
 symbols = Symbols[L, f, Norb, EdMode]; 
-(* define a symbolic expression for the Weiss field *)
-(* Weiss = WeissField[L, f, Norb, \[Mu]eff, symbols, z, EdMode]; 
-(* print it *)
-If[EdMode != "FullSuperc",
-	Print["The Weiss field for the given impurity problem is  \!\(\*SuperscriptBox[SubscriptBox[\(G\), \(0\)], \(-1\)]\)(z) = ", Weiss];
-];*)
 
 
 (* GET SECTORS *)
@@ -126,9 +117,9 @@ Print[Style["Recap of input:", 16, Bold]];
 Print["Nsectors: ", Length[QnsSectorList], ". Dim. of the largest sector: ", Max @ DimSectorList];
 
 
-(* GET LATTICE *)
+(* GET LATTICE ENERGIES *)
 If[EdMode == "Raman",
-	{LatticeEnergies, LatticeWeights} = GetLatticeEnergiesRaman[W, \[Delta], M, \[Gamma], u, LatticeType, LatticeDim, LatticePoints],
+	{LatticeEnergies, LatticeWeights} = GetLatticeEnergiesRaman[W, \[Delta], M, \[Gamma], LatticeType, LatticeDim, LatticePoints],
 	(* else *)
 	{LatticeEnergies, LatticeWeights} = GetLatticeEnergies[W, \[Delta], LatticeType, LatticeDim, LatticePoints];
 ];

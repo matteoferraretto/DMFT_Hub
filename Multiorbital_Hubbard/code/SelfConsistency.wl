@@ -178,8 +178,8 @@ SelfConsistency[Weiss_, symbols_, z_, IndependentParameters_, WeissNumeric_, zli
 			Total[#, 2] &/@ (
 				Abs[ 
 					weight * (
-					(Weiss/.{z -> #} &/@ zlist) 
-					- (WeissNumeric)
+					(UpperTriangularize[Weiss/.{z -> #}] &/@ zlist) 
+					- (UpperTriangularize[#] &/@ WeissNumeric)
 				)]^2
 			)];,
 	(* ------------------------------------ *)

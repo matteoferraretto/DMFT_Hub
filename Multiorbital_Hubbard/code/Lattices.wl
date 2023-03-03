@@ -147,8 +147,8 @@ GetLatticeEnergies[HalfBandwidths_, \[Delta]_, LatticeType_, LatticeDim_, Number
 ];
 
 (* Return the energy and weight lists for computing local G.F. when EdMode = "Raman" and spin states are not symmetric *)
-GetLatticeEnergiesRaman[HalfBandwidths_, \[Delta]_, M_, \[Gamma]_, u_, LatticeType_, LatticeDim_, NumberOfPoints_] := Module[
-	{LE, BZ, energies, weights, f = Length[M[[1]]], Norb = Length[HalfBandwidths], P, Pdg},
+GetLatticeEnergiesRaman[HalfBandwidths_, \[Delta]_, M_, \[Gamma]_, LatticeType_, LatticeDim_, NumberOfPoints_] := Module[
+	{LE, BZ, energies, weights, f = Length[M[[1]]], Norb = Length[HalfBandwidths], P, Pdg, eigvecs},
 	Which[
 		LatticeType == "Hypercubic" && LatticeDim != Infinity,
 		(* number of points per lattice direction *)
@@ -161,7 +161,8 @@ GetLatticeEnergiesRaman[HalfBandwidths_, \[Delta]_, M_, \[Gamma]_, u_, LatticeTy
 		weights = ConstantArray[1./(Length[BZ]), Length[BZ]];
 		Do[
 			(* get the unitary matrix that diagonalizes M: P.M.Pdg = \[CapitalLambda], where \[CapitalLambda] is diagonal *)
-			Pdg = (Normalize[#] &/@ Eigenvectors[M[[orb]]])\[Transpose];
+			eigvecs = Last[ SortBy[Eigensystem[M[[orb]]]\[Transpose], First]\[Transpose] ]; (* list of eigenvectors sorted by eigenvalues (from lower to higher) *)
+			Pdg = (Normalize[#] &/@ eigvecs)\[Transpose];
 			P = ConjugateTranspose[Pdg];
 			energies[[All, orb, orb]] = (P . # . Pdg) &/@ (
 				(DispersionHypercubicRaman[#, HalfBandwidths[[orb]], f, \[Gamma]] + \[Delta][[orb]]*IdentityMatrix[f] + M[[orb]]) &/@ BZ

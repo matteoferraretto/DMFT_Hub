@@ -54,8 +54,11 @@ Do[
 		Print["\n\t\t Observables:"];
 		density = Table[ Sum[Density[L, f, Norb, 1, \[Sigma], orb, Sectors, EgsSectorList, GsSectorList, T], {\[Sigma], f}], {orb, Norb}];
 		Print["Impurity density = ", density, "; total density = ", Total[density] ];
-		docc = Table[ SquareDensity[L, f, Norb, {1,1}, {1,2}, {orb,orb}, Sectors, EgsSectorList, GsSectorList, T], {orb, Norb}];
+		docc = Table[ 
+			Sum[ SquareDensity[L, f, Norb, {1,1}, {\[Sigma],\[Rho]}, {orb,orb}, Sectors, EgsSectorList, GsSectorList, T], {\[Sigma], f}, {\[Rho], \[Sigma]+1, f}]
+		, {orb, Norb}];
 		Print["Impurity double occupancy = ", docc ];
+		(* observables related to superconductivity *)
 		If[EdMode == "Superc" || EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
 			\[Phi] = Table[ CdgCdg[L, f, Norb, {1,1}, {1,2}, {orb,orb}, Sectors, EgsSectorList, GsSectorList, T], {orb, Norb}];
 			Print["Order parameter = ", \[Phi] ];
@@ -67,10 +70,11 @@ Do[
 				Print["Order parameter interorbital {<adg_up bdg_dw>, <bdg_up adg_dw>} = ", \[CapitalXi]];
 			]
 		];
+		(* observables related to Raman field *)
 		If[EdMode == "Raman",
-			(* spin and orbital resolved density *)
+			(* flavor and orbital resolved density *)
 			Table[
-				Print["density (spin = ",\[Sigma],", orb = ",orb,") = ",
+				Print["density (effective flavor = ",\[Sigma],", orb = ",orb,") = ",
 					Density[L, f, Norb, 1, \[Sigma], orb, Sectors, EgsSectorList, GsSectorList, T]
 				];
 			, {\[Sigma], f}, {orb, Norb}];
