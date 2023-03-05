@@ -230,7 +230,7 @@ SpectralFunction[LatticeEnergies_, weights_, \[Mu]_, \[CapitalSigma]_, zlist_, E
 ];
 
 (* A(k, \[Omega]) = (\[Omega] + \[Mu] - \[Epsilon]_k - \[CapitalSigma](\[Omega])^-1 *)
-MomentumResolvedSpectralFunction[LatticeEnergies_, \[Mu]_, \[CapitalSigma]_, kindexes_, zlist_, EdMode_] := Module[
+MomentumResolvedSpectralFunction[LatticeEnergies_, \[Mu]_, \[CapitalSigma]_, kindexes_, zlist_, EdMode_, OptionsPattern[]] := Module[
 	{spectralfunction, energies, prova},
 	(* extract energies indicated by kindexes *)
 	energies = LatticeEnergies[[kindexes]];
@@ -250,12 +250,28 @@ MomentumResolvedSpectralFunction[LatticeEnergies_, \[Mu]_, \[CapitalSigma]_, kin
 			TwoByTwoInverse[ zlist[[i]]*IdentityMatrix[2] + (\[Mu] - energies[[j]])*PauliMatrix[3] - \[CapitalSigma][[i]] ][[1,1]]
 		], {i, 1, Length[zlist]}, {j, 1, Length[kindexes]}],
 	(* ---------------------------------------------- *)
+		EdMode == "Raman",
+		Module[
+			{f = Length[\[CapitalSigma][[1]]], eigvecs, Pdg, P, M = OptionValue[RamanMatrix]},
+			(* diagonalize Raman matrix *)
+			eigvecs = Last[ SortBy[Eigensystem[M]\[Transpose], First]\[Transpose] ];
+			Pdg = (Normalize[#] &/@ eigvecs)\[Transpose];
+			P = ConjugateTranspose[Pdg];
+			(* A_\[Sigma]\[Rho](k, \[Omega]) *)
+			spectralfunction = Table[
+				- (1./Pi) * Im[
+					P . Inverse[ ((zlist[[i]] + \[Mu])*IdentityMatrix[f] - energies[[j]] )] . Pdg
+				],
+			{i, Length[zlist]}, {j, Length[kindexes]}]
+		],
+	(* ---------------------------------------------- *)
 		EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
 		Print["Not supported"];
 		spectralfunction = ConstantArray[0.0, Length[kindexes] * Length[zlist] ];
 	];
 	spectralfunction
 ];
+Options[MomentumResolvedSpectralFunction] = {RamanMatrix -> IdentityMatrix[2]};
 
 
 (* Quasiparticle weight *)

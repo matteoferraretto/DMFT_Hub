@@ -3,10 +3,15 @@
 BeginPackage["Facilities`"]
 
 DrawState::usage = "DrawState[L, f, Norb] draws a graphic representation of a Fock state that can be manipulated. Each box can be filled either with 0 (no particles in that slot) or 1 (a particle in that slot). "
+
 EdModeInfo::usage = "EdModeInfo[EdMode] print useful information about EdMode. "
+
 PlotMatsubara::usage = "."
-(*WriteOutput::usage = "WriteOutput[condition, file, label, U, data] "*)
+
+PlotSpectralFunctionRaman::usage = "PlotSpectralFunctionRaman[spectralfunction_, \[Omega]_, \[Mu]_, LatticeType_, LatticeDim_]"
+
 WriteOutput::usage = "WriteOutputNew[condition_, OutputDirectory_, label_, data_]"
+
 HNonlocalInfo::usage = "HNonlocalInfo[L, f, Norb, EdMode] print info about the organization of Hamiltonian blocks. "
 
 Begin["Private`"];
@@ -117,6 +122,48 @@ PlotMatsubara[function_, i\[Omega]_, EdMode_, OptionsPattern[ListPlot]] := Which
 		PlotStyle -> {Thick, Thick},
 		PlotLayout -> "Row",
 		AxesLabel -> {"\!\(\*SubscriptBox[\(\[Omega]\), \(n\)]\)", None}
+	]
+];
+*)
+
+(* Plot flavor resolved spectral function for Raman *)
+(*
+PlotSpectralFunctionRaman[spectralfunction_, \[Omega]_, \[Mu]_, LatticeType_, LatticeDim_] := Module[
+	{\[Omega]min = Min[\[Omega]], \[Omega]max = Max[\[Omega]], f = Length[spectralfunction[[1,1]]], ticks, max, Fermiline, datarange},
+	If[f > 3, Return["Not supported. Only f=2,3 are available. "] ];
+	max = Max[spectralfunction[[All, All]]]; (* max value of spin resolved spectral function (normalization factor) *)
+	ticks = {
+		{Range[\[Omega]min, \[Omega]max, 1.0], None},
+		Which[
+			LatticeDim == 1,
+			{{{-Pi,"-\[Pi]"}, {-Pi/2, "-\[Pi]/2"}, {0, "0"}, {Pi/2, "\[Pi]/2"}, {Pi, "\[Pi]"}}, None}
+		]
+	};
+	datarange = {
+		Which[
+			LatticeDim == 1, 
+			{-Pi, Pi}
+		],
+		{\[Omega]min, \[Omega]max}
+	};
+	Fermiline = Which[
+		LatticeDim == 1,
+		Line[{{-Pi, \[Mu]}, {Pi, \[Mu]}}]
+	];
+	(* plot everything *)
+	Show[
+		Table[
+			ListDensityPlot[
+				spectralfunction[[All, All, \[Sigma], \[Sigma]]] / max,
+				PlotRange -> All,
+				ColorFunction -> (Apply[RGBColor, Flatten[{ If[f==2 && \[Sigma]==2, {0,0,1}, (*else*) UnitVector[3, \[Sigma]]], #}]]&),
+				ColorFunctionScaling -> False,
+				DataRange -> datarange,
+				FrameStyle->Directive[Black,16],
+				FrameTicks -> ticks, 
+				Epilog -> Fermiline
+			]
+		, {\[Sigma], f}]
 	]
 ];
 *)
