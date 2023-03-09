@@ -50,14 +50,12 @@ DispersionHypercubic = Compile[
 
 (* dispersion relation for a d-dimensional hypercubic lattice in presence of Raman field with gauge field *)
 DispersionHypercubicRaman = Compile[
-	{{k,_Real,1}, {t,_Real}, {f,_Integer}, {\[Gamma],_Real,1}},
+	{{k,_Real,1}, {t,_Real}, {M,_Real,2}, {\[Gamma],_Real,1}},
 	-2.*t*DiagonalMatrix[
 		Table[
-			Sum[
-				Cos[k[[a]] + \[Sigma] * \[Gamma][[a]]]
-			, {a, Length[k]}]
-		, {\[Sigma], -(f-1)/2, (f-1)/2}]
-	],
+			Sum[Cos[k[[a]] + \[Sigma] * \[Gamma][[a]]], {a, Length[k]}]
+		, {\[Sigma], -(Length[M]-1)/2, (Length[M]-1)/2}]
+	] + M,
 	CompilationTarget -> "C", RuntimeAttributes -> {Listable}
 ];
 
@@ -93,6 +91,7 @@ HighSymmetryPathSquare[LatticePoints_] := Module[
 
 HighSymmetryPath[LatticePoints_, LatticeType_, LatticeDim_] := Which[
 	LatticeType == "Bethe", HighSymmetryPathBethe[LatticePoints],
+	LatticeType == "Hypercubic" && LatticeDim == 1, HighSymmetryPathBethe[LatticePoints], (* if d=1, the high symmetry path is just like in Bethe lattice *)
 	LatticeType == "Hypercubic" && LatticeDim == 2, HighSymmetryPathSquare[LatticePoints],
 	True, Print["Not supported."];
 ];
@@ -161,12 +160,11 @@ GetLatticeEnergiesRaman[HalfBandwidths_, \[Delta]_, M_, \[Gamma]_, LatticeType_,
 		weights = ConstantArray[1./(Length[BZ]), Length[BZ]];
 		Do[
 			(* get the unitary matrix that diagonalizes M: P.M.Pdg = \[CapitalLambda], where \[CapitalLambda] is diagonal *)
-			eigvecs = Last[ SortBy[Eigensystem[M[[orb]]]\[Transpose], First]\[Transpose] ]; (* list of eigenvectors sorted by eigenvalues (from lower to higher) *)
+			(*eigvecs = Last[ SortBy[Eigensystem[M[[orb]]]\[Transpose], First]\[Transpose] ]; (* list of eigenvectors sorted by eigenvalues (from lower to higher) *)
 			Pdg = (Normalize[#] &/@ eigvecs)\[Transpose];
-			P = ConjugateTranspose[Pdg];
-			energies[[All, orb, orb]] = (P . # . Pdg) &/@ (
-				(DispersionHypercubicRaman[#, HalfBandwidths[[orb]], f, \[Gamma]] + \[Delta][[orb]]*IdentityMatrix[f] + M[[orb]]) &/@ BZ
-			)
+			P = ConjugateTranspose[Pdg];*)
+			energies[[All, orb, orb]] = 
+				(DispersionHypercubicRaman[#, HalfBandwidths[[orb]], M[[orb]], \[Gamma][[orb]]] + \[Delta][[orb]]*IdentityMatrix[f]) &/@ BZ
 		, {orb, Norb}];
 	];
 	{energies, weights}
@@ -227,7 +225,7 @@ LocalGreenFunctionSuperc = Compile[{
 	RuntimeAttributes->{Listable}, Parallelization->True
 ];
 
-(* when EdMode == "Raman" --- IN PROGRESS --- *)
+(* when EdMode == "Raman" *)
 LocalGreenFunctionRaman = Compile[{
 	{Energies,_Real,3}, {weights, _Real,1}, {\[Mu], _Real}, {\[CapitalSigma], _Complex, 3}, {zlist, _Complex, 1}
 	},

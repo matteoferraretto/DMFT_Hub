@@ -127,7 +127,6 @@ PlotMatsubara[function_, i\[Omega]_, EdMode_, OptionsPattern[ListPlot]] := Which
 *)
 
 (* Plot flavor resolved spectral function for Raman *)
-(*
 PlotSpectralFunctionRaman[spectralfunction_, \[Omega]_, \[Mu]_, LatticeType_, LatticeDim_] := Module[
 	{\[Omega]min = Min[\[Omega]], \[Omega]max = Max[\[Omega]], f = Length[spectralfunction[[1,1]]], ticks, max, Fermiline, datarange},
 	If[f > 3, Return["Not supported. Only f=2,3 are available. "] ];
@@ -166,7 +165,6 @@ PlotSpectralFunctionRaman[spectralfunction_, \[Omega]_, \[Mu]_, LatticeType_, La
 		, {\[Sigma], f}]
 	]
 ];
-*)
 
 (* manage output  
 WriteOutput[condition_, file_, label_, U_, data_] := Module[

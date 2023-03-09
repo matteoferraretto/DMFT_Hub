@@ -6,20 +6,9 @@ i\[Omega] = Table[(2n-1)Pi*I*TMats, {n, NMatsubara}];
 (* initialize real frequencies *)
 \[Omega] = Table[\[Omega]min + n*d\[Omega], {n, 0, NReal}];
 
-(* save observables on file *)
-WriteOutput[Converged, OutputDirectory, "density", density];
-WriteOutput[Converged, OutputDirectory, "double_occupancy", docc];
-WriteOutput[Converged, OutputDirectory, "quasiparticle_weight", Z];
-If[EdMode == "Superc" || EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
-	WriteOutput[Converged, OutputDirectory, "intraorbital_order_parameter", \[Phi]];
-	If[EdMode != "Superc", 
-		WriteOutput[Converged, OutputDirectory, "interorbital_order_parameter", \[CapitalXi]]
-	];
-];
-
-(* compute converged many body functions *)
+(* compute converged many body functions in Matsubara and real frequencies *)
 Which[
-	(EdMode == "Normal" || EdMode == "Superc") && OrbitalSymmetry,
+	(EdMode == "Normal" || EdMode == "Superc" || EdMode == "Raman") && OrbitalSymmetry,
 	(* G(i\[Omega]) *)
 	Gimp = Mean[Apply[
 		GreenFunctionImpurity[L, f, Norb, 1, 1, Egs, ##, Hsectors, Sectors, SectorsDispatch, EdMode, i\[Omega]]&,
@@ -105,22 +94,77 @@ Which[
 	LocalG = LocalGreenFunction[LatticeEnergies, LatticeWeights, \[Mu], \[CapitalSigma], i\[Omega], EdMode];
 ];
 
-(* store converged many body functions *)
+(* store converged observables and many body functions *)
+WriteOutput[True, OutputDirectory, "density", density];
+WriteOutput[True, OutputDirectory, "double_occupancy", docc];
+WriteOutput[True, OutputDirectory, "quasiparticle_weight", Z];
+If[EdMode == "Superc" || EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
+	WriteOutput[True, OutputDirectory, "intraorbital_order_parameter", \[Phi]];
+	If[EdMode != "Superc", 
+		WriteOutput[True, OutputDirectory, "interorbital_order_parameter", \[CapitalXi]]
+	];
+];
 WriteOutput[True, OutputDirectory, "self_energy", \[CapitalSigma]];
 WriteOutput[True, OutputDirectory, "self_energy_real_frequency", \[CapitalSigma]realfreq];
+WriteOutput[True, OutputDirectory, "spectral_function", spectralfunction];
+ClearAll[spectralfunction];
 
 
-(* Plot DMFT error *)
-(*
-Print @ ListLogPlot[
-	ErrorList,
-	Axes->False, Frame->True,
-	FrameLabel->{"iteration", "DMFT error"},
-	FrameStyle->Directive[Black,14],
-	Joined->True, PlotMarkers->Automatic,
-	PlotStyle->PointSize[.025]
-]
-*)
+(* momentum resolved spectral function *)
+If[
+	OrbitalSymmetry,
+	spectralfunctionresolved = MomentumResolvedSpectralFunction[
+		LatticeEnergies[[All, 1, 1]], 
+		\[Mu], 
+		If[Norb == 1, \[CapitalSigma]realfreq, \[CapitalSigma]realfreq[[1]]], (* if Norb = 1 the self energy does not have tensorial structure w.r.t. the orbital index *)
+		HighSymmetryPath[ Length[LatticeEnergies[[All,1,1]]], LatticeType, LatticeDim],
+		\[Omega][[1;;-1]] + I*\[Eta], 
+		EdMode,
+		RamanMatrix -> M[[1]]
+	],
+(* else, if no orbital symmetry *)
+	Print["Not supported."];
+];
+
+WriteOutput[True, OutputDirectory, "momentum_resolved_spectral_function", spectralfunctionresolved];
+ClearAll[spectralfunctionresolved];
+
+
+(* specific observables of Raman coupled systems *)
+If[ EdMode == "Raman",
+If[
+	OrbitalSymmetry,
+	flavordistributionreal = MomentumDistributedDensityRaman[
+		LatticeEnergies[[All, 1, 1]], 
+		M[[1]], 
+		\[Mu], 
+		If[Norb==1, \[CapitalSigma], \[CapitalSigma][[1]]], 
+		HighSymmetryPath[ Length[ LatticeEnergies[[All, 1, 1]] ], LatticeType, LatticeDim], 
+		i\[Omega]
+	];
+	flavorcurrent = Table[
+		FlavorCurrent[W[[1]], \[Gamma][[1]], \[Sigma], a, flavordistributionreal, LatticeType, LatticeDim, LatticePoints]
+	, {\[Sigma], f}, {a, LatticeDim}];,
+(* else, if no orbital symmetry *)
+	flavordistributionreal = Table[
+		MomentumDistributedDensityRaman[
+			LatticeEnergies[[All, orb, orb]], 
+			M[[orb]], 
+			\[Mu], 
+			\[CapitalSigma][[orb]], 
+			Length[ LatticeEnergies[[All, orb, orb]] ], 
+			i\[Omega]
+		];
+	, {orb, Norb}];
+	flavorcurrent = Table[
+		FlavorCurrent[W[[orb]], \[Gamma][[orb]], \[Sigma], a, flavordistributionreal[[orb]], LatticeType, LatticeDim, LatticePoints]
+	, {orb, Norb}, {\[Sigma], f}, {a, LatticeDim}];
+];
+
+WriteOutput[True, OutputDirectory, "flavor_current", flavorcurrent];
+WriteOutput[True, OutputDirectory, "flavor_resolved_momentum_distributed_cdgc", flavordistributionreal];
+ClearAll[flavordistributionreal];
+];
 
 
 (* SPECTRAL FUNCTIONS *)

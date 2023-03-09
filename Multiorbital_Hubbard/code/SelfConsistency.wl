@@ -23,7 +23,7 @@ Print["Package SelfConsistency` loaded successfully."];
 
 (* ANALYTIC EVALUATION OF NONINTERACTING IMPURITY GREEN FUNCTION *)
 (* symbolic non-interacting Green function obtained by inverting the impurity-bath Hamiltonian *)
-WeissField[L_, f_, Norb_, \[Mu]_, symbols_, z_, EdMode_] := Module[
+WeissField[L_, f_, Norb_, \[Mu]_, M_, symbols_, z_, EdMode_] := Module[
 	{e, V, \[CapitalDelta], \[CapitalXi], H0, H, Vmat},
 	Which[
 		EdMode == "Normal", 
@@ -52,7 +52,7 @@ WeissField[L_, f_, Norb_, \[Mu]_, symbols_, z_, EdMode_] := Module[
 		H = ConstantArray[0, {L-1, f, f}];
 		Vmat = H;
 		(* define the hamiltonian blocks *)
-		H0 = -DiagonalMatrix[\[Mu]]; (* in this case \[Mu] is a list of f values given by \[Mu] - \[Delta][[orb]] - h, where h is the magnetic field *)
+		H0 = M - \[Mu] * IdentityMatrix[f];
 		(H[[#]] = SymmetricMatrixFromArray[e[[#]], f]) &/@ Range[L-1];
 		(Vmat[[#]] = SymmetricMatrixFromArray[V[[#]], f]) &/@ Range[L-1];
 		(* compute Weiss field *)
@@ -134,10 +134,22 @@ WeissFieldNumeric[DBethe_, \[Mu]_, LocalG_, LocalGold_, \[CapitalSigma]_, \[Capi
 		];,
 	(* ------------------------------------ *)
 		EdMode == "Raman",
-		If[\[Alpha] == 0.0,
-			Weff = (Inverse[#] &/@ LocalG) + \[CapitalSigma];,
+		If[\[Alpha] == 0.0, 
+			Weff = If[Length[\[CapitalSigma][[1]]] == 2,
+				TwoByTwoInverse[LocalG] + \[CapitalSigma],
+			(* else *)
+				(Inverse[#] &/@ LocalG) + \[CapitalSigma]
+			];,
 		(* else, if mixing is active *)
-			Weff = \[Alpha] * ((Inverse[#] &/@ LocalGold) + \[CapitalSigma]old) + (1.0 - \[Alpha]) * ((Inverse[#] &/@ LocalG) + \[CapitalSigma]);
+			Weff = \[Alpha] * (If[Length[\[CapitalSigma][[1]]] == 2,
+				TwoByTwoInverse[LocalGold] + \[CapitalSigma]old,
+			(* else *)
+				(Inverse[#] &/@ LocalGold) + \[CapitalSigma]old
+			]) + (1.0 - \[Alpha]) * (If[Length[\[CapitalSigma][[1]]] == 2,
+				TwoByTwoInverse[LocalG] + \[CapitalSigma],
+			(* else *)
+				(Inverse[#] &/@ LocalG) + \[CapitalSigma]
+			]);
 		],
 	(* ------------------------------------ *)
 		EdMode == "InterorbSuperc" || EdMode == "FullSuperc",

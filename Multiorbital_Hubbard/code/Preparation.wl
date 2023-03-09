@@ -10,8 +10,9 @@ ErrorList = {};
 (* initialize Matsubara frequencies [use just CGNMatsubara frequencies, not NMatsubara!] *)
 i\[Omega] = Table[(2n-1)Pi*I*TMats, {n, CGNMatsubara}]; 
 
-(* set OrbitalSymmetry to False in some cases to avoid stupid bugs *)
+(* set OrbitalSymmetry in some cases to avoid stupid bugs *)
 If[EdMode == "InterorbNormal" || EdMode == "InterorbSuperc" || EdMode == "FullSuperc", OrbitalSymmetry = False];
+If[Norb == 1, OrbitalSymmetry = True];
 (* avoid a bunch of stupid bugs related to the C.G. *)
 If[CGNMatsubara > NMatsubara, CGNMatsubara = NMatsubara];
 If[Length[CGWeight] != CGNMatsubara, 
@@ -30,19 +31,28 @@ If[!SublatticesQ && V != 0.0,
 ];
 
 (* avoid stupid bugs related to gauge field in Raman *)
-If[Norm[\[Gamma]] != 0.0 && LatticeType == "Bethe" && EdMode == "Raman",
-	Print[Style["Error. Gauge flux is not compatible with Bethe lattice due to lack of geometrical structue. Proceeding with \[Gamma] = 0.", Red]];
-	\[Gamma] = 0.0;
+If[M == ConstantArray[0.0, {Norb, f, f}] && EdMode == "Raman",
+	Print[Style["Warning. The Raman matrix is zero but EdMode = ''Raman''. You should either add a small Raman coupling or change EdMode to ''Normal''.", Red]];
 ];
-If[Norm[\[Gamma]] != 0.0 && Length[\[Gamma]] != LatticeDim && EdMode == "Raman",
-	Print[Style["Error. The vector \[Gamma] should have the same dimension as the lattice.", Red]];
-	Abort[];
-];
-If[M == ConstantArray[0.0, {Norb, f, f}] && h == ConstantArray[0.0, {Norb,f}] && EdMode == "Raman",
-	Print[Style["Warning. The Raman matrix and magnetic field are zero but EdMode = ''Raman''. You should either add a small Raman coupling or change EdMode to ''Normal''.", Red]];
-];
-If[EdMode != "Raman" && (h != ConstantArray[0.0, {Norb,f}] || M != ConstantArray[0.0, {Norb,f,f}]),
-	Print[Style["Error. A magnetic field or Raman matrix is provided, but EdMode is not set to ''Raman''. Switch EdMode to ''Raman'' or remove the magnetic field.", Red]];
+Do[
+	If[Length[M[[orb]]] != f && EdMode == "Raman", 
+		Print[Style["Error. The Raman matrix associated to orbital "<>ToString[orb]<>" has a wrong dimension.", Red]];
+		Abort[];
+	];
+	If[Norm[\[Gamma][[orb]]] != 0.0 && LatticeType == "Bethe" && EdMode == "Raman",
+		Print[Style["Error. Gauge flux is not compatible with Bethe lattice due to lack of geometrical structue. Proceeding with \[Gamma] = 0.", Red]];
+		\[Gamma][[orb]] = 0.0;
+	];
+	If[Norm[\[Gamma][[orb]]] != 0.0 && Length[\[Gamma][[orb]]] != LatticeDim && EdMode == "Raman",
+		Print[Style["Error. The vector \[Gamma] should have the same dimension as the lattice.", Red]];
+		Abort[];
+	];
+	If[M[[orb]] == 0.0*M[[orb]] && \[Gamma][[orb]] != 0.0*\[Gamma][[orb]],
+		Print[Style["Warning. In orbital "<>ToString[orb]<>" there's no Raman field, but a gauge field has been provided. ", Red]];
+	];
+, {orb, Norb}];
+If[EdMode != "Raman" && M != ConstantArray[0.0, {Norb,f,f}],
+	Print[Style["Error. A Raman matrix is provided, but EdMode is not set to ''Raman''. Switch EdMode to ''Raman'' or remove the Raman field.", Red]];
 	Abort[];
 ];
 
@@ -77,21 +87,15 @@ If[OrbitalSymmetry && Norb > 1,
 	\[Delta] = ConstantArray[0.0, Norb];
 ];
 (* just pick upper triangular part of the pair hopping matrix *)
-Jph = Flatten[ Pick[
-	Jph, 
-	UpperTriangularize[ConstantArray[1, {Norb, Norb}]],
-	1
-] ];
-(* effective magnetic field applied on the impurity by Raman field *)
-If[EdMode == "Raman",
-	h = Flatten[ Sort[#] &/@ (Eigenvalues[#] &/@ M) ];
-];
+Jphreshaped = ArrayFromSymmetricMatrix[Jph];
+(* reshape Raman field to match number of corresponding hamiltonian blocks *)
+Mreshaped = Flatten[ArrayFromSymmetricMatrix[#] &/@ M];
 (* get list of interaction parameters in correct order *)
-InteractionParameters = {h, \[Delta], U, Ust, Usec, Jph, Jse, - \[Mu] + shift};
+InteractionParameters = {Mreshaped, \[Delta], U, Ust, Usec, Jphreshaped, Jse, - \[Mu] + shift};
 
 
 (* GET BATH PARAMETERS *)
-BathParameters = StartingBath[L, f, Norb, \[Delta]-\[Mu], InitializeBathMode, EdMode, V0 -> 1.0, \[CapitalDelta]0 -> 0.2, \[CapitalXi]0 -> 0.2, \[CapitalOmega]0 -> 0.0];
+BathParameters = StartingBath[L, f, Norb, \[Delta]-\[Mu], InitializeBathMode, EdMode, V0 -> 1.0, \[CapitalDelta]0 -> 0.2, \[CapitalXi]0 -> 0.2, \[CapitalOmega]0 -> 0.2];
 Nparams = Length[ Flatten[BathParameters] ];
 (* if there are sublattices, duplicate the bath parameters *)
 If[SublatticesQ,

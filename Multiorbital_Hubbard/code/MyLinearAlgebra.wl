@@ -16,6 +16,8 @@ TwoByTwoInverse::usage = "TwoByTwoInverse[A] returns the inverse of the 2x2 comp
 SymmetricMatrixFromArray::usage = "SymmetricMatrixFromArray[list, n] takes a list of n(n+1)/2 symbols or numbers and transforms it into a n x n symmetric matrix. For example, if n=2, 
 the list {a11, a12, a22} is transformed into {{a11, a12}, {a12, a22}}."
 
+ArrayFromSymmetricMatrix::usage = "ArrayFromSymmetricMatrix[M] takes a matrix M and gives its upper triangular part flattened out as an array. "
+
 
 Begin["Private`"]
 
@@ -109,6 +111,12 @@ SymmetricMatrixFromArray[list_, n_] := Module[
     ];
     Array[If[#2 > #1, mat[[#1, #2]], mat[[#2, #1]]] &, {n, n}]
 ];
+(* extract the independent parameters of a symmetric matrix (upper triangular part) and convert it to a flat array *)
+ArrayFromSymmetricMatrix[M_] := Flatten[ Pick[
+	M, 
+	UpperTriangularize[ConstantArray[1, {Length[M], Length[M]}]],
+	1
+] ];
 
 
 (* custom calculation of eigenstates *)

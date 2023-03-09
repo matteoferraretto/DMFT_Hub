@@ -243,7 +243,7 @@ HLocal[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 				Hblock = SparseArray@DiagonalMatrix[num];
 				AppendTo[Hsector, Hblock];,
 			(* ----------------------------------- *)
-				flag == "Magnetic_Field",
+				flag == "Magnetic_Field", (* this should be deprecated in favor of the more general Raman field *) 
 				Do[
 					num = Sum[
 						n[L, f, Norb, j, \[Sigma], orb, \[Psi]]
@@ -251,6 +251,29 @@ HLocal[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 					Hblock = SparseArray @ DiagonalMatrix[num];
 					AppendTo[Hsector, Hblock];
 				, {orb, Norb}, {\[Sigma], f}],
+			(* ----------------------------------- *)
+				flag == "Raman_Field", (* this is coupled to a flattened list of Norb uppertriangularized Raman fxf matrices *)
+				Do[
+					If[\[Rho] == \[Sigma], (* diagonal elements of Raman matrix represent a magnetic field *)
+						num = Sum[
+							n[L, f, Norb, j, \[Sigma], orb, \[Psi]]
+						, {j, 1, OptionValue["Nimp"]}];
+						Hblock = SparseArray @ DiagonalMatrix[num];,
+					(* else, if \[Rho] > \[Sigma], off diagonal elements of Raman matrix *)
+						\[Psi]1 = HopSelect[L, f, 1, 1, \[Rho], \[Sigma], orb, orb, \[Psi]];
+						If[Length[\[Psi]1] != 0, 
+							\[Chi] = Hop[L, f, 1, 1, \[Rho], \[Sigma], orb, orb, \[Psi]1];
+							rows = \[Chi]/.dispatch;(* *)cols=\[Psi]1/.dispatch;(* *)pos={rows,cols}\[Transpose];
+							\[CapitalSigma] = CCSign[L, f, {1,1}, {\[Rho],\[Sigma]}, {orb,orb}, \[Psi]1];
+							If[Index[L, f, Norb, 1, \[Rho], orb] > Index[L, f, Norb, 1, \[Sigma], orb], 
+								\[CapitalSigma] = -\[CapitalSigma]
+							];(* if \[Rho] > \[Sigma], we are applying e.g. cdg_2 c_1. When moving cdg_2 before position 2, it jumps over c_1 and the sign changes! *)
+							Hblock = SparseArray[pos->\[CapitalSigma],{dim,dim}];
+							Hblock = Hblock + Hblock\[ConjugateTranspose];
+						];
+					];
+					AppendTo[Hsector, Hblock];
+				, {orb, Norb}, {\[Rho], f}, {\[Sigma], \[Rho], f}],
 			(* ----------------------------------- *)
 				flag == "Crystal_Field", (* different on site energy to different orbitals *) 
 				Do[
@@ -261,7 +284,7 @@ HLocal[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 					AppendTo[Hsector, Hblock];
 				, {orb, Norb}]
 			];
-		,{flag, {"Magnetic_Field","Crystal_Field","Hubbard","Interorb_Hubbard_Opposite_Spin","Interorb_Hubbard_Same_Spin","Pair_Hopping","Spin_Exchange","Energy_Shift"}}];
+		,{flag, {"Raman_Field","Crystal_Field","Hubbard","Interorb_Hubbard_Opposite_Spin","Interorb_Hubbard_Same_Spin","Pair_Hopping","Spin_Exchange","Energy_Shift"}}];
 		AppendTo[H, Hsector];
 	,{\[Psi],Sectors}];
 	H

@@ -107,7 +107,7 @@ Do[
 			InverseG = InverseGreenFunction[Gimp, EdMode];
 			(* G_0^-1(i\[Omega]) *)
 			If[DMFTiterator == 1, 
-				Weiss = WeissField[L, f, Norb, \[Mu] - \[Delta][[1]] - If[EdMode=="Raman", h[[;;f]], 0], symbols, z, EdMode]; 
+				Weiss = WeissField[L, f, Norb, \[Mu] - \[Delta][[1]], M[[1]], symbols, z, EdMode]; 
 			];
 			InverseG0old = If[DMFTiterator == 1, 0*InverseG, InverseG0]; (* memorize the previous one *)
 			InverseG0 = (Weiss/.Thread[symbols -> IndependentParameters])/.{z -> #} &/@ i\[Omega];
@@ -173,7 +173,7 @@ Do[
 			(* { Subscript[G, 0]^-1Subscript[(i\[Omega]), orb=1] , Subscript[G, 0]^-1Subscript[(i\[Omega]), orb=2] , ...} *)
 			If[DMFTiterator == 1, 
 				Weiss = Table[ 
-					WeissField[L, f, Norb, \[Mu] - \[Delta][[orb]] - If[EdMode=="Raman", h[[f*(orb-1);;f*orb]], 0], symbols, z, EdMode]
+					WeissField[L, f, Norb, \[Mu] - \[Delta][[orb]], M[[orb]], symbols, z, EdMode]
 				, {orb, Norb}]
 			];
 			InverseG0old = If[DMFTiterator == 1, 0*InverseG, InverseG0];
@@ -315,13 +315,6 @@ Do[
 , {DMFTiterator, DMFTMaxIterations}]
 
 ]
-
-(* when DMFT is done, store observables *) 
-WriteOutput[True, OutputDirectory, "density", density];
-WriteOutput[True, OutputDirectory, "double_occupancy", docc];
-WriteOutput[True, OutputDirectory, "phi", \[Phi]];
-WriteOutput[True, OutputDirectory, "\[CapitalXi]", \[CapitalXi]];
-WriteOutput[True, OutputDirectory, "z", Z];
 
 
 

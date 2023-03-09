@@ -628,7 +628,7 @@ GreenFunctionImpurity[L_, f_, Norb_, \[Sigma]_, orb_, Egs_, gs_, GsQns_, Hsector
 InverseGreenFunction[G_, EdMode_] := 
 	Which[
 		EdMode == "Normal", 1./G,
-		EdMode == "Raman", Inverse /@ G,
+		EdMode == "Raman", If[Length[G[[1]]] == 2, TwoByTwoInverse[G], (* else *) Inverse /@ G],
 		EdMode == "Superc", TwoByTwoInverse[G],
 		EdMode == "InterorbSuperc" || EdMode == "FullSuperc", Inverse /@ G
 	];

@@ -7,7 +7,7 @@ Density::usage = "Density[L, f, Norb, j, \[Sigma], orb, Sectors, EgsSectorList, 
 
 SquareDensity::usage = "SquareDensity[L, f, Norb, {i, j}, {\[Sigma]1, \[Sigma]2}, {orb1, orb2}, Sectors, EgsSectorList, GsSectorList, T]"
 
-MomentumDistributedDensityRaman::usage = "MomentumDistributedDensityRaman[i, orb, LatticeEnergies, M, \[Mu], \[CapitalSigma], i\[Omega]]"
+MomentumDistributedDensityRaman::usage = "MomentumDistributedDensityRaman[Energies_, M_, \[Mu]_, \[CapitalSigma]_, kindexes_, i\[Omega]_, OptionsPattern[]]"
 
 FlavorCurrent::usage = "FlavorCurrent[t, \[Gamma], \[Sigma], a, flavordistribution, LatticeType, LatticeDim, NumberOfPoints] gives the a-th spatial component of the flavor current 
 associated to the flavor \[Sigma]=1,2,...,f. This function requires as an input ''flavordistribution'', i.e. the flavor-resolved momentum-distributed operator <cdg_k\[Alpha] c_k\[Beta]>, 
@@ -74,9 +74,9 @@ MomentumDistributedDensitySuperc[i_, Energies_, \[Mu]_, \[CapitalSigma]_, i\[Ome
 		] + 1./2. - (1./(4.*TMats)) * (Energies[[i]] + \[CapitalSigma]0) )
 ];
 
-(* returns a list of matrices < cdg_k\[Alpha] c_k\[Beta] > where k is the i-th point in the BZ and \[Alpha],\[Beta] are flavor indexes *)
-MomentumDistributedDensityRaman[i_, orb_, LatticeEnergies_, M_, \[Mu]_, \[CapitalSigma]_, i\[Omega]_, OptionsPattern[]] := Module[
-	{Pdg, P, eigvecs, TMats = Re[(i\[Omega][[2]]-i\[Omega][[1]])/(2.*Pi*I)], f = Length[\[CapitalSigma][[1]]], \[CapitalSigma]0 = Last @ \[CapitalSigma], flavortype = OptionValue["Flavor"], Energies = LatticeEnergies[[All, orb, orb]]},
+(* returns a list of matrices < cdg_k\[Alpha] c_k\[Beta] > where \[Alpha],\[Beta] are flavor indexes *)
+MomentumDistributedDensityRaman[Energies_, M_, \[Mu]_, \[CapitalSigma]_, kindexes_, i\[Omega]_, OptionsPattern[]] := Module[
+	{Pdg, P, eigvecs, TMats = Re[(i\[Omega][[2]]-i\[Omega][[1]])/(2.*Pi*I)], f = Length[\[CapitalSigma][[1]]], \[CapitalSigma]0 = Last @ \[CapitalSigma], flavortype = OptionValue["Flavor"]},
 	Which[
 		flavortype == "Effective",
 		Pdg = IdentityMatrix[f]; 
@@ -84,21 +84,20 @@ MomentumDistributedDensityRaman[i_, orb_, LatticeEnergies_, M_, \[Mu]_, \[Capita
 	(* -------------------------------------- *)
 		flavortype == "Real",
 		(* get the unitary matrix that diagonalizes M: P.M.Pdg = \[CapitalLambda], where \[CapitalLambda] is diagonal *)
-		eigvecs = Last[ SortBy[Eigensystem[M[[orb]]]\[Transpose], First]\[Transpose] ]; (* list of eigenvectors sorted by eigenvalues (from lower to higher) *)
+		eigvecs = Last[ SortBy[Eigensystem[M]\[Transpose], First]\[Transpose] ]; (* list of eigenvectors sorted by eigenvalues (from lower to higher) *)
 		Pdg = (Normalize[#] &/@ eigvecs)\[Transpose];
 		P = ConjugateTranspose[Pdg];
 	];
 	(* compute the density: TMats \!\(
 \*SubscriptBox[\(\[Sum]\), \(i\[Omega]\)]\ \(\(Exp[\(-i\[Omega]\[Eta]\)]\)\ [P\  . \ G\((k, \ i\[Omega])\)\  . \ Pdg]_\[Sigma]\[Sigma]\)\) *)
-	(
-	2.0 * TMats * Total[
-		(P . # . Pdg)\[Transpose] &/@ (
-		(* G_numerical - G_tail *)
-			Re[ Inverse[#] &/@ (((#+\[Mu])*IdentityMatrix[f] - Energies[[i]]) &/@ i\[Omega] - \[CapitalSigma]) 
-			- (((Energies[[i]] + \[CapitalSigma]0)/(#^2)) &/@ i\[Omega]) ]
-		)] + (1./2.)*IdentityMatrix[f] - (1./(4.*TMats)) * (P . (Energies[[i]] + \[CapitalSigma]0) . Pdg)\[Transpose]
-	)
-	(* correction term due to Matsubara sum of  G_tail *)
+	Table[
+		2.0 * TMats * Total[(
+			(* G_numerical - G_tail *)
+				Re[ Inverse[#] &/@ (((#+\[Mu])*IdentityMatrix[f] - Energies[[i]]) &/@ i\[Omega] - \[CapitalSigma]) 
+				- (((Energies[[i]] + \[CapitalSigma]0)/(#^2)) &/@ i\[Omega]) ]
+			)] + (1./2.)*IdentityMatrix[f] - (1./(4.*TMats)) * ((Energies[[i]] + \[CapitalSigma]0))\[Transpose]
+		(* correction term due to Matsubara sum of  G_tail *)
+	, {i, kindexes}]
 ];
 Options[MomentumDistributedDensityRaman] = {"Flavor" -> "Real"}
 
@@ -221,6 +220,11 @@ SpectralFunction[LatticeEnergies_, weights_, \[Mu]_, \[CapitalSigma]_, zlist_, E
 			LocalGreenFunction[LatticeEnergies, weights, \[Mu], \[CapitalSigma], zlist, EdMode][[All, 1, 1]]
 		],
 	(* ---------------------------------------------- *)
+		EdMode == "Raman",
+		spectralfunction = -(1./Pi) * Im[ Tr[#] &/@
+			LocalGreenFunction[LatticeEnergies, weights, \[Mu], \[CapitalSigma], zlist, EdMode]
+		] / Length[\[CapitalSigma][[1]]],
+	(* ---------------------------------------------- *)
 		EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
 		spectralfunction = -(1./Pi) * Im[ Tr[#] &/@
 			LocalGreenFunction[LatticeEnergies, weights, \[Mu], \[CapitalSigma], zlist, EdMode]
@@ -252,15 +256,15 @@ MomentumResolvedSpectralFunction[LatticeEnergies_, \[Mu]_, \[CapitalSigma]_, kin
 	(* ---------------------------------------------- *)
 		EdMode == "Raman",
 		Module[
-			{f = Length[\[CapitalSigma][[1]]], eigvecs, Pdg, P, M = OptionValue[RamanMatrix]},
+			{f = Length[\[CapitalSigma][[1]]], M = OptionValue[RamanMatrix]},
 			(* diagonalize Raman matrix *)
-			eigvecs = Last[ SortBy[Eigensystem[M]\[Transpose], First]\[Transpose] ];
+			(*eigvecs = Last[ SortBy[Eigensystem[M]\[Transpose], First]\[Transpose] ];
 			Pdg = (Normalize[#] &/@ eigvecs)\[Transpose];
-			P = ConjugateTranspose[Pdg];
+			P = ConjugateTranspose[Pdg];*)
 			(* A_\[Sigma]\[Rho](k, \[Omega]) *)
 			spectralfunction = Table[
 				- (1./Pi) * Im[
-					P . Inverse[ ((zlist[[i]] + \[Mu])*IdentityMatrix[f] - energies[[j]] )] . Pdg
+					Inverse[ ((zlist[[i]] + \[Mu])*IdentityMatrix[f] - energies[[j]] - \[CapitalSigma][[i]])] 
 				],
 			{i, Length[zlist]}, {j, Length[kindexes]}]
 		],

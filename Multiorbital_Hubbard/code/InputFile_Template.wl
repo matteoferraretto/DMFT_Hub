@@ -49,13 +49,11 @@ HundMode = False;
 (* chemical potential *)
 \[Mu] = 0.0; 
 (* Crystal field splitting *)
-\[Delta] = {0};
-(* Explicit magnetic field: (can be different for different orbitals) *)
-h = ConstantArray[0.0, {Norb, f}];
-(* Raman hopping matrix (can be different for different orbitals) *)
-M = 0.0 * ConstantArray[IdentityMatrix[f], Norb];
-(* Gauge field associated with Raman tunneling (vector of dimension LatticeDim) *)
-\[Gamma] = 0.0 * Pi * UnitVector[LatticeDim, 1];
+\[Delta] = ConstantArray[0.0, Norb];
+(* Raman matrices (one per orbital). Diagonal terms are magnetic field, off-diagonal are Rabi couplings *)
+M = 0.5 * ConstantArray[PauliMatrix[1], Norb];
+(* Gauge field associated with Raman tunneling (tensor of dimension Norb x LatticeDim) *)
+\[Gamma] = ConstantArray[0.5*Pi*UnitVector[LatticeDim, 1], Norb];
 (* temperature *)
 T = 0; 
 
@@ -68,11 +66,11 @@ NMatsubara = 5000;
 (* set min and max value for the set of real frequencies *)
 \[Omega]min = -5.; \[Omega]max = 5.; 
 (* number of real frequencies *)
-NReal = 10000;
+NReal = 5000;
 (* real frequency step *)
 d\[Omega] = (\[Omega]max - \[Omega]min)/NReal; 
 (* small shift of the pole in the imaginary axis: this avoids singularities, but introduces an artificial broadening of the spectrum *)
-\[Eta] = 0.02;
+\[Eta] = 0.05;
 
 
 (* INPUT-OUTPUT MANAGEMENT *)
@@ -116,7 +114,7 @@ CGMaxIterations = 1000;
 (* Number of Matsubara frequencies used to perform the fit *)
 CGNMatsubara = NMatsubara;
 (* Accuracy goal for minimization procedure *)
-CGAccuracy = 4;
+CGAccuracy = 6;
 (* list of weights attributed to each Matsubara frequency w(i\[Omega]): IT SHOULD BE >= CGNMatsubara *)
 CGWeight = ConstantArray[1., CGNMatsubara];
 
