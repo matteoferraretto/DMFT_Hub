@@ -7,7 +7,7 @@ Density::usage = "Density[L, f, Norb, j, \[Sigma], orb, Sectors, EgsSectorList, 
 
 SquareDensity::usage = "SquareDensity[L, f, Norb, {i, j}, {\[Sigma]1, \[Sigma]2}, {orb1, orb2}, Sectors, EgsSectorList, GsSectorList, T]"
 
-MomentumDistributedDensityRaman::usage = "MomentumDistributedDensityRaman[Energies_, M_, \[Mu]_, \[CapitalSigma]_, kindexes_, i\[Omega]_, OptionsPattern[]]"
+MomentumDistributedDensityRaman::usage = "MomentumDistributedDensityRaman[kindexes_, Energies_, \[Mu]_, \[CapitalSigma]_, i\[Omega]_]"
 
 FlavorCurrent::usage = "FlavorCurrent[t, \[Gamma], \[Sigma], a, flavordistribution, LatticeType, LatticeDim, NumberOfPoints] gives the a-th spatial component of the flavor current 
 associated to the flavor \[Sigma]=1,2,...,f. This function requires as an input ''flavordistribution'', i.e. the flavor-resolved momentum-distributed operator <cdg_k\[Alpha] c_k\[Beta]>, 
@@ -75,31 +75,19 @@ MomentumDistributedDensitySuperc[i_, Energies_, \[Mu]_, \[CapitalSigma]_, i\[Ome
 ];
 
 (* returns a list of matrices < cdg_k\[Alpha] c_k\[Beta] > where \[Alpha],\[Beta] are flavor indexes *)
-MomentumDistributedDensityRaman[Energies_, M_, \[Mu]_, \[CapitalSigma]_, kindexes_, i\[Omega]_, OptionsPattern[]] := Module[
-	{Pdg, P, eigvecs, TMats = Re[(i\[Omega][[2]]-i\[Omega][[1]])/(2.*Pi*I)], f = Length[\[CapitalSigma][[1]]], \[CapitalSigma]0 = Last @ \[CapitalSigma], flavortype = OptionValue["Flavor"]},
-	Which[
-		flavortype == "Effective",
-		Pdg = IdentityMatrix[f]; 
-		P = Pdg;,
-	(* -------------------------------------- *)
-		flavortype == "Real",
-		(* get the unitary matrix that diagonalizes M: P.M.Pdg = \[CapitalLambda], where \[CapitalLambda] is diagonal *)
-		eigvecs = Last[ SortBy[Eigensystem[M]\[Transpose], First]\[Transpose] ]; (* list of eigenvectors sorted by eigenvalues (from lower to higher) *)
-		Pdg = (Normalize[#] &/@ eigvecs)\[Transpose];
-		P = ConjugateTranspose[Pdg];
-	];
+MomentumDistributedDensityRaman[kindexes_, Energies_, \[Mu]_, \[CapitalSigma]_, i\[Omega]_] := Module[
+	{TMats = Re[(i\[Omega][[2]]-i\[Omega][[1]])/(2.*Pi*I)], f = Length[\[CapitalSigma][[1]]], \[CapitalSigma]0 = Last[\[CapitalSigma]]},
 	(* compute the density: TMats \!\(
 \*SubscriptBox[\(\[Sum]\), \(i\[Omega]\)]\ \(\(Exp[\(-i\[Omega]\[Eta]\)]\)\ [P\  . \ G\((k, \ i\[Omega])\)\  . \ Pdg]_\[Sigma]\[Sigma]\)\) *)
 	Table[
 		2.0 * TMats * Total[(
 			(* G_numerical - G_tail *)
-				Re[ Inverse[#] &/@ (((#+\[Mu])*IdentityMatrix[f] - Energies[[i]]) &/@ i\[Omega] - \[CapitalSigma]) 
-				- (((Energies[[i]] + \[CapitalSigma]0)/(#^2)) &/@ i\[Omega]) ]
+				Inverse[#] &/@ (((#+\[Mu])*IdentityMatrix[f] - Energies[[i]]) &/@ i\[Omega] - \[CapitalSigma]) 
+				- (((Energies[[i]] + \[CapitalSigma]0)/(#^2)) &/@ i\[Omega]) 
 			)] + (1./2.)*IdentityMatrix[f] - (1./(4.*TMats)) * ((Energies[[i]] + \[CapitalSigma]0))\[Transpose]
 		(* correction term due to Matsubara sum of  G_tail *)
 	, {i, kindexes}]
 ];
-Options[MomentumDistributedDensityRaman] = {"Flavor" -> "Real"}
 
 
 (* Density-Density *)
@@ -403,22 +391,25 @@ KineticEnergyNormal[\[Mu]_, LatticeEnergies_, LatticeWeights_, \[CapitalSigma]_,
 ];
 
 (* EdMode = "Raman" means that the orbitals are not coupled by tunneling terms *)
-KineticEnergyRaman[\[Mu]_, LatticeEnergies_, LatticeWeights_, \[CapitalSigma]_, i\[Omega]_, OrbitalSymmetry_] := Module[
-	{flavdist, Energies, Norb, f, LE, \[CapitalSigma]0 = Last[\[CapitalSigma]]},
+KineticEnergyRaman[\[Mu]_, LatticeEnergies_, LatticeWeights_, \[CapitalSigma]_, i\[Omega]_, OrbitalSymmetry_, OptionsPattern[]] := Module[
+	{flavdist, Energies, Norb, f, LE},
 	Norb = Length[LatticeEnergies[[1]]];
-	f = Length[\[CapitalSigma]0];
+	f = Length[\[CapitalSigma][[1]]];
 	LE = Length[LatticeWeights];
+	(* if flavor distribution has been computed already, use it instead of computing it twice *)
+	If[OptionValue["FlavorDistribution"] != {}, flavdist = OptionValue["FlavorDistribution"]];
 	Table[
-		Energies = LatticeEnergies[[All, orb, orb]];
 		(* <cdg_k\[Alpha] c_k\[Beta]> for the effective flavors for a given orbital *)
-		flavdist = Table[
-			MomentumDistributedDensityRaman[i, orb, Energies, IdentityMatrix[f], \[Mu], \[CapitalSigma], i\[Omega], "Flavor" -> "Effective"]
-		, {i, LE}]; (* in place of M we can use any matrix, because we need effective flavors *)
+		If[OptionValue["FlavorDistribution"] != {}, 
+			flavdist = flavdist[[orb]];,
+			flavdist = MomentumDistributedDensityRaman[Range[LE], LatticeEnergies[[All, orb, orb]], \[Mu], \[CapitalSigma], i\[Omega]];
+		];
 		Sum[
-			LatticeWeights[[i]] * Tr[ Energies[[i]] . Re[flavdist[[i]]] ]
+			LatticeWeights[[i]] * Tr[ LatticeEnergies[[i, orb, orb]] . Re[ flavdist[[i]] ] ]
 		, {i, LE}]
-	, {orb, 1, Norb}]
+	, {orb, Norb}]
 ];
+Options[KineticEnergyRaman] = {"FlavorDistribution" -> {}};
 
 KineticEnergyInterorbNormal[\[Mu]_, LatticeEnergies_, LatticeWeights_, \[CapitalSigma]_, i\[Omega]_] := Module[
 	{Norb, \[CapitalSigma]0, TMats, NMats, LE, G, Ekin},
@@ -511,11 +502,11 @@ KineticEnergyFullSuperc[\[Mu]_, LatticeEnergies_, LatticeWeights_, \[CapitalSigm
 KineticEnergy[\[Mu]_, LatticeEnergies_, LatticeWeights_, \[CapitalSigma]_, i\[Omega]_, EdMode_, OptionsPattern[]] := Which[
 	EdMode == "Normal", KineticEnergyNormal[\[Mu], LatticeEnergies, LatticeWeights, \[CapitalSigma], i\[Omega], OptionValue["OrbitalSymmetry"]],
 	EdMode == "Superc", KineticEnergySuperc[\[Mu], LatticeEnergies, LatticeWeights, \[CapitalSigma], i\[Omega], OptionValue["OrbitalSymmetry"]],
-	EdMode == "Raman", KineticEnergyRaman[\[Mu], LatticeEnergies, LatticeWeights, \[CapitalSigma], i\[Omega], OptionValue["OrbitalSymmetry"]],
+	EdMode == "Raman", KineticEnergyRaman[\[Mu], LatticeEnergies, LatticeWeights, \[CapitalSigma], i\[Omega], OptionValue["OrbitalSymmetry"], "FlavorDistribution" -> OptionValue["FlavorDistribution"]],
 	EdMode == "InterorbNormal", KineticEnergyInterorbNormal[\[Mu], LatticeEnergies, LatticeWeights, \[CapitalSigma], i\[Omega]],
 	EdMode == "FullSuperc", KineticEnergyFullSuperc[\[Mu], LatticeEnergies, LatticeWeights, \[CapitalSigma], i\[Omega]]
 ];
-Options[KineticEnergy] = {"OrbitalSymmetry" -> False};
+Options[KineticEnergy] = {"OrbitalSymmetry" -> False, "FlavorDistribution" -> {}};
 
 
 (* flavor current for Raman coupled systems *)

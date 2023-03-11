@@ -134,36 +134,49 @@ ClearAll[spectralfunctionresolved];
 If[ EdMode == "Raman",
 If[
 	OrbitalSymmetry,
-	flavordistributionreal = MomentumDistributedDensityRaman[
+	flavordistribution = MomentumDistributedDensityRaman[
+		HighSymmetryPath[ Length[ LatticeEnergies[[All, 1, 1]] ], LatticeType, LatticeDim], 
 		LatticeEnergies[[All, 1, 1]], 
-		M[[1]], 
 		\[Mu], 
 		If[Norb==1, \[CapitalSigma], \[CapitalSigma][[1]]], 
-		HighSymmetryPath[ Length[ LatticeEnergies[[All, 1, 1]] ], LatticeType, LatticeDim], 
 		i\[Omega]
 	];
+	(* flavor current *)
 	flavorcurrent = Table[
-		FlavorCurrent[W[[1]], \[Gamma][[1]], \[Sigma], a, flavordistributionreal, LatticeType, LatticeDim, LatticePoints]
-	, {\[Sigma], f}, {a, LatticeDim}];,
-(* else, if no orbital symmetry *)
-	flavordistributionreal = Table[
+		FlavorCurrent[W[[1]], \[Gamma][[1]], \[Sigma], a, flavordistribution, LatticeType, LatticeDim, LatticePoints]
+	, {\[Sigma], f}, {a, LatticeDim}];
+	Table[
+		Print["I_\[Sigma]="<>ToString[\[Sigma]]<>",a="<>ToString[a]<>" = ", flavorcurrent[[\[Sigma],a]]];
+	, {\[Sigma], f}, {a, LatticeDim}];
+	(* kinetic energy *)
+	Ekin = KineticEnergy[\[Mu], LatticeEnergies, LatticeWeights, \[CapitalSigma], i\[Omega], EdMode, "FlavorDistribution" -> {flavordistribution}];
+	Print["Ekin = ", Ekin];,
+(* -------- else, if no orbital symmetry ------------- *)
+	flavordistribution = Table[
 		MomentumDistributedDensityRaman[
+			HighSymmetryPath[ Length[ LatticeEnergies[[All, orb, orb]] ], LatticeType, LatticeDim], 
 			LatticeEnergies[[All, orb, orb]], 
-			M[[orb]], 
 			\[Mu], 
 			\[CapitalSigma][[orb]], 
-			Length[ LatticeEnergies[[All, orb, orb]] ], 
 			i\[Omega]
 		];
 	, {orb, Norb}];
+	(* flavor current *)
 	flavorcurrent = Table[
-		FlavorCurrent[W[[orb]], \[Gamma][[orb]], \[Sigma], a, flavordistributionreal[[orb]], LatticeType, LatticeDim, LatticePoints]
+		FlavorCurrent[W[[orb]], \[Gamma][[orb]], \[Sigma], a, flavordistribution[[orb]], LatticeType, LatticeDim, LatticePoints]
 	, {orb, Norb}, {\[Sigma], f}, {a, LatticeDim}];
+	Table[
+		Print["I_\[Sigma]="<>ToString[\[Sigma]]<>",a="<>ToString[a]<>" = ", flavorcurrent[[\[Sigma],a]]];
+	, {\[Sigma], f}, {a, LatticeDim}];
+	(* kinetic energy *)
+	Ekin = KineticEnergy[\[Mu], LatticeEnergies, LatticeWeights, \[CapitalSigma], i\[Omega], EdMode, "FlavorDistribution" -> flavordistribution];
+	Print["Ekin = ", Ekin];
 ];
 
 WriteOutput[True, OutputDirectory, "flavor_current", flavorcurrent];
-WriteOutput[True, OutputDirectory, "flavor_resolved_momentum_distributed_cdgc", flavordistributionreal];
-ClearAll[flavordistributionreal];
+WriteOutput[True, OutputDirectory, "kinetic_energy", Ekin];
+WriteOutput[True, OutputDirectory, "flavor_resolved_momentum_distributed_cdgc", flavordistribution];
+ClearAll[flavordistribution];
 ];
 
 

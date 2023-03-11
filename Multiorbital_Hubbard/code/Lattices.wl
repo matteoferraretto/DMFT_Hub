@@ -54,7 +54,7 @@ DispersionHypercubicRaman = Compile[
 	-2.*t*DiagonalMatrix[
 		Table[
 			Sum[Cos[k[[a]] + \[Sigma] * \[Gamma][[a]]], {a, Length[k]}]
-		, {\[Sigma], -(Length[M]-1)/2, (Length[M]-1)/2}]
+		, {\[Sigma], (Length[M]-1)/2, -(Length[M]-1)/2, -1}]
 	] + M,
 	CompilationTarget -> "C", RuntimeAttributes -> {Listable}
 ];
