@@ -146,7 +146,7 @@ If[
 		FlavorCurrent[W[[1]], \[Gamma][[1]], \[Sigma], a, flavordistribution, LatticeType, LatticeDim, LatticePoints]
 	, {\[Sigma], f}, {a, LatticeDim}];
 	Table[
-		Print["I_\[Sigma]="<>ToString[\[Sigma]]<>",a="<>ToString[a]<>" = ", flavorcurrent[[\[Sigma],a]]];
+		Print["I_\[Sigma]="<>If[f==2, Which[\[Sigma]==1,"\[DownArrow]", \[Sigma]==2,"\[UpArrow]"], ToString[\[Sigma]]]<>",a="<>ToString[a]<>" = ", flavorcurrent[[\[Sigma],a]]];
 	, {\[Sigma], f}, {a, LatticeDim}];
 	(* kinetic energy *)
 	Ekin = KineticEnergy[\[Mu], LatticeEnergies, LatticeWeights, \[CapitalSigma], i\[Omega], EdMode, "FlavorDistribution" -> {flavordistribution}];
@@ -166,7 +166,7 @@ If[
 		FlavorCurrent[W[[orb]], \[Gamma][[orb]], \[Sigma], a, flavordistribution[[orb]], LatticeType, LatticeDim, LatticePoints]
 	, {orb, Norb}, {\[Sigma], f}, {a, LatticeDim}];
 	Table[
-		Print["I_\[Sigma]="<>ToString[\[Sigma]]<>",a="<>ToString[a]<>" = ", flavorcurrent[[\[Sigma],a]]];
+		Print["I_\[Sigma]="<>If[f==2, Which[\[Sigma]==1,"\[DownArrow]", \[Sigma]==2,"\[UpArrow]"], ToString[\[Sigma]]]<>",a="<>ToString[a]<>" = ", flavorcurrent[[\[Sigma],a]]];
 	, {\[Sigma], f}, {a, LatticeDim}];
 	(* kinetic energy *)
 	Ekin = KineticEnergy[\[Mu], LatticeEnergies, LatticeWeights, \[CapitalSigma], i\[Omega], EdMode, "FlavorDistribution" -> flavordistribution];
