@@ -156,7 +156,7 @@ Do[
 		(* -------------------- *)	
 		(* if NO ORBITAL SYMMETRY *)
 		(* -------------------- *)
-			(EdMode == "Normal" || EdMode == "Superc") && !OrbitalSymmetry,
+			(EdMode == "Normal" || EdMode == "Superc" || EdMode == "Raman") && !OrbitalSymmetry,
 			Print["\n Green functions calculation time: ", First@AbsoluteTiming[
 			
 			IndependentParameters = Table[

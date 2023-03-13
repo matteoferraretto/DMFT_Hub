@@ -38,7 +38,7 @@ Which[
 (* ------------------------------------------------------------------------------------ *)
 (* ------------------------------------------------------------------------------------ *)
 (* ------------------------------------------------------------------------------------ *)
-	(EdMode == "Normal" || EdMode == "Superc") && !OrbitalSymmetry,
+	(EdMode == "Normal" || EdMode == "Superc" || EdMode == "Raman") && !OrbitalSymmetry,
 	(* compute G(i\[Omega]) for all orbitals *)
 	Gimp = Table[
 		Mean[Apply[
@@ -112,18 +112,26 @@ ClearAll[spectralfunction];
 
 (* momentum resolved spectral function *)
 If[
-	OrbitalSymmetry,
+	OrbitalSymmetry || Norb == 1,
 	spectralfunctionresolved = MomentumResolvedSpectralFunction[
 		LatticeEnergies[[All, 1, 1]], 
-		\[Mu], 
+		\[Mu] - \[Delta][[1]], 
 		If[Norb == 1, \[CapitalSigma]realfreq, \[CapitalSigma]realfreq[[1]]], (* if Norb = 1 the self energy does not have tensorial structure w.r.t. the orbital index *)
 		HighSymmetryPath[ Length[LatticeEnergies[[All,1,1]]], LatticeType, LatticeDim],
-		\[Omega][[1;;-1]] + I*\[Eta], 
-		EdMode,
-		RamanMatrix -> M[[1]]
+		\[Omega] + I*\[Eta], 
+		EdMode
 	],
 (* else, if no orbital symmetry *)
-	Print["Not supported."];
+	spectralfunctionresolved = Table[
+		MomentumResolvedSpectralFunction[
+			LatticeEnergies[[All, orb, orb]], 
+			\[Mu] - \[Delta][[orb]], 
+			\[CapitalSigma]realfreq[[orb]],
+			HighSymmetryPath[ Length[LatticeEnergies[[All, orb, orb]]], LatticeType, LatticeDim],
+			\[Omega] + I*\[Eta], 
+			EdMode
+		]
+	, {orb, Norb}]
 ];
 
 WriteOutput[True, OutputDirectory, "momentum_resolved_spectral_function", spectralfunctionresolved];
@@ -159,22 +167,22 @@ If[
 			\[Mu], 
 			\[CapitalSigma][[orb]], 
 			i\[Omega]
-		];
+		]
 	, {orb, Norb}];
 	(* flavor current *)
 	flavorcurrent = Table[
 		FlavorCurrent[W[[orb]], \[Gamma][[orb]], \[Sigma], a, flavordistribution[[orb]], LatticeType, LatticeDim, LatticePoints]
 	, {orb, Norb}, {\[Sigma], f}, {a, LatticeDim}];
-	Table[
-		Print["I_\[Sigma]="<>If[f==2, Which[\[Sigma]==1,"\[DownArrow]", \[Sigma]==2,"\[UpArrow]"], ToString[\[Sigma]]]<>",a="<>ToString[a]<>" = ", flavorcurrent[[\[Sigma],a]]];
-	, {\[Sigma], f}, {a, LatticeDim}];
+	Do[
+		Print["I_orb="<>ToString[orb]<>",\[Sigma]="<>If[f==2, Which[\[Sigma]==1,"\[DownArrow]", \[Sigma]==2,"\[UpArrow]"], ToString[\[Sigma]]]<>",a="<>ToString[a]<>" = ", flavorcurrent[[orb,\[Sigma],a]]];
+	, {orb, Norb}, {\[Sigma], f}, {a, LatticeDim}];
 	(* kinetic energy *)
 	Ekin = KineticEnergy[\[Mu], LatticeEnergies, LatticeWeights, \[CapitalSigma], i\[Omega], EdMode, "FlavorDistribution" -> flavordistribution];
 	Print["Ekin = ", Ekin];
 ];
 
 WriteOutput[True, OutputDirectory, "flavor_current", flavorcurrent];
-WriteOutput[True, OutputDirectory, "kinetic_energy", Ekin];
+(*WriteOutput[True, OutputDirectory, "kinetic_energy", Ekin];*)
 WriteOutput[True, OutputDirectory, "flavor_resolved_momentum_distributed_cdgc", flavordistribution];
 ClearAll[flavordistribution];
 ];

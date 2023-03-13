@@ -14,16 +14,39 @@ Print @ ListLogPlot[
 
 (* Plot momentum-resolved spectral function *)
 spectralfunctionresolved = Import[OutputDirectory<>"momentum_resolved_spectral_function.m"];
-Print @ PlotSpectralFunctionRaman[Abs[spectralfunctionresolved], \[Omega], \[Mu], LatticeType, LatticeDim]
+If[
+	OrbitalSymmetry || Norb == 1,
+	Print @ PlotSpectralFunctionRaman[Abs[spectralfunctionresolved], \[Omega], \[Mu], LatticeType, LatticeDim],
+(* else if no orbital symmetry *)
+	Do[
+		Print @ PlotSpectralFunctionRaman[Abs[spectralfunctionresolved[[orb]]], \[Omega], \[Mu], LatticeType, LatticeDim]
+	, {orb, Norb}]	
+];
 
 
+(* plot the spectral function *)
 spectralfunction = Import[OutputDirectory<>"spectral_function.m"];
-Print @ ListPlot[
-	spectralfunction,
-	Joined -> True, 
-	PlotRange -> All,
-	Filling -> Axis,
-	AxesLabel -> {"\[Omega]", "DoS"},
-	AxesStyle -> Directive[Black, 14],
-	AspectRatio -> 1/2
+If[
+	OrbitalSymmetry || Norb == 1,
+	Print @ ListPlot[
+		spectralfunction,
+		Joined -> True, 
+		PlotRange -> All,
+		Filling -> Axis,
+		AxesLabel -> {"\[Omega]", "DoS"},
+		AxesStyle -> Directive[Black, 14],
+		AspectRatio -> 1/2
+	],
+(* else if no orbital symmetry *)
+	Do[
+		Print @ ListPlot[
+			spectralfunction[[orb]],
+			Joined -> True, 
+			PlotRange -> All,
+			Filling -> Axis,
+			AxesLabel -> {"\[Omega]", "DoS"},
+			AxesStyle -> Directive[Black, 14],
+			AspectRatio -> 1/2
+		]
+	, {orb, Norb}]
 ]

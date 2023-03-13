@@ -76,7 +76,8 @@ MomentumDistributedDensitySuperc[i_, Energies_, \[Mu]_, \[CapitalSigma]_, i\[Ome
 
 (* returns a list of matrices < cdg_k\[Alpha] c_k\[Beta] > where \[Alpha],\[Beta] are flavor indexes *)
 MomentumDistributedDensityRaman[kindexes_, Energies_, \[Mu]_, \[CapitalSigma]_, i\[Omega]_] := Module[
-	{TMats = Re[(i\[Omega][[2]]-i\[Omega][[1]])/(2.*Pi*I)], f = Length[\[CapitalSigma][[1]]], \[CapitalSigma]0 = Last[\[CapitalSigma]]},
+	{TMats = Re[(i\[Omega][[2]]-i\[Omega][[1]])/(2.*Pi*I)], f = Length[\[CapitalSigma][[1]]], NFit = Floor[Length[i\[Omega]]/50], \[CapitalSigma]0},
+	\[CapitalSigma]0 = Mean[ \[CapitalSigma][[;;-NFit]] ];
 	(* compute the density: TMats \!\(
 \*SubscriptBox[\(\[Sum]\), \(i\[Omega]\)]\ \(\(Exp[\(-i\[Omega]\[Eta]\)]\)\ [P\  . \ G\((k, \ i\[Omega])\)\  . \ Pdg]_\[Sigma]\[Sigma]\)\) *)
 	Table[
@@ -222,7 +223,7 @@ SpectralFunction[LatticeEnergies_, weights_, \[Mu]_, \[CapitalSigma]_, zlist_, E
 ];
 
 (* A(k, \[Omega]) = (\[Omega] + \[Mu] - \[Epsilon]_k - \[CapitalSigma](\[Omega])^-1 *)
-MomentumResolvedSpectralFunction[LatticeEnergies_, \[Mu]_, \[CapitalSigma]_, kindexes_, zlist_, EdMode_, OptionsPattern[]] := Module[
+MomentumResolvedSpectralFunction[LatticeEnergies_, \[Mu]_, \[CapitalSigma]_, kindexes_, zlist_, EdMode_] := Module[
 	{spectralfunction, energies, prova},
 	(* extract energies indicated by kindexes *)
 	energies = LatticeEnergies[[kindexes]];
@@ -393,18 +394,17 @@ KineticEnergyNormal[\[Mu]_, LatticeEnergies_, LatticeWeights_, \[CapitalSigma]_,
 KineticEnergyRaman[\[Mu]_, LatticeEnergies_, LatticeWeights_, \[CapitalSigma]_, i\[Omega]_, OrbitalSymmetry_, OptionsPattern[]] := Module[
 	{flavdist, Energies, Norb, f, LE},
 	Norb = Length[LatticeEnergies[[1]]];
-	f = Length[\[CapitalSigma][[1]]];
+	f = If[Norb == 1, Length[\[CapitalSigma][[1]]], Length[\[CapitalSigma][[1,1]]]];
 	LE = Length[LatticeWeights];
 	(* if flavor distribution has been computed already, use it instead of computing it twice *)
 	If[OptionValue["FlavorDistribution"] != {}, flavdist = OptionValue["FlavorDistribution"]];
 	Table[
 		(* <cdg_k\[Alpha] c_k\[Beta]> for the effective flavors for a given orbital *)
-		If[OptionValue["FlavorDistribution"] != {}, 
-			flavdist = flavdist[[orb]];,
-			flavdist = MomentumDistributedDensityRaman[Range[LE], LatticeEnergies[[All, orb, orb]], \[Mu], \[CapitalSigma], i\[Omega]];
+		If[OptionValue["FlavorDistribution"] == {}, 
+			flavdist = MomentumDistributedDensityRaman[Range[LE], LatticeEnergies[[All, orb, orb]], \[Mu], If[Norb==1, \[CapitalSigma], \[CapitalSigma][[orb]]], i\[Omega]];
 		];
 		Sum[
-			LatticeWeights[[i]] * Tr[ LatticeEnergies[[i, orb, orb]] . Re[ flavdist[[i]] ] ]
+			LatticeWeights[[i]] * Tr[ LatticeEnergies[[i, orb, orb]] . Re[ flavdist[[orb, i]] ] ]
 		, {i, LE}]
 	, {orb, Norb}]
 ];
