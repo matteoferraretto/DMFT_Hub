@@ -401,10 +401,10 @@ KineticEnergyRaman[\[Mu]_, LatticeEnergies_, LatticeWeights_, \[CapitalSigma]_, 
 	Table[
 		(* <cdg_k\[Alpha] c_k\[Beta]> for the effective flavors for a given orbital *)
 		If[OptionValue["FlavorDistribution"] == {}, 
-			flavdist = MomentumDistributedDensityRaman[Range[LE], LatticeEnergies[[All, orb, orb]], \[Mu], If[Norb==1, \[CapitalSigma], \[CapitalSigma][[orb]]], i\[Omega]];
+			flavdist = MomentumDistributedDensityRaman[Range[LE], LatticeEnergies[[All, orb, orb]], \[Mu], If[Norb==1||OrbitalSymmetry, \[CapitalSigma], \[CapitalSigma][[orb]]], i\[Omega]];
 		];
 		Sum[
-			LatticeWeights[[i]] * Tr[ LatticeEnergies[[i, orb, orb]] . Re[ flavdist[[orb, i]] ] ]
+			LatticeWeights[[i]] * Tr[ LatticeEnergies[[i, orb, orb]] . Re[ flavdist[[If[OrbitalSymmetry,1,orb], i]] ] ]
 		, {i, LE}]
 	, {orb, Norb}]
 ];

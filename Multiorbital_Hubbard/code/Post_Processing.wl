@@ -111,12 +111,12 @@ ClearAll[spectralfunction];
 
 
 (* momentum resolved spectral function *)
-If[
+(*If[
 	OrbitalSymmetry || Norb == 1,
 	spectralfunctionresolved = MomentumResolvedSpectralFunction[
 		LatticeEnergies[[All, 1, 1]], 
 		\[Mu] - \[Delta][[1]], 
-		If[Norb == 1, \[CapitalSigma]realfreq, \[CapitalSigma]realfreq[[1]]], (* if Norb = 1 the self energy does not have tensorial structure w.r.t. the orbital index *)
+		\[CapitalSigma]realfreq,
 		HighSymmetryPath[ Length[LatticeEnergies[[All,1,1]]], LatticeType, LatticeDim],
 		\[Omega] + I*\[Eta], 
 		EdMode
@@ -135,7 +135,7 @@ If[
 ];
 
 WriteOutput[True, OutputDirectory, "momentum_resolved_spectral_function", spectralfunctionresolved];
-ClearAll[spectralfunctionresolved];
+ClearAll[spectralfunctionresolved];*)
 
 
 (* specific observables of Raman coupled systems *)
@@ -146,9 +146,10 @@ If[
 		HighSymmetryPath[ Length[ LatticeEnergies[[All, 1, 1]] ], LatticeType, LatticeDim], 
 		LatticeEnergies[[All, 1, 1]], 
 		\[Mu], 
-		If[Norb==1, \[CapitalSigma], \[CapitalSigma][[1]]], 
+		\[CapitalSigma], 
 		i\[Omega]
 	];
+	Print[Dimensions[flavordistribution]];
 	(* flavor current *)
 	flavorcurrent = Table[
 		FlavorCurrent[W[[1]], \[Gamma][[1]], \[Sigma], a, flavordistribution, LatticeType, LatticeDim, LatticePoints]
@@ -157,7 +158,7 @@ If[
 		Print["I_\[Sigma]="<>If[f==2, Which[\[Sigma]==1,"\[DownArrow]", \[Sigma]==2,"\[UpArrow]"], ToString[\[Sigma]]]<>",a="<>ToString[a]<>" = ", flavorcurrent[[\[Sigma],a]]];
 	, {\[Sigma], f}, {a, LatticeDim}];
 	(* kinetic energy *)
-	Ekin = KineticEnergy[\[Mu], LatticeEnergies, LatticeWeights, \[CapitalSigma], i\[Omega], EdMode, "FlavorDistribution" -> {flavordistribution}];
+	Ekin = KineticEnergy[\[Mu], LatticeEnergies, LatticeWeights, \[CapitalSigma], i\[Omega], EdMode, "OrbitalSymmetry" -> OrbitalSymmetry, "FlavorDistribution" -> {flavordistribution}];
 	Print["Ekin = ", Ekin];,
 (* -------- else, if no orbital symmetry ------------- *)
 	flavordistribution = Table[
