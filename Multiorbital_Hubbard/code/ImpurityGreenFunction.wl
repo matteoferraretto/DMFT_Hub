@@ -203,14 +203,16 @@ ApplyC[L_, f_, Norb_, j_, \[Sigma]_, orb_, gs_, qns_, Sectors_, SectorsDispatch_
 
 (*      EXACT CALCULATION OF GREEN FUNCTION       *)
 (* compute the Green function using the full spectrum of the given Hamiltonian *)
-GreenFunctionED[L_, f_, Norb_, {i_,j_}, \[Sigma]_, orb_, Sectors_, QnsSectorList_, eigs_, T_, zlist_, EdMode_, OptionsPattern[]] := Module[
+GreenFunctionED[L_, f_, Norb_, {i_,j_}, {\[Sigma]1_, \[Sigma]2_}, {orb1_, orb2_}, Sectors_, QnsSectorList_, eigs_, T_, zlist_, EdMode_, OptionsPattern[]] := Module[
 	{newqns, SectorsDispatch, startingsector, finalsector, dim, newdim, dispatch, sign, rows, cols, pos, \[Psi]1, \[Psi]2, \[Chi]1, \[Chi]2, A, B, P, Q, S, Z=1., e0, energies, eigenstates, G},
 	(* get energies and eigenstates *)
 	energies = eigs[[All, 1]];
 	eigenstates = eigs[[All, 2]];
 	e0 = Min[Flatten[energies]];
 	(* get normalization factor if required *)
-	If[OptionValue[NormalizedFunction], Z = Total[Exp[-(Flatten[energies]-e0)/T]]; ];
+	If[T != 0, 
+		Z = Total[ Exp[-(Flatten[energies]-e0)/T] ]
+	]; 
 	(* get dispatch of the quantum numbers and initialize G.F. *)
 	SectorsDispatch = Dispatch[Flatten[MapIndexed[{#1->#2[[1]]}&,QnsSectorList],1]];
 	G = ConstantArray[0, Length[zlist]];
@@ -220,45 +222,52 @@ GreenFunctionED[L_, f_, Norb_, {i_,j_}, \[Sigma]_, orb_, Sectors_, QnsSectorList
 		startingsector = Sectors[[qns/.SectorsDispatch]];
 		dim = Length[startingsector];
 		dispatch = Dispatch[Flatten[MapIndexed[{#1->#2[[1]]}&, startingsector],1]];
-		(* select those states for which you can create a particle with index j,\[Sigma],orb *)
-		\[Psi]1 = CreateParticleSelect[L, f, j, \[Sigma], orb, startingsector];
-		cols = \[Psi]1/.dispatch;
-		sign = CSign[L, f, j, \[Sigma], orb, \[Psi]1];
-		(* get final sector *)
-		newqns = FinalSector[L, f, Norb, 1, \[Sigma], orb, qns, "Creation", EdMode];
-		If[newqns == Null, Continue[];];
-		finalsector = Sectors[[newqns/.SectorsDispatch]];
-		newdim = Length[finalsector];
-		dispatch = Dispatch[Flatten[MapIndexed[{#1->#2[[1]]}&,finalsector],1]];
-		\[Chi]1 = cdg[L,f,j,\[Sigma],orb,\[Psi]1];
-		rows = \[Chi]1/.dispatch;
-		(* build the matrix Smn = <n|c_i,\[Sigma]1,orb1|m><m|cdg_j,\[Sigma]2,orb2|n> * (e^-\[Beta]Em + e^-\[Beta]En)/(z + En - Em) *)
-		(* where |n> is the n-th eigenstate that belongs to the sector with quantum number qns, and |m> is in a sector with one more particle. *)
-		(* let Amn = <m|cdg_j,\[Sigma]2,orb2|n> and Bnm = <n|c_i,\[Sigma]1,orb1|m> *)
-		pos = {rows, cols}\[Transpose];
-		A = SparseArray[Thread[pos->sign], {newdim, dim}];(* A in the canonical basis *)
-		P = Transpose[eigenstates[[qns/.SectorsDispatch]]];(* change of basis in starting sector *)
-		Q = Transpose[eigenstates[[newqns/.SectorsDispatch]]];(* change of basis in final sector *)
-		A = Q\[HermitianConjugate] . A . P;(* A in the eigenstates basis *)
+		(* select those states for which you can create a particle with index j,\[Sigma]2,orb2 *)
+		\[Psi]2 = CreateParticleSelect[L, f, j, \[Sigma]2, orb2, startingsector];
+		If[Length[\[Psi]2] == 0, Continue[]; ]; (* if there are some final states *)
+			cols = \[Psi]2/.dispatch;
+			sign = CSign[L, f, j, \[Sigma]2, orb2, \[Psi]2];
+			(* get final sector *)
+			newqns = FinalSector[L, f, Norb, 1, \[Sigma]2, orb2, qns, "Creation", EdMode];
+			If[newqns == Null, Continue[];];
+			finalsector = Sectors[[newqns/.SectorsDispatch]];
+			newdim = Length[finalsector];
+			dispatch = Dispatch[Flatten[MapIndexed[{#1->#2[[1]]}&,finalsector],1]];
+			\[Chi]2 = cdg[L,f,j,\[Sigma]2,orb2,\[Psi]2];
+			rows = \[Chi]2/.dispatch;
+			(* build the matrix Smn = <n|c_i,\[Sigma]1,orb1|m><m|cdg_j,\[Sigma]2,orb2|n> * (e^-\[Beta]Em + e^-\[Beta]En)/(z + En - Em) *)
+			(* where |n> is the n-th eigenstate that belongs to the sector with quantum number qns, and |m> is in a sector with one more particle. *)
+			(* let Amn = <m|cdg_j,\[Sigma]2,orb2|n> and Bnm = <n|c_i,\[Sigma]1,orb1|m> *)
+			pos = {rows, cols}\[Transpose];
+			A = SparseArray[Thread[pos->sign], {newdim, dim}];(* A in the canonical basis *)
+			P = Transpose[eigenstates[[qns/.SectorsDispatch]]];(* change of basis in starting sector *)
+			Q = Transpose[eigenstates[[newqns/.SectorsDispatch]]];(* change of basis in final sector *)
+			A = Q\[HermitianConjugate] . A . P;(* A in the eigenstates basis *)
 	(* ------------------------------------- *)
-		\[Psi]2 = DestroyParticleSelect[L, f, i, \[Sigma], orb, finalsector];
-		rows = \[Psi]2/.dispatch;
-		sign = CSign[L,f,i,\[Sigma],orb,\[Psi]2];
-		dispatch = Dispatch[Flatten[MapIndexed[{#1->#2[[1]]}&,startingsector],1]];(* find the new positions where the entries of gs should go after applying cdg_spin *)
-		\[Chi]2 = c[L,f,i,\[Sigma],orb,\[Psi]2];
-		cols = \[Chi]2/.dispatch;
-		pos = {rows, cols}\[Transpose];
-		B = SparseArray[Thread[pos->sign], {newdim, dim}];(* B in the canonical basis *)
-		B = Q\[HermitianConjugate] . B . P;
+		\[Psi]1 = DestroyParticleSelect[L, f, i, \[Sigma]1, orb1, finalsector];
+		If[\[Psi]1 == 0, Continue[]; ];
+			rows = \[Psi]1/.dispatch;
+			sign = CSign[L,f,i,\[Sigma]1,orb1,\[Psi]1];
+			dispatch = Dispatch[Flatten[MapIndexed[{#1->#2[[1]]}&,startingsector],1]];(* find the new positions where the entries of gs should go after applying cdg_spin *)
+			\[Chi]1 = c[L,f,i,\[Sigma]1,orb1,\[Psi]1];
+			cols = \[Chi]1/.dispatch;
+			pos = {rows, cols}\[Transpose];
+			B = SparseArray[Thread[pos->sign], {newdim, dim}];(* B in the canonical basis *)
+			B = Q\[HermitianConjugate] . B . P;
 	(* ------------------------------------- *)
-		S = A * B * Table[
-			Exp[-(energies[[qns/.SectorsDispatch]][[n]]-e0)/T] + Exp[-(energies[[newqns/.SectorsDispatch]][[m]]-e0)/T]
-		,{m,newdim},{n,dim}];
+		S = A * B *
+			Table[
+				If[T == 0, 
+					KroneckerDelta[energies[[qns/.SectorsDispatch]][[n]], e0] + KroneckerDelta[energies[[newqns/.SectorsDispatch]][[m]], e0],
+				(* else, if T != 0 *)
+					Exp[-(energies[[qns/.SectorsDispatch]][[n]]-e0)/T] + Exp[-(energies[[newqns/.SectorsDispatch]][[m]]-e0)/T]
+				]
+			, {m, newdim}, {n, dim}];
 		G = G + (Total[#,2]&/@(
 			S * Table[
 				1./(# + energies[[qns/.SectorsDispatch]][[n]] - energies[[newqns/.SectorsDispatch]][[m]])
-			,{m, newdim}, {n, dim}]&/@zlist));
-	,{qns, QnsSectorList}];
+			, {m, newdim}, {n, dim}] &/@ zlist));
+	, {qns, QnsSectorList}];
 	G/Z
 ];
 Options[GreenFunctionED] = {NormalizedFunction -> False};
@@ -601,14 +610,65 @@ GreenFunctionImpurityRaman[L_, f_, Norb_, Egs_, Gs_, GsQns_, Hsectors_, Sectors_
          (* compute GFO, where Odg = adg_\[Sigma] + adg_\[Rho] *)
          GFO = GreenFunctionImpurityNormalRaman[L, f, Norb, orb, {\[Sigma], \[Rho]}, Egs, Gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, zlist, c2 -> 1.0];
          (* compute GFP, where Pdg = adg_\[Sigma] + I adg_\[Rho] *)
-         GFP = GreenFunctionImpurityNormalRaman[L, f, Norb, orb, {\[Sigma], \[Rho]}, Egs, Gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, zlist, c2 -> 1.0*I];
+         GFP = GreenFunctionImpurityNormalRaman[L, f, Norb, orb, {\[Sigma], \[Rho]}, Egs, Gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, zlist, c2 -> -1.0];
          (* compute the off-diagonal part using the diagonal part and GFO, GFP *)
-	     GF[[All, \[Rho], \[Sigma]]] = (1./2.)*(GFO - I*GFP - 1.*(1 - I)*(GF[[All, \[Sigma], \[Sigma]]] + GF[[All, \[Rho], \[Rho]]]));
-	     GF[[All, \[Sigma], \[Rho]]] = (1./2.)*(GFO + I*GFP - 1.*(1 + I)*(GF[[All, \[Sigma], \[Sigma]]] + GF[[All, \[Rho], \[Rho]]]));
+	     (*GF[[All, \[Rho], \[Sigma]]] = (1./2.)*(GFO - I*GFP - 1.*(1 - I)*(GF[[All, \[Sigma], \[Sigma]]] + GF[[All, \[Rho], \[Rho]]]));
+	     GF[[All, \[Sigma], \[Rho]]] = (1./2.)*(GFO + I*GFP - 1.*(1 + I)*(GF[[All, \[Sigma], \[Sigma]]] + GF[[All, \[Rho], \[Rho]]]));*)
+	     GF[[All, \[Rho], \[Sigma]]] = (1./2.) * (GFO - GF[[All,\[Sigma],\[Sigma]]] - GF[[All,\[Rho],\[Rho]]]);
+	     GF[[All, \[Sigma], \[Rho]]] = GF[[All,\[Rho],\[Sigma]]];
     , {\[Sigma], f}, {\[Rho], \[Sigma]+1, f}];
     GF
 ];
 Options[GreenFunctionImpurityRaman] = {Orb -> 1, OrbitalSymmetry -> True};
+
+(*
+GreenFunctionImpurityRaman[L_, f_, Norb_, Egs_, Gs_, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, EdMode_, zlist_, OptionsPattern[] ] := Module[
+	{adggs, ags, newqns, H, E0, a, b, orb = OptionValue[Orb], GFOparticle, GFOhole, GF = ConstantArray[0.+0.*I, {Length[zlist], f, f}]},	
+	Do[
+		adggs = ApplyCdg[L, f, Norb, 1, \[Rho], orb, Normalize[Gs], GsQns, Sectors, SectorsDispatch, EdMode];
+		ags = ApplyC[L, f, Norb, 1, \[Sigma], orb, Normalize[Gs], GsQns, Sectors, SectorsDispatch, EdMode];
+		Print[adggs];
+		Print[ags];
+(*           G_O(z) "Particle" contribution               *)
+		newqns = FinalSector[L, f, Norb, 1, \[Rho], orb, GsQns, "Creation", EdMode]; (* evaluate the quantum numbers of the final sector *)
+		If[newqns === Null, (* if there is no final state, this does not contribute to the GF *)
+			GFOparticle = ConstantArray[0.0+0.0*I, Length[zlist]];, 
+		(* else *)
+			H = Hsectors[[newqns/.SectorsDispatch]]; (* Hamiltonian on that sector *)
+			If[Length[H] == 1, (* if the Hamiltonian in the final sector is just a number, avoid Lanczos *)
+				GFOparticle = ((Norm[adggs]^2)/(# - H[[1,1]] + Egs)) &/@ zlist;,
+			(* else *)
+				{E0,a,b} = Lanczos[H, Normalize[adggs] ]; (* Apply Lanczos starting from Odg|gs> *)
+				H = SparseArray[DiagonalMatrix[b, 1] + DiagonalMatrix[b, -1] + DiagonalMatrix[a] ]; (* Krylov matrix in the final sector *)
+				GFOparticle = (Norm[adggs]^2)*(
+					InverseElement[
+						SparseArray[(# + Egs) * IdentityMatrix[Length[a] ] - H]
+					, {1, 1}] &/@ zlist);
+			];
+		];
+(*           G_O(z) "Hole" contribution               *) 
+		newqns = FinalSector[L, f, Norb, 1, \[Sigma], orb, GsQns, "Annihilation", EdMode]; (* evaluate the quantum numbers of the final sector *)
+		If[newqns === Null, (* if there is no final state, this does not contribute to the GF *)
+			GFOhole = ConstantArray[0.0+0.0*I, Length[zlist]];, 
+		(* else *)
+			H = Hsectors[[newqns/.SectorsDispatch]]; (* Hamiltonian on that sector *)
+			If[Length[H] == 1, (* if the Hamiltonian in the final sector is just a number, avoid Lanczos *)
+				GFOhole = ((Norm[ags]^2)/(# + H[[1,1]] - Egs)) &/@ zlist;,
+			(* else *)
+				{E0,a,b} = Lanczos[H, Normalize[ags] ]; (* Apply Lanczos starting from O|gs> *)
+				H = SparseArray[DiagonalMatrix[b, 1] + DiagonalMatrix[b, -1] + DiagonalMatrix[a] ]; (* Krylov matrix in the final sector *)
+				GFOhole = (Norm[ags]^2)*(
+					InverseElement[
+						SparseArray[(# - Egs) * IdentityMatrix[Length[a] ] + H]
+					, {1, 1}] &/@ zlist);
+			];
+		];
+		GF[[All, \[Sigma], \[Rho]]] = GFOparticle + GFOhole;
+	, {\[Sigma], f}, {\[Rho], f}];
+	GF
+];
+Options[GreenFunctionImpurityRaman] = {Orb -> 1};
+*)
 
 
 (* Evaluate impurity Green function calling the right function depending on EdMode *)

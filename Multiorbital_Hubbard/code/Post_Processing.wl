@@ -107,7 +107,6 @@ If[EdMode == "Superc" || EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
 WriteOutput[True, OutputDirectory, "self_energy", \[CapitalSigma]];
 WriteOutput[True, OutputDirectory, "self_energy_real_frequency", \[CapitalSigma]realfreq];
 WriteOutput[True, OutputDirectory, "spectral_function", spectralfunction];
-ClearAll[spectralfunction];
 
 
 (* momentum resolved spectral function *)
