@@ -539,7 +539,7 @@ Options[GreenFunctionImpurityNambu] = {Orb -> 1, OrbitalSymmetry -> False};
 (* compute the Green function using Raman formalism *)
 (* compute the Green function < c_{orb, \[Sigma]} 1/(z-H) cdg_{orb, \[Sigma]} > + < cdg_{orb, \[Sigma]} 1/(z+H) c_{orb, \[Sigma]} > *)
 (* where O = c1 c_{orb, \[Sigma]} + c2 c_{orb, \[Rho]} *)
-GreenFunctionImpurityNormalRaman[L_, f_, Norb_, orb_, {\[Sigma]_, \[Rho]_}, Egs_, Gs_, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, EdMode_, zlist_, OptionsPattern[]] := Module[
+GreenFunctionImpurityNormalRaman[L_, f_, Norb_, orb_, {\[Sigma]_, \[Rho]_}, Egs_, Gs_, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, MinLanczosMomenta_, EdMode_, zlist_, OptionsPattern[]] := Module[
 	{
 	(* compute cdg_{orb, \[Sigma]}|gs> and c_{orb, \[Rho]}|gs> *)
 	adg\[Sigma], a\[Sigma], adg\[Rho], a\[Rho],
@@ -565,7 +565,7 @@ GreenFunctionImpurityNormalRaman[L_, f_, Norb_, orb_, {\[Sigma]_, \[Rho]_}, Egs_
 		If[Length[H] == 1, (* if the Hamiltonian in the final sector is just a number, avoid Lanczos *)
 			GFOparticle = ((Norm[Odggs]^2)/(# - H[[1,1]] + Egs)) &/@ zlist;,
 		(* else *)
-			{E0,a,b} = Lanczos[H, Normalize[Odggs] ]; (* Apply Lanczos starting from Odg|gs> *)
+			{E0,a,b} = Lanczos[H, Normalize[Odggs], MinIter -> MinLanczosMomenta]; (* Apply Lanczos starting from Odg|gs> *)
 			H = SparseArray[DiagonalMatrix[b, 1] + DiagonalMatrix[b, -1] + DiagonalMatrix[a] ]; (* Krylov matrix in the final sector *)
 			GFOparticle = (Norm[Odggs]^2)*(
 				InverseElement[
@@ -583,7 +583,7 @@ GreenFunctionImpurityNormalRaman[L_, f_, Norb_, orb_, {\[Sigma]_, \[Rho]_}, Egs_
 		If[Length[H] == 1, (* if the Hamiltonian in the final sector is just a number, avoid Lanczos *)
 			GFOhole = ((Norm[Ogs]^2)/(# + H[[1,1]] - Egs)) &/@ zlist;,
 		(* else *)
-			{E0,a,b} = Lanczos[H, Normalize[Ogs] ]; (* Apply Lanczos starting from O|gs> *)
+			{E0,a,b} = Lanczos[H, Normalize[Ogs], MinIter -> MinLanczosMomenta]; (* Apply Lanczos starting from O|gs> *)
 			H = SparseArray[DiagonalMatrix[b, 1] + DiagonalMatrix[b, -1] + DiagonalMatrix[a] ]; (* Krylov matrix in the final sector *)
 			GFOhole = (Norm[Ogs]^2)*(
 				InverseElement[
@@ -596,21 +596,21 @@ GreenFunctionImpurityNormalRaman[L_, f_, Norb_, orb_, {\[Sigma]_, \[Rho]_}, Egs_
 Options[GreenFunctionImpurityNormalRaman] = {c1 -> 1.0, c2 -> 0.0}; (* by default Odg = cdg_{orb,\[Sigma]} *)
 
 (* compute the Green function in the Raman formalism *)
-GreenFunctionImpurityRaman[L_, f_, Norb_, Egs_, Gs_, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, EdMode_, zlist_, OptionsPattern[] ] := Module[{
+GreenFunctionImpurityRaman[L_, f_, Norb_, Egs_, Gs_, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, MinLanczosMomenta_, EdMode_, zlist_, OptionsPattern[] ] := Module[{
 	NMatsubara = Length[zlist], orb = OptionValue[Orb], OrbitalSymmetry = OptionValue[OrbitalSymmetry], GF, GFO, GFP
     },
 	(* initialize Green function as a NMatsubara x f x f tensor *)
     GF = ConstantArray[0, {NMatsubara, f, f}];
     (* compute diagonal component of the tensor *)
     Table[
-         GF[[All, \[Sigma], \[Sigma]]] = GreenFunctionImpurityNormalRaman[L, f, Norb, orb, {\[Sigma], \[Sigma]}, Egs, Gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, zlist];
+         GF[[All, \[Sigma], \[Sigma]]] = GreenFunctionImpurityNormalRaman[L, f, Norb, orb, {\[Sigma], \[Sigma]}, Egs, Gs, GsQns, Hsectors, Sectors, SectorsDispatch, MinLanczosMomenta, EdMode, zlist];
     , {\[Sigma], f}];
     (* compute off-diagonal component of the tensor *)
     Table[
          (* compute GFO, where Odg = adg_\[Sigma] + adg_\[Rho] *)
-         GFO = GreenFunctionImpurityNormalRaman[L, f, Norb, orb, {\[Sigma], \[Rho]}, Egs, Gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, zlist, c2 -> 1.0];
+         GFO = GreenFunctionImpurityNormalRaman[L, f, Norb, orb, {\[Sigma], \[Rho]}, Egs, Gs, GsQns, Hsectors, Sectors, SectorsDispatch, MinLanczosMomenta, EdMode, zlist, c2 -> 1.0];
          (* compute GFP, where Pdg = adg_\[Sigma] + I adg_\[Rho] *)
-         GFP = GreenFunctionImpurityNormalRaman[L, f, Norb, orb, {\[Sigma], \[Rho]}, Egs, Gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, zlist, c2 -> -1.0];
+         GFP = GreenFunctionImpurityNormalRaman[L, f, Norb, orb, {\[Sigma], \[Rho]}, Egs, Gs, GsQns, Hsectors, Sectors, SectorsDispatch, MinLanczosMomenta, EdMode, zlist, c2 -> -1.0];
          (* compute the off-diagonal part using the diagonal part and GFO, GFP *)
 	     (*GF[[All, \[Rho], \[Sigma]]] = (1./2.)*(GFO - I*GFP - 1.*(1 - I)*(GF[[All, \[Sigma], \[Sigma]]] + GF[[All, \[Rho], \[Rho]]]));
 	     GF[[All, \[Sigma], \[Rho]]] = (1./2.)*(GFO + I*GFP - 1.*(1 + I)*(GF[[All, \[Sigma], \[Sigma]]] + GF[[All, \[Rho], \[Rho]]]));*)
@@ -672,13 +672,13 @@ Options[GreenFunctionImpurityRaman] = {Orb -> 1};
 
 
 (* Evaluate impurity Green function calling the right function depending on EdMode *)
-GreenFunctionImpurity[L_, f_, Norb_, \[Sigma]_, orb_, Egs_, gs_, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, EdMode_, zlist_] := 
+GreenFunctionImpurity[L_, f_, Norb_, \[Sigma]_, orb_, Egs_, gs_, GsQns_, Hsectors_, Sectors_, SectorsDispatch_, MinLanczosMomenta_, EdMode_, zlist_] := 
 	Which[
 		EdMode == "Normal", 
 		GreenFunctionImpurityNormal[L, f, Norb, {orb,orb}, Egs, gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, zlist],
 	(* ------------------------------------------- *)
 		EdMode == "Raman",
-		GreenFunctionImpurityRaman[L, f, Norb, Egs, gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, zlist, Orb -> orb],
+		GreenFunctionImpurityRaman[L, f, Norb, Egs, gs, GsQns, Hsectors, Sectors, SectorsDispatch, MinLanczosMomenta, EdMode, zlist, Orb -> orb],
 	(* ------------------------------------------- *)
 		EdMode == "Superc" || EdMode == "InterorbSuperc" || EdMode == "FullSuperc", 
 		GreenFunctionImpurityNambu[L, f, Norb, Egs, gs, GsQns, Hsectors, Sectors, SectorsDispatch, EdMode, zlist, Orb -> orb]

@@ -11,12 +11,12 @@ Which[
 	(EdMode == "Normal" || EdMode == "Superc" || EdMode == "Raman") && OrbitalSymmetry,
 	(* G(i\[Omega]) *)
 	Gimp = Mean[Apply[
-		GreenFunctionImpurity[L, f, Norb, 1, 1, Egs, ##, Hsectors, Sectors, SectorsDispatch, EdMode, i\[Omega]]&,
+		GreenFunctionImpurity[L, f, Norb, 1, 1, Egs, ##, Hsectors, Sectors, SectorsDispatch, MinLanczosMomenta, EdMode, i\[Omega]]&,
 		{Gs, GsQns}\[Transpose]
 	, {1}]];
 	(* compute G(\[Omega]) for all orbitals *)
 	Gimprealfreq = Mean[Apply[
-		GreenFunctionImpurity[L, f, Norb, 1, 1, Egs, ##, Hsectors, Sectors, SectorsDispatch, EdMode, \[Omega] + I*\[Eta]]&,
+		GreenFunctionImpurity[L, f, Norb, 1, 1, Egs, ##, Hsectors, Sectors, SectorsDispatch, MinLanczosMomenta, EdMode, \[Omega] + I*\[Eta]]&,
 		{Gs, GsQns}\[Transpose]
 	, {1}]];
 	(* G^-1(i\[Omega]) *)
@@ -42,13 +42,13 @@ Which[
 	(* compute G(i\[Omega]) for all orbitals *)
 	Gimp = Table[
 		Mean[Apply[
-			GreenFunctionImpurity[L, f, Norb, 1, orb, Egs, ##, Hsectors, Sectors, SectorsDispatch, EdMode, i\[Omega]]&,
+			GreenFunctionImpurity[L, f, Norb, 1, orb, Egs, ##, Hsectors, Sectors, SectorsDispatch, MinLanczosMomenta, EdMode, i\[Omega]]&,
 			{Gs, GsQns}\[Transpose]
 		, {1}]], {orb, Norb}];
 	(* compute G(\[Omega]) for all orbitals *)
 	Gimprealfreq = Table[
 		Mean[Apply[
-			GreenFunctionImpurity[L, f, Norb, 1, orb, Egs, ##, Hsectors, Sectors, SectorsDispatch, EdMode, \[Omega] + I*\[Eta]]&,
+			GreenFunctionImpurity[L, f, Norb, 1, orb, Egs, ##, Hsectors, Sectors, SectorsDispatch, MinLanczosMomenta, EdMode, \[Omega] + I*\[Eta]]&,
 			{Gs, GsQns}\[Transpose]
 		, {1}]], {orb, Norb}];
 	(* {G^-1(i\[Omega])_orb=1 , G^-1(i\[Omega])_orb=2 ...} *)
@@ -80,7 +80,7 @@ Which[
 (* ------------------------------------------------------------------------------------ *)
 	(EdMode == "InterorbSuperc" || EdMode == "FullSuperc") && !OrbitalSymmetry,
 	Gimp = Mean[Apply[
-		GreenFunctionImpurity[L, f, Norb, 1, 1, Egs, ##, Hsectors, Sectors, SectorsDispatch, EdMode, i\[Omega]]&,
+		GreenFunctionImpurity[L, f, Norb, 1, 1, Egs, ##, Hsectors, Sectors, SectorsDispatch, MinLanczosMomenta, EdMode, i\[Omega]]&,
 		{Gs, GsQns}\[Transpose]
 	, {1}]];
 	InverseG = InverseGreenFunction[Gimp, EdMode];

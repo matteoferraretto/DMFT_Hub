@@ -224,15 +224,13 @@ HLocal[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 				flag == "Spin_Exchange" && Norb > 1 && (EdMode == "InterorbNormal" || EdMode == "Raman" || EdMode == "InterorbSuperc" || EdMode == "FullSuperc"),
 				Hblock = SparseArray[{},{dim,dim}];
 				Do[
-					If[orb2 > orb1,
-						\[Psi]1 = SpinExchangeSelect[L, f, 1, orb1, orb2, \[Psi]];
-						If[Length[\[Psi]1] == 0, Continue[];];
-						\[Chi] = SpinExchange[L, f, 1, orb1, orb2, \[Psi]1];
-						rows = \[Chi]/.dispatch;(* *)cols = \[Psi]1/.dispatch;(* *)pos = {rows,cols}\[Transpose];
-						\[CapitalSigma] = CCSign[L, f, {j,j,j,j}, {1,2,1,2}, {orb1,orb1,orb2,orb2}, \[Psi]1];
-						Hblock += SparseArray[pos->\[CapitalSigma],{dim,dim}];
-					];
-				,{orb1,1,Norb}, {orb2,1,Norb}, {j,1,OptionValue["Nimp"]}];
+					\[Psi]1 = SpinExchangeSelect[L, f, 1, orb1, orb2, \[Psi]];
+					If[Length[\[Psi]1] == 0, Continue[];];
+					\[Chi] = SpinExchange[L, f, 1, orb1, orb2, \[Psi]1];
+					rows = \[Chi]/.dispatch;(* *)cols = \[Psi]1/.dispatch;(* *)pos = {rows,cols}\[Transpose];
+					\[CapitalSigma] = -CCSign[L, f, {j,j,j,j}, {1,2,2,1}, {orb1,orb1,orb2,orb2}, \[Psi]1];
+					Hblock += SparseArray[pos->\[CapitalSigma],{dim,dim}];
+				,{orb1, 1, Norb}, {orb2, orb1+1, Norb}, {j,1,OptionValue["Nimp"]}];
 				Hblock = Hblock + Hblock\[ConjugateTranspose];
 				AppendTo[Hsector, Hblock];,
 			(* ---------------------------------- *)
@@ -260,6 +258,7 @@ HLocal[L_, f_, Norb_, Sectors_, EdMode_, OptionsPattern[]] := Module[
 						, {j, 1, OptionValue["Nimp"]}];
 						Hblock = SparseArray @ DiagonalMatrix[num];,
 					(* else, if \[Rho] > \[Sigma], off diagonal elements of Raman matrix *)
+						Hblock = SparseArray[{},{dim,dim}];
 						\[Psi]1 = HopSelect[L, f, 1, 1, \[Rho], \[Sigma], orb, orb, \[Psi]];
 						If[Length[\[Psi]1] != 0, 
 							\[Chi] = Hop[L, f, 1, 1, \[Rho], \[Sigma], orb, orb, \[Psi]1];

@@ -97,6 +97,8 @@ MinLanczosDim = 2000;
 MaxLanczosIter = 2000;
 (* if you use Lanczos for spectrum determination, compute AT LEAST this number of eigenstates *)
 MinNumberOfEigs = 10;
+(* minimum number of Lanczos iterations in the Green function calculation (automatically reduced if it's larger than the Hamiltonian dimension) *)
+MinLanczosMomenta = 1;
 (* minimum number of DMFT loops *)
 DMFTMinIterations = 2; 
 (* maximum number of DMFT loops *)

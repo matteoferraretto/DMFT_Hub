@@ -177,7 +177,7 @@ Options[Eigs] = {"Temperature" -> 0, "MinLanczosDim" -> 32, "DegeneracyThreshold
 
 (*                       LANCZOS                       *)
 Lanczos[H_, StartingVector_, OptionsPattern[]] := Module[{
-	miniter = OptionValue[MinIter],
+	miniter = Min[OptionValue[MinIter], Length[H]-1],
 	maxiter = Min[OptionValue[MaxIter], Length[H]-1],
 	\[Epsilon] = OptionValue[ConvergenceThreshold],
 	shift = OptionValue[Shift],

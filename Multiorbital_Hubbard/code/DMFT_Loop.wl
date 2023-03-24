@@ -100,7 +100,7 @@ Do[
 			IndependentParameters = TakeIndependentParameters[L, f, Norb, 1, 1, BathParameters, EdMode];
 			(* G(i\[Omega]) *)
 			Gimp = Mean[Apply[
-				GreenFunctionImpurity[L, f, Norb, 1, 1, Egs, ##, Hsectors, Sectors, SectorsDispatch, EdMode, i\[Omega]]&,
+				GreenFunctionImpurity[L, f, Norb, 1, 1, Egs, ##, Hsectors, Sectors, SectorsDispatch, MinLanczosMomenta, EdMode, i\[Omega]]&,
 				{Gs, GsQns}\[Transpose]
 			, {1}]]; (* when EdMode == "Raman", the \[Sigma]=1 input is simply ignored, so this is fine! *)
 			(* G^-1(i\[Omega]) *)
@@ -165,7 +165,7 @@ Do[
 			(* { G(i\[Omega])_orb=1 , G(i\[Omega])_orb=2 , ...} *)
 			Gimp = Table[
 				Mean[Apply[
-					GreenFunctionImpurity[L, f, Norb, 1, orb, Egs, ##, Hsectors, Sectors, SectorsDispatch, EdMode, i\[Omega]]&,
+					GreenFunctionImpurity[L, f, Norb, 1, orb, Egs, ##, Hsectors, Sectors, SectorsDispatch, MinLanczosMomenta, EdMode, i\[Omega]]&,
 					{Gs, GsQns}\[Transpose]
 				, {1}]], {orb, Norb}];
 			(* G^-1(i\[Omega])_orb=1 , G^-1(i\[Omega])_orb=2 ... *)
@@ -235,7 +235,7 @@ Do[
 			IndependentParameters = TakeIndependentParameters[L, f, Norb, 1, 1, BathParameters, EdMode];
 			(* G(i\[Omega]) *)
 			Gimp = Mean[Apply[
-				GreenFunctionImpurity[L, f, Norb, 1, 1, Egs, ##, Hsectors, Sectors, SectorsDispatch, EdMode, i\[Omega]]&,
+				GreenFunctionImpurity[L, f, Norb, 1, 1, Egs, ##, Hsectors, Sectors, SectorsDispatch, MinLanczosMomenta, EdMode, i\[Omega]]&,
 				{Gs, GsQns}\[Transpose]
 			, {1}]];
 			InverseG = InverseGreenFunction[Gimp, EdMode];
@@ -402,7 +402,7 @@ Do[
 			IndependentParameters[[sublattice]] = TakeIndependentParameters[L, f, Norb, 1, 1, BathParameters[[sublattice]], EdMode];
 			(* G(i\[Omega]) *)
 			Gimp[[sublattice]] = Mean[Apply[
-				GreenFunctionImpurity[L, f, Norb, 1, 1, Egs, ##, Hsectors, Sectors, SectorsDispatch, EdMode, i\[Omega]]&,
+				GreenFunctionImpurity[L, f, Norb, 1, 1, Egs, ##, Hsectors, Sectors, SectorsDispatch, MinLanczosMomenta, EdMode, i\[Omega]]&,
 				{Gs, GsQns}\[Transpose]
 			, {1}]];
 			(* G^-1(i\[Omega]) *)
