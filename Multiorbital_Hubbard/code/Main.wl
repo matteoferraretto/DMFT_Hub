@@ -17,5 +17,5 @@ $Path = Join[$Path, {"C:\\Users\\matte\\Desktop\\Mathematica_package\\"}];
 <<"DMFT_Loop.wl";
 
 
-(*<<"Post_Processing.wl";*)
-<<"Observables.wl";
+(* Post processing (real frequency calculations *)
+<<"Post_Processing.wl";
