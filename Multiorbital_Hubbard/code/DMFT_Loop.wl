@@ -72,19 +72,17 @@ Do[
 		];
 		(* observables related to Raman field *)
 		If[EdMode == "Raman",
-			(* flavor and orbital resolved density *)
-			Table[
-				Print["density (effective flavor = ",\[Sigma],", orb = ",orb,") = ",
+			(* flavor and orbital resolved density and off diagonal < cdg c > *)
+			cdgc = Table[
+				Which[\[Sigma] != \[Rho],
+					CdgC[L, f, Norb, {1,1}, {\[Sigma], \[Rho]}, {orb, orb}, Sectors, EgsSectorList, GsSectorList, T],
+					\[Sigma] == \[Rho],
 					Density[L, f, Norb, 1, \[Sigma], orb, Sectors, EgsSectorList, GsSectorList, T]
-				];
-			, {\[Sigma], f}, {orb, Norb}];
-			(* < cdg c > *)
-			Table[
-				If[\[Sigma] != \[Rho],
-					Print["cdg_",\[Sigma],"c_",\[Rho]," = ",
-						CdgC[L, f, Norb, {1,1}, {\[Sigma], \[Rho]}, {orb, orb}, Sectors, EgsSectorList, GsSectorList, T]
-				]; ]
+				]
 			, {orb, Norb}, {\[Sigma], f}, {\[Rho], f}];
+			Table[
+				Print["\!\(\*SuperscriptBox[\(c\), \(\[Dagger]\)]\)_",orb,"c_",orb," = ", MatrixForm[cdgc[[orb]]]]
+			, {orb, Norb}]
 		];
 		
 		
@@ -116,7 +114,7 @@ Do[
 			\[CapitalSigma] = InverseG0 - InverseG;
 			(* G_loc(i\[Omega]) *)
 			LocalGold = If[DMFTiterator == 1, 0*InverseG, LocalG];
-			LocalG = LocalGreenFunction[LatticeEnergies[[All,1,1]], LatticeWeights, \[Mu], \[CapitalSigma], i\[Omega], EdMode];
+			LocalG = LocalGreenFunction[LatticeEnergies[[All,1,1]], LatticeWeights, \[Mu], \[CapitalSigma], i\[Omega], EdMode, SublatticesQ];
 			(* Weiss field (numerical) *)
 			WeissNumeric = WeissFieldNumeric[
 				W[[1]], \[Mu] - \[Delta][[1]], LocalG, LocalGold, \[CapitalSigma], \[CapitalSigma]old, i\[Omega], EdMode, 
@@ -186,7 +184,7 @@ Do[
 			(* { Subscript[G, loc]Subscript[(i\[Omega]), orb=1] , Subscript[G, loc]Subscript[(i\[Omega]), orb=2] , ...} *)
 			LocalGold = If[DMFTiterator == 1, 0*InverseG, LocalG];
 			LocalG = Table[
-				LocalGreenFunction[LatticeEnergies[[All, orb, orb]], LatticeWeights, \[Mu], \[CapitalSigma][[orb]], i\[Omega], EdMode]
+				LocalGreenFunction[LatticeEnergies[[All, orb, orb]], LatticeWeights, \[Mu], \[CapitalSigma][[orb]], i\[Omega], EdMode, SublatticesQ]
 			, {orb, Norb}];
 			(* Weiss field (numerical) *)
 			WeissNumeric = Table[
@@ -252,7 +250,7 @@ Do[
 			\[CapitalSigma] = InverseG0 - InverseG;
 			(* Gloc(i\[Omega]) *)
 			LocalGold = If[DMFTiterator == 1, 0*InverseG, LocalG];
-			LocalG = LocalGreenFunction[LatticeEnergies, LatticeWeights, \[Mu], \[CapitalSigma], i\[Omega], EdMode];
+			LocalG = LocalGreenFunction[LatticeEnergies, LatticeWeights, \[Mu], \[CapitalSigma], i\[Omega], EdMode, SublatticesQ];
 			(* Weiss field (numerical) *)
 			WeissNumeric = WeissFieldNumeric[
 				W, \[Mu] - \[Delta], LocalG, LocalGold, \[CapitalSigma], \[CapitalSigma]old, i\[Omega], EdMode, 
@@ -325,13 +323,14 @@ Do[
 (*                   DMFT LOOP (SUBLATTICES)                    *)
 If[SublatticesQ,
 
-Gimp = {0,0}; InverseG = {0,0}; InverseG0old = {0,0}; InverseG0 = {0,0}; \[CapitalSigma] = {0,0}; \[CapitalSigma]old = {0,0}; LocalG = {0,0}; LocalGold = {0,0}; WeissNumeric = {0,0}; IndependentParameters = {0,0};
+(* initialize some tensors with sublattice structure *)
+\[CapitalSigma] = {0,0}; \[CapitalSigma]old ={0,0}; IndependentParameters = {0,0}; error = {0,0};
 
 Do[
 	ClearAll[Hsectors, EgsSectorList, GsSectorList];
 	
 	(* First print *)
-	Print[Style["DMFT Loop n. ", 20, Bold, Red], Style[DMFTiterator, 20, Bold, Red]];
+	Print[Style["DMFT Loop n. "<>ToString[DMFTiterator], 20, Bold, Red]];
 	Print[Style["\t\t Exact Diagonalization start", 16, Bold, Orange]];
 	
 	(* loop over the sublattices *)
@@ -342,7 +341,7 @@ Do[
 		(* Build and diagonalize the AIM Hamiltonian + print timing *)
 		Print["E.D. time: ", AbsoluteTiming[
 	
-			Hsectors = HImp[Norb, HnonlocBlocks, HlocBlocks, BathParameters[[sublattice]], InteractionParameters, EdMode];
+			Hsectors = HImp[Norb, HnonlocBlocks, HlocBlocks, BathParameters[[sublattice]], InteractionParameters[[sublattice]], EdMode];
 			eigs = Map[
 				Eigs[#, 
 					"Temperature" -> T, 
@@ -389,71 +388,82 @@ Do[
 				Print["Order parameter interorbital {<adg_up bdg_dw>, <bdg_up adg_dw>} = ", \[CapitalXi]];
 			]
 		];
+		(* observables related to Raman field *)
+		If[EdMode == "Raman",
+			(* flavor and orbital resolved density and off diagonal < cdg c > *)
+			cdgc = Table[
+				Which[\[Sigma] != \[Rho],
+					CdgC[L, f, Norb, {1,1}, {\[Sigma], \[Rho]}, {orb, orb}, Sectors, EgsSectorList, GsSectorList, T],
+					\[Sigma] == \[Rho],
+					Density[L, f, Norb, 1, \[Sigma], orb, Sectors, EgsSectorList, GsSectorList, T]
+				]
+			, {orb, Norb}, {\[Sigma], f}, {\[Rho], f}];
+			Table[
+				Print["\!\(\*SuperscriptBox[\(c\), \(\[Dagger]\)]\)_",orb,"c_",orb," = ", MatrixForm[cdgc[[orb]]]]
+			, {orb, Norb}]
+		];
 		
 		
 		Which[
 		(* ----------------------------------------------------------------------------------------- *)
 		(* if there is orbital symmetry, you compute many body functions just for ONE representative orbital *)
 		(* ----------------------------------------------------------------------------------------- *)
-			(EdMode == "Normal" || EdMode == "Superc") && OrbitalSymmetry,
+			(EdMode == "Normal" || EdMode == "Superc" || EdMode == "Raman") && OrbitalSymmetry,
 			Print["\n Green functions calculation time: ", First @ AbsoluteTiming[
 		
-			(* identify independent parameters, i.e. the minimal set of bath parameters that you need to compute stuff *)
-			IndependentParameters[[sublattice]] = TakeIndependentParameters[L, f, Norb, 1, 1, BathParameters[[sublattice]], EdMode];
-			(* G(i\[Omega]) *)
-			Gimp[[sublattice]] = Mean[Apply[
-				GreenFunctionImpurity[L, f, Norb, 1, 1, Egs, ##, Hsectors, Sectors, SectorsDispatch, MinLanczosMomenta, EdMode, i\[Omega]]&,
-				{Gs, GsQns}\[Transpose]
-			, {1}]];
-			(* G^-1(i\[Omega]) *)
-			InverseG[[sublattice]] = InverseGreenFunction[Gimp[[sublattice]], EdMode];
-			(* G_0^-1(i\[Omega]) *)
-			If[DMFTiterator == 1 && sublattice == 1, Weiss = WeissField[L, f, Norb, \[Mu] - \[Delta][[1]], symbols, z, EdMode]; ]; (* compute the symbolic Weiss only once! *)
-			InverseG0old[[sublattice]] = If[DMFTiterator == 1, 0*InverseG[[sublattice]], InverseG0[[sublattice]]]; (* memorize the previous one *)
-			InverseG0[[sublattice]] = (Weiss/.Thread[symbols -> IndependentParameters[[sublattice]]])/.{z -> #} &/@ i\[Omega];
-			(* \[CapitalSigma](i\[Omega]) *)
-			\[CapitalSigma]old[[sublattice]] = If[DMFTiterator == 1, 0*InverseG[[sublattice]], \[CapitalSigma][[sublattice]]];
-			\[CapitalSigma][[sublattice]] = InverseG0[[sublattice]] - InverseG[[sublattice]];
-			(* G_loc(i\[Omega]) *)
-			LocalGold[[sublattice]] = If[DMFTiterator == 1, 0*InverseG[[sublattice]], LocalG[[sublattice]]];
-			LocalG[[sublattice]] = LocalGreenFunction[LatticeEnergies[[All,1,1]], LatticeWeights, \[Mu] + V*(-1)^sublattice, \[CapitalSigma][[sublattice]], i\[Omega], EdMode];
-			(* Weiss field (numerical) *)
-			WeissNumeric[[sublattice]] = WeissFieldNumeric[
-				W[[1]], \[Mu] - \[Delta][[1]], LocalG[[sublattice]], LocalGold[[sublattice]], \[CapitalSigma][[sublattice]], \[CapitalSigma]old[[sublattice]], i\[Omega], EdMode, 
-				Mix -> If[DMFTiterator > 2, Mixing, 0.0],
-				Lattice -> LatticeType, 
-				LatticeDimension -> LatticeDim
-			];
-		
+				(* identify independent parameters, i.e. the minimal set of bath parameters that you need to compute stuff *)
+				IndependentParameters[[sublattice]] = TakeIndependentParameters[L, f, Norb, 1, 1, BathParameters[[sublattice]], EdMode];
+				(* G(i\[Omega]) *)
+				Gimp = Mean[Apply[
+					GreenFunctionImpurity[L, f, Norb, 1, 1, Egs, ##, Hsectors, Sectors, SectorsDispatch, MinLanczosMomenta, EdMode, i\[Omega]]&,
+					{Gs, GsQns}\[Transpose]
+				, {1}]];
+				(* G^-1(i\[Omega]) *)
+				InverseG = InverseGreenFunction[Gimp, EdMode];
+				(* G_0^-1(i\[Omega]) *)
+				If[DMFTiterator == 1 && sublattice == 1, 
+					(* compute the symbolic Weiss only once! *)
+					Weiss = {
+						WeissField[L, f, Norb, \[Mu] + V - \[Delta][[1]], M[[1]] + DiagonalMatrix[{hAFM, -hAFM}], symbols, z, EdMode],
+						WeissField[L, f, Norb, \[Mu] - V - \[Delta][[1]], M[[1]] - DiagonalMatrix[{hAFM, -hAFM}], symbols, z, EdMode]
+					}; 
+				]; 
+				InverseG0 = (Weiss[[sublattice]]/.Thread[symbols -> IndependentParameters[[sublattice]]])/.{z -> #} &/@ i\[Omega];
+				(* \[CapitalSigma](i\[Omega]) this is now a list {\[CapitalSigma]_A, \[CapitalSigma]_B} *)
+				\[CapitalSigma]old[[sublattice]] = If[DMFTiterator == 1, 0*InverseG, \[CapitalSigma][[sublattice]]];
+				\[CapitalSigma][[sublattice]] = InverseG0 - InverseG;
+				
 			], " sec."];
 		
 		]
 	, {sublattice, 1, 2}];
 	
+	(* G_loc(i\[Omega]) *)
+	LocalGold = If[DMFTiterator == 1, 0*\[CapitalSigma], LocalG];
+	LocalG = LocalGreenFunction[LatticeEnergies[[All,1,1]], LatticeWeights, \[Mu], \[CapitalSigma], i\[Omega], EdMode, SublatticesQ, "StaggeredMagneticField" -> hAFM];
 	
-	(* SELF CONSISTENCY *)
-	Print[Style["\t\t Self Consistency start", 16, Bold, Magenta]];
-	Print["S.C. time: ", First @ AbsoluteTiming[
+	(* self consistency loop over sublattices *)
+	SetSharedVariable[BathParameters];
+	ParallelDo[
+		(* Weiss field (numerical) *)
+		WeissNumeric = WeissFieldNumeric[
+			W[[1]], \[Mu] - \[Delta][[1]], LocalG[[sublattice]], LocalGold[[sublattice]], \[CapitalSigma][[sublattice]], \[CapitalSigma]old[[sublattice]], i\[Omega], EdMode, 
+			Mix -> If[DMFTiterator > 2, Mixing, 0.0],
+			Lattice -> LatticeType, 
+			LatticeDimension -> LatticeDim
+		];
+	
+		(* SELF CONSISTENCY *)
+		Print[Style["\t\t Self Consistency start for sublattice "<>If[sublattice==1,"A","B"], 16, Bold, Magenta]];
+		Print["S.C. time: ", First @ AbsoluteTiming[
 		Which[
 			(* ----------------------------------------------------------------------------------------- *)
 			(*  if there is orbital symmetry, you perform self consistency just for ONE representative orbital   *)
 			(* ----------------------------------------------------------------------------------------- *)
-			(EdMode == "Normal" || EdMode == "Superc") && OrbitalSymmetry,
-			BathParameters[[2]] = ReshapeBathParameters[L, f, Norb,	
+			(EdMode == "Normal" || EdMode == "Superc" || EdMode == "Raman") && OrbitalSymmetry,
+			BathParameters[[sublattice]] = ReshapeBathParameters[L, f, Norb,	
 				SelfConsistency[
-					Weiss, symbols, z, IndependentParameters[[2]], WeissNumeric[[1]], i\[Omega], EdMode,
-					Minimum -> MinimizationType, 
-					Method -> MinimizationMethod,
-					NumberOfFrequencies -> CGNMatsubara, 
-					MaxIterations -> CGMaxIterations, 
-					AccuracyGoal -> CGAccuracy,
-					FitWeight -> CGWeight
-				],
-			OrbitalSymmetry, EdMode];
-			(* *)
-			BathParameters[[1]] = ReshapeBathParameters[L, f, Norb,	
-				SelfConsistency[
-					Weiss, symbols, z, IndependentParameters[[1]], WeissNumeric[[2]], i\[Omega], EdMode,
+					Weiss[[sublattice]], symbols, z, IndependentParameters[[sublattice]], WeissNumeric, i\[Omega], EdMode,
 					Minimum -> MinimizationType, 
 					Method -> MinimizationMethod,
 					NumberOfFrequencies -> CGNMatsubara, 
@@ -464,20 +474,28 @@ Do[
 			OrbitalSymmetry, EdMode];
 		]
 			
-	], " sec." ];
-			
-	(* compute error *)
-	error = Mean[ Table[
-		DMFTError[InverseG0[[sublattice]], InverseG0old[[sublattice]], EdMode]
-	, {sublattice, 1, 2}] ];
-	Print["DMFT error: ", ScientificForm[error]];
+		], " sec." ];
 	
-	(*Print*)
+	, {sublattice, 1, 2}];
+	
+	(* compute error with the self energy *)
+	error = Mean[ Table[
+		DMFTError[\[CapitalSigma][[sublattice]], \[CapitalSigma]old[[sublattice]], EdMode]
+	, {sublattice, 1, 2}] ];
+		
+		
+	(* store new bath parameters and error *)
+	WriteOutput[True, OutputDirectory, "hamiltonian_restart", BathParameters];
+	AppendTo[ErrorList, error];
+	WriteOutput[True, OutputDirectory, "error", ErrorList];	
+	
+	(* Print *)
+	Print["DMFT error: ", ScientificForm[error]];
 	Print[Style["\t\t Self Consistency completed", 16, Bold, Magenta]];
 	Print["----------------------------------------------------------------------------------------"];
 	Print["----------------------------------------------------------------------------------------"];
 	Print["----------------------------------------------------------------------------------------"];
-
+	
 	(* Exit DMFT Loop if convengerce is reached *)
 	If[DMFTiterator > DMFTMinIterations && error < DMFTerror && LastIteration, Converged = True; Break[];];
 	If[error < DMFTerror, LastIteration = True, (*else*) LastIteration = False];

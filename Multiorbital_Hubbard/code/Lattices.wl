@@ -19,6 +19,8 @@ is normalized to 1; if summing over energies this is a sampling of the density o
 The first index labels the momentum value; for every momentum k we have a matrix \[Epsilon]_orb1,orb2,\[Sigma],\[Rho](k) written in the basis where the Raman matrix M is diagonal. Here \[Gamma] and u represent the
 magnitude and direction of the gauge field, while \[Delta] is the crystal field splitting. "
 
+GetLatticeEnergiesRamanSublattices::usage = "GetLatticeEnergiesRamanSublattices[HalfBandwidths, \[Delta], M, \[Gamma], LatticeType, LatticeDim, NumberOfPoints]"
+
 DispersionHypercubic::usage = "."
 
 DispersionHypercubicRaman::usage = "DispersionHypercubicRaman[k, t, f, \[Gamma], u] returns a fxf matrix that represents the energy associated to the given point k in the 1st Brillouin zone
@@ -59,6 +61,7 @@ DispersionHypercubicRaman = Compile[
 	CompilationTarget -> "C", RuntimeAttributes -> {Listable}
 ];
 
+
 (* returns a list of k points (d-dimensional vectors) in the 1st BZ *)
 BrillouinZone[LE_, d_, OptionsPattern[]] := With[
 	{dk = 2.Pi/LE, Lattice = OptionValue[Lattice]},
@@ -67,10 +70,28 @@ BrillouinZone[LE_, d_, OptionsPattern[]] := With[
 		Tuples[ Table[k, {k, -1.*Pi+dk, 1.*Pi, dk}], d],
 	(* ----------------------------------------------- *)
 		Lattice != "Hypercubic",
-		Print["Not supported."];
+		Print["Brillouin zone for the specified lattice is not supported."];
 	]
 ];
 Options[BrillouinZone] = {Lattice -> "Hypercubic"};
+
+(* Magnetic Brillouin zone *)
+MagneticBrillouinZone[LE_, d_, lattice_] := With[
+	{BZ = BrillouinZone[LE, d, Lattice -> lattice]},
+	If[
+		lattice == "Hypercubic",
+		Which[
+			d == 1,
+			Select[BZ, (#[[1]] <= Pi/2 && #[[1]] > -Pi/2)&],
+		(* ----------------------------------- *)
+			d == 2,
+			Select[BZ, (#[[2]]<=Pi-Abs[#[[1]]] && #[[2]]>-Pi+Abs[#[[1]]])&]
+		],
+		(* else *)
+		Print["Magnetic Brillouin zone for the specified lattice is not supported."]
+	]
+];
+
 
 (* "high symmetry path" for the Bethe lattice. This is an abuse of notation: this just returns the indexes of all energies *)
 HighSymmetryPathBethe[LatticePoints_] := Range[LatticePoints];
@@ -170,6 +191,63 @@ GetLatticeEnergiesRaman[HalfBandwidths_, \[Delta]_, M_, \[Gamma]_, LatticeType_,
 	{energies, weights}
 ];
 
+(* Momentum resolved lattice Hamiltonian H_k in presence of 2 sublattices for Raman mode *)
+GetLatticeEnergiesRamanSublattices[HalfBandwidths_, \[Delta]_, M_, \[Gamma]_, LatticeType_, LatticeDim_, NumberOfPoints_] := Module[
+	{LE, MBZ, energies, weights, f = Length[M[[1]]], Norb = Length[HalfBandwidths], W = HalfBandwidths},
+	If[LatticeType != "Hypercubic", Print["Lattice type not supported."]; ];
+	(* number of points per lattice direction *)
+	LE = Floor[NumberOfPoints^(1./LatticeDim)];
+	(* get the Brillouin Zone *)
+	MBZ = MagneticBrillouinZone[LE, LatticeDim, "Hypercubic"];
+	(* initialize energies list of rank LE x Norb x Norb x f x f *)
+	energies = ConstantArray[ConstantArray[0.0, {2f, 2f}], {Length[MBZ], Norb, Norb}];
+	(* equal weights to all the energies since we are sampling the Brillouin zone *)
+	weights = ConstantArray[1./(Length[MBZ]), Length[MBZ]];
+	(* fill up matrix elements *)
+	Which[
+		LatticeDim == 1,
+		Do[
+			energies[[All, orb, orb]] = (ArrayFlatten[{
+				{
+					M[[orb]] + \[Delta][[orb]]*IdentityMatrix[f], 
+					-W[[orb]]*DiagonalMatrix[
+						Table[
+							(Exp[I*m*\[Gamma][[orb,1]]] + Exp[-2I*#[[1]]]*Exp[-I*m*\[Gamma][[orb,1]]])
+						, {m, (f-1)/2, -(f-1)/2, -1}]
+					]
+				},
+				{
+					-W[[orb]]*DiagonalMatrix[
+						Table[
+							(Exp[-I*m*\[Gamma][[orb,1]]] + Exp[2I*#[[1]]]*Exp[I*m*\[Gamma][[orb,1]]])
+						, {m, (f-1)/2, -(f-1)/2, -1}]
+					], 
+					M[[orb]] + \[Delta][[orb]]*IdentityMatrix[f]
+				}
+			}]) &/@ MBZ
+		, {orb, Norb}];,
+	(* --------------- to be checked ----------------------------- *)
+		LatticeDim == 2,
+		Do[
+			energies[[All, orb, orb]] = (ArrayFlatten[{{
+				(* A-A block *)
+				M[[orb]] + \[Delta][[orb]]*IdentityMatrix[f], 
+				(* A-B block *)
+				-HalfBandwidths[[orb]]*DiagonalMatrix[Table[
+					Exp[I*m*\[Gamma][[orb,1]]]*(1.0 + Exp[-2I #[[1]]]) + Exp[I*m*\[Gamma][[orb,2]]]*(Exp[I*(-#[[1]]+#[[2]])] + Exp[-I*(#[[1]]+#[[2]])]), 
+				{m, -(f-1)/2, (f-1)/2, 1}]]},
+				(* B-A block *)
+				{-HalfBandwidths[[orb]]*DiagonalMatrix[Table[
+					Exp[-I*m*\[Gamma][[orb,1]]]*(1.0 + Exp[2I #[[1]]]) + Exp[-I*m*\[Gamma][[orb,2]]]*(Exp[-I*(-#[[1]]+#[[2]])] + Exp[I*(#[[1]]+#[[2]])]), 
+				{m, -(f-1)/2, (f-1)/2, 1}]], 
+				(* B-B block *)
+				M[[orb]] + \[Delta][[orb]]*IdentityMatrix[f]}
+			}]) &/@ MBZ
+		, {orb, Norb}];
+	];
+	{energies, weights}
+];
+
 
 (*           LOCAL GREEN FUNCTION         *)
 (* when EdMode = "Normal" *)
@@ -254,6 +332,27 @@ LocalGreenFunctionRaman = Compile[{
 	RuntimeAttributes->{Listable}, Parallelization->True
 ];
 
+(* when EdMode == "Raman" and there is sublattice structure *)
+LocalGreenFunctionRamanSublattices = Compile[{
+	{Energies,_Complex,3}, {weights, _Real,1}, {\[Mu], _Real}, {h,_Real}, {\[CapitalSigma], _Complex, 3}, {zlist, _Complex, 1}
+	},
+	Module[
+		{LE = Length[Energies], NMatsubara = Length[zlist], dim = Length[Energies[[1]]], Gloc},
+		(* now use this matrix to compute Gloc *)
+		Gloc = Total @ Table[
+			weights[[i]] * Inverse[#]&/@(
+				(IdentityMatrix[dim]*#)&/@zlist +
+				ConstantArray[
+					\[Mu] * IdentityMatrix[dim] - Energies[[i]] - DiagonalMatrix[{h,-h,-h,h}]
+				, NMatsubara] - \[CapitalSigma]
+			)
+		, {i,LE}];
+		(* return only block diagonal part, i.e. {Gloc_sublatticeA, Gloc_sublatticeB} *)
+		{Gloc[[All, 1;;2, 1;;2]], Gloc[[All, 3;;4, 3;;4]]}
+	],
+	RuntimeAttributes->{Listable}, Parallelization->True
+];
+
 
 (* when EdMode = "InterorbNormal" *)
 LocalGreenFunctionInterorbNormal = Compile[{
@@ -291,14 +390,14 @@ LocalGreenFunctionFullSuperc = Compile[{
 ];
 
 (* Local Green function sbatch *)
-LocalGreenFunction[LatticeEnergies_, weights_, \[Mu]_, \[CapitalSigma]_, zlist_, EdMode_] := Module[
-	{energies, LE = Length[LatticeEnergies], Norb = Length[LatticeEnergies[[1]]]},
+LocalGreenFunction[LatticeEnergies_, weights_, \[Mu]_, \[CapitalSigma]_, zlist_, EdMode_, SublatticesQ_, OptionsPattern[]] := Module[
+	{energies, LE = Length[LatticeEnergies], Norb = Length[LatticeEnergies[[1]]], \[CapitalSigma]matrix},
 	Which[
-		EdMode == "Normal",
+		EdMode == "Normal" && !SublatticesQ,
 		energies = Flatten[LatticeEnergies]; (* the input will be {{e1},{e2},...} but we want {e1, e2, e3, ...} *)
 		LocalGreenFunctionNormal[energies, weights, \[Mu], \[CapitalSigma], zlist],
 	(* ------------------------------------------------------------------- *)
-		EdMode == "Superc",
+		EdMode == "Superc" && !SublatticesQ,
 		energies = Flatten[LatticeEnergies];
 		If[Re[zlist[[-1]]] == 0.0, (* if we are using Matsubara frequencies, use a shortcut *)
 			LocalGreenFunctionSupercAnalytic[energies, weights, \[Mu], \[CapitalSigma], zlist],
@@ -306,9 +405,16 @@ LocalGreenFunction[LatticeEnergies_, weights_, \[Mu]_, \[CapitalSigma]_, zlist_,
 			LocalGreenFunctionSuperc[energies, weights, \[Mu], \[CapitalSigma], zlist]
 		],
 	(* ------------------------------------------------------------------- *)
-		EdMode == "Raman",
-		energies = LatticeEnergies; (* the input will be a list of fxf matrices (orbital indexes will be specified) *)
-		LocalGreenFunctionRaman[energies, weights, \[Mu], \[CapitalSigma], zlist],
+		EdMode == "Raman" && !SublatticesQ,
+		(* the input LatticeEnergies will be a list of fxf matrices (orbital indexes will be specified) *)
+		LocalGreenFunctionRaman[LatticeEnergies, weights, \[Mu], \[CapitalSigma], zlist],
+	(* ------------------------------------------------------------------- *)
+		EdMode == "Raman" && SublatticesQ,
+		(* the input self energy is a list {\[CapitalSigma]_A, \[CapitalSigma]_B}, where the components are NMatsubara fxf matrices *)
+		(* we must convert it into a matrix of Nmatsubara 2fx2f matrices, with \[CapitalSigma]_A and \[CapitalSigma]_B as diagonal blocks *)
+		\[CapitalSigma]matrix = (ArrayFlatten[{{#,0},{0,0*#}}] &/@ \[CapitalSigma][[1]]) + (ArrayFlatten[{{0*#,0},{0,#}}] &/@ \[CapitalSigma][[2]]);
+		(* the input LatticeEnergies will be a list of 2fx2f matrices (orbital indexes will be specified) *)
+		LocalGreenFunctionRamanSublattices[LatticeEnergies, weights, \[Mu], OptionValue["StaggeredMagneticField"], \[CapitalSigma]matrix, zlist],
 	(* ------------------------------------------------------------------- *)
 		EdMode == "InterorbNormal",
 		energies = LatticeEnergies; (* in this situation the input tensor has the correct shape *)
@@ -326,7 +432,7 @@ LocalGreenFunction[LatticeEnergies_, weights_, \[Mu]_, \[CapitalSigma]_, zlist_,
 		LocalGreenFunctionFullSuperc[energies, weights, \[Mu], \[CapitalSigma], zlist]
 	]
 ];
-
+Options[LocalGreenFunction] = {"StaggeredMagneticField" -> 0.0}
 
 
 End[]

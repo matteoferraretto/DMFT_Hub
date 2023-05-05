@@ -10,26 +10,17 @@ ErrorList = {};
 (* initialize Matsubara frequencies [use just CGNMatsubara frequencies, not NMatsubara!] *)
 i\[Omega] = Table[(2n-1)Pi*I*TMats, {n, CGNMatsubara}]; 
 
-(* set OrbitalSymmetry in some cases to avoid stupid bugs *)
+
+(* AVOID BUGS AND SHOW WARNINGS *)
+(* set OrbitalSymmetry in some cases *)
 If[EdMode == "InterorbNormal" || EdMode == "InterorbSuperc" || EdMode == "FullSuperc", OrbitalSymmetry = False];
 If[Norb == 1, OrbitalSymmetry = True];
-(* avoid a bunch of stupid bugs related to the C.G. *)
+(* avoid stupid bugs related to the C.G. *)
 If[CGNMatsubara > NMatsubara, CGNMatsubara = NMatsubara];
 If[Length[CGWeight] != CGNMatsubara, 
 	Print[Style["Error. CGWeight should be a list of length " <> ToString[CGNMatsubara] <> ", proceeding with default options.", Red]];
 	CGWeight = ConstantArray[1., CGNMatsubara];
 ];
-
-(* avoid stupid bugs related to sublattice calculation mode *)
-If[SublatticesQ && V == 0.0,
-	Print[Style["Error. The different sublattices need a small on-site energy difference, but V=0.0 was required. Proceeding with default value V=0.05", Red]];
-	V = 0.005;
-];
-If[!SublatticesQ && V != 0.0,
-	Print[Style["Error. On-site energy splitting between sublattices (V) is different from 0.0, but SublatticeQ = False. Proceeding with V=0.0", Red]];
-	V = 0.0;
-];
-
 (* avoid stupid bugs related to gauge field in Raman *)
 If[M == ConstantArray[0.0, {Norb, f, f}] && EdMode == "Raman",
 	Print[Style["Warning. The Raman matrix is zero but EdMode = ''Raman''. You should either add a small Raman coupling or change EdMode to ''Normal''.", Red]];
@@ -53,6 +44,16 @@ Do[
 , {orb, Norb}];
 If[EdMode != "Raman" && M != ConstantArray[0.0, {Norb,f,f}],
 	Print[Style["Error. A Raman matrix is provided, but EdMode is not set to ''Raman''. Switch EdMode to ''Raman'' or remove the Raman field.", Red]];
+	Abort[];
+];
+(* avoid bugs related to sublattice calculation mode *)
+If[!SublatticesQ && (V != 0.0||hAFM != 0.0),
+	Print[Style["Warning. The staggered external field is different from 0.0, but SublatticeQ = False. Proceeding setting it to 0.", Red]];
+	V = 0.0; hAFM = 0.0;
+];
+(* sublattice calculation only supported for 2 spin states *)
+If[SublatticesQ && EdMode == "Raman" && f>2,
+	Print[Style["Error. Antiferromagnetic calculation is not supported for more than 2 flavors.", Red]];
 	Abort[];
 ];
 
@@ -86,23 +87,12 @@ If[OrbitalSymmetry && Norb > 1,
 	];
 	\[Delta] = ConstantArray[0.0, Norb];
 ];
-(* just pick upper triangular part of the pair hopping matrix *)
-Jphreshaped = ArrayFromSymmetricMatrix[Jph];
-(* reshape Raman field to match number of corresponding hamiltonian blocks *)
-Mreshaped = Flatten[ArrayFromSymmetricMatrix[#] &/@ M];
-(* get list of interaction parameters in correct order *)
-InteractionParameters = {Mreshaped, \[Delta], U, Ust, Usec, Jphreshaped, Jse, - \[Mu] + shift};
 
 
-(* GET BATH PARAMETERS *)
-BathParameters = StartingBath[L, f, Norb, \[Delta]-\[Mu], InitializeBathMode, EdMode, V0 -> 1.0, \[CapitalDelta]0 -> 0.2, \[CapitalXi]0 -> 0.2, \[CapitalOmega]0 -> 0.2];
-Nparams = Length[ Flatten[BathParameters] ];
-(* if there are sublattices, duplicate the bath parameters *)
-If[SublatticesQ,
-	BathParameters = {BathParameters, BathParameters};
-];
-(* define a suitable list of symbols depending on EdMode *)
-symbols = Symbols[L, f, Norb, EdMode]; 
+(* GET BATH AND INTERACTION PARAMETERS *)
+BathParameters = StartingBath[L, f, Norb, \[Delta]-\[Mu], InitializeBathMode, EdMode, SublatticesQ, V0 -> 1.0, \[CapitalDelta]0 -> 0.2, \[CapitalXi]0 -> 0.2, \[CapitalOmega]0 -> 0.2];
+InteractionParameters = LocalParameters[M, \[Delta], U, Ust, Usec, Jph, Jse, \[Mu], shift, SublatticesQ, hAFM, V];
+symbols = Symbols[L, f, Norb, EdMode]; (* define a suitable list of symbols depending on EdMode *)
 
 
 (* GET SECTORS *)
@@ -123,9 +113,17 @@ Print["Nsectors: ", Length[QnsSectorList], ". Dim. of the largest sector: ", Max
 
 (* GET LATTICE ENERGIES *)
 If[EdMode == "Raman",
-	{LatticeEnergies, LatticeWeights} = GetLatticeEnergiesRaman[W, \[Delta], M, \[Gamma], LatticeType, LatticeDim, LatticePoints],
+	If[SublatticesQ,
+		{LatticeEnergies, LatticeWeights} = GetLatticeEnergiesRamanSublattices[W, \[Delta], M, \[Gamma], LatticeType, LatticeDim, LatticePoints],
+		(* else *)
+		{LatticeEnergies, LatticeWeights} = GetLatticeEnergiesRaman[W, \[Delta], M, \[Gamma], LatticeType, LatticeDim, LatticePoints]
+	],
 	(* else *)
-	{LatticeEnergies, LatticeWeights} = GetLatticeEnergies[W, \[Delta], LatticeType, LatticeDim, LatticePoints];
+	If[SublatticesQ,
+		{LatticeEnergies, LatticeWeights} = GetLatticeEnergiesSublattices[W, \[Delta], LatticeType, LatticeDim, LatticePoints],
+		(* else *)
+		{LatticeEnergies, LatticeWeights} = GetLatticeEnergies[W, \[Delta], LatticeType, LatticeDim, LatticePoints]
+	];
 ];
 
 

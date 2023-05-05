@@ -13,6 +13,9 @@ If EdMode = ''InterorbSuperc'' then the output has the form {e,V,\[CapitalDelta]
 InitializeBathMode is a string with the path to the file containing the bath parameters; if it is set to ''Default'', default parameters are dropped.
 The input \[Delta] is the list of crystal field splittings (with Norb elements) and it's used to set the starting bath energy levels around the corresponding non-interacting energies."
 
+LocalParameters::usage = "LocalParameters[M, \[Delta], U, Ust, Usec, Jph, Jse, \[Mu], shift, SublatticesQ, hAFM, V] returns a list of local coupling constants in suitable order and shape to be
+correctly combined with the Hamiltonian blocks. The meaning of all the symbols is specified in the input file. "
+
 Symbols::usage = "Symbols[L, f, Norb, EdMode] returns a list of symbols representing the independent bath parameters. 
 The word ''independent'' means that in case there is some symmetry, for example orbital and spin symmetry, we just extract a representative subset of the bath parameters. "
 
@@ -29,7 +32,7 @@ Begin["Private`"]
 Print["Package Parameters` loaded successfully."];
 
 (* Initialize starting bath *)
-StartingBath[L_, f_, Norb_, \[Delta]_, InitializeBathMode_, EdMode_, OptionsPattern[]] := Module[
+StartingBath[L_, f_, Norb_, \[Delta]_, InitializeBathMode_, EdMode_, SublatticesQ_, OptionsPattern[]] := Module[
 	{e, V, \[CapitalDelta], \[CapitalXi], Nbath},
 	Nbath = L - 1;
 	Which[
@@ -51,8 +54,7 @@ StartingBath[L_, f_, Norb_, \[Delta]_, InitializeBathMode_, EdMode_, OptionsPatt
 		Return[{e, V}],
 (* ---------------------------------------------- *)
 		EdMode == "Raman",
-		If[
-			InitializeBathMode == "Default",
+		If[InitializeBathMode == "Default",
 			e = ConstantArray[
 				Table[
 					ConstantArray[OptionValue[\[CapitalOmega]0], {f, f}] + 
@@ -64,11 +66,15 @@ StartingBath[L_, f_, Norb_, \[Delta]_, InitializeBathMode_, EdMode_, OptionsPatt
 					DiagonalMatrix[ ConstantArray[1.0 - OptionValue[\[CapitalOmega]0], f] ] + 
 					ConstantArray[OptionValue[\[CapitalOmega]0], {f, f}]
 				, {k, Nbath}]
-			, Norb] * OptionValue[V0],
-		(*else*)
-			{e, V} = Import[InitializeBathMode];
-		];
-		Return[{e, V}],
+			, Norb] * OptionValue[V0];
+			(* for sublattice calculations duplicate the list *)
+			If[SublatticesQ, 
+				Return[{{e,V}, {e,V}}],
+				Return[{e, V}]
+			];,
+		(* else, if you import from file *)
+			Return[ Import[InitializeBathMode] ];
+		],
 (* ---------------------------------------------- *)
 		EdMode == "Superc",
 		If[
@@ -127,10 +133,34 @@ StartingBath[L_, f_, Norb_, \[Delta]_, InitializeBathMode_, EdMode_, OptionsPatt
 		(*else*)
 			{e,V,\[CapitalDelta],\[CapitalXi]} = Import[InitializeBathMode];
 		];
-	   Return[{e,V,\[CapitalDelta],\[CapitalXi]}];
+	    Return[{e,V,\[CapitalDelta],\[CapitalXi]}];
 	]
 ];
 Options[StartingBath] = {V0 -> 1., \[CapitalDelta]0 -> 1., \[CapitalXi]0 -> 1., \[CapitalOmega]0 -> 1.};
+
+(* properly organize local coupling constants *) 
+LocalParameters[M_, \[Delta]_, U_, Ust_, Usec_, Jph_, Jse_, \[Mu]_, shift_, SublatticesQ_, hAFM_, V_] := Module[
+	{Jphreshaped, Mreshaped, MreshapedA, MreshapedB, InteractionParameters, Norb = Length[M]},
+	(* just pick upper triangular part of the pair hopping matrix *)
+	Jphreshaped = ArrayFromSymmetricMatrix[Jph];
+	(* reshape Raman field to match number of corresponding hamiltonian blocks *)
+	Mreshaped = Flatten[ArrayFromSymmetricMatrix[#] &/@ M];
+	(* get list of interaction parameters in correct order *)
+	InteractionParameters = {Mreshaped, \[Delta], U, Ust, Usec, Jphreshaped, Jse, - \[Mu] + shift};
+	(* if there are sublattices, duplicate the bath and interaction parameters *)
+	If[SublatticesQ,
+		InteractionParameters = {InteractionParameters, InteractionParameters};
+		If[hAFM != 0 || V != 0,
+			MreshapedA = Flatten[ArrayFromSymmetricMatrix[#] &/@ (M + ConstantArray[DiagonalMatrix[{hAFM, -hAFM}], Norb])];
+			MreshapedB = Flatten[ArrayFromSymmetricMatrix[#] &/@ (M - ConstantArray[DiagonalMatrix[{hAFM, -hAFM}], Norb])];
+			InteractionParameters = {
+				{MreshapedA, \[Delta], U, Ust, Usec, Jphreshaped, Jse, - \[Mu] + V + shift},
+				{MreshapedB, \[Delta], U, Ust, Usec, Jphreshaped, Jse, - \[Mu] - V + shift}
+			};
+		]
+	];
+	InteractionParameters
+];
 
 (* generate a list of "independent" symbols *)
 Symbols[L_, f_, Norb_, EdMode_] := Which[

@@ -48,7 +48,7 @@ Which[
 	(* compute G(\[Omega]) for all orbitals *)
 	Gimprealfreq = Table[
 		Mean[Apply[
-			GreenFunctionImpurity[L, f, Norb, 1, orb, Egs, ##, Hsectors, Sectors, SectorsDispatch, MinLanczosMomenta, EdMode, \[Omega] + I*\[Eta]]&,
+			GreenFunctionImpurity[L, f, Norb, 1, orb, Egs, ##, Hsectors, Sectors, SectorsDispatch, 200, EdMode, \[Omega] + I*\[Eta]]&,
 			{Gs, GsQns}\[Transpose]
 		, {1}]], {orb, Norb}];
 	(* {G^-1(i\[Omega])_orb=1 , G^-1(i\[Omega])_orb=2 ...} *)
@@ -96,6 +96,7 @@ Which[
 
 (* store converged observables and many body functions *)
 WriteOutput[True, OutputDirectory, "density", density];
+WriteOutput[True, OutputDirectory, "cdgc", cdgc];
 WriteOutput[True, OutputDirectory, "double_occupancy", docc];
 WriteOutput[True, OutputDirectory, "quasiparticle_weight", Z];
 If[EdMode == "Superc" || EdMode == "InterorbSuperc" || EdMode == "FullSuperc",

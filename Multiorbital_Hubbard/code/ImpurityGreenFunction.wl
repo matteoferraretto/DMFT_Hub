@@ -245,7 +245,7 @@ GreenFunctionED[L_, f_, Norb_, {i_,j_}, {\[Sigma]1_, \[Sigma]2_}, {orb1_, orb2_}
 			A = Q\[HermitianConjugate] . A . P;(* A in the eigenstates basis *)
 	(* ------------------------------------- *)
 		\[Psi]1 = DestroyParticleSelect[L, f, i, \[Sigma]1, orb1, finalsector];
-		If[\[Psi]1 == 0, Continue[]; ];
+		If[Length[\[Psi]1] == 0, Continue[]; ];
 			rows = \[Psi]1/.dispatch;
 			sign = CSign[L,f,i,\[Sigma]1,orb1,\[Psi]1];
 			dispatch = Dispatch[Flatten[MapIndexed[{#1->#2[[1]]}&,startingsector],1]];(* find the new positions where the entries of gs should go after applying cdg_spin *)
@@ -566,10 +566,10 @@ GreenFunctionImpurityNormalRaman[L_, f_, Norb_, orb_, {\[Sigma]_, \[Rho]_}, Egs_
 			GFOparticle = ((Norm[Odggs]^2)/(# - H[[1,1]] + Egs)) &/@ zlist;,
 		(* else *)
 			{E0,a,b} = Lanczos[H, Normalize[Odggs], MinIter -> MinLanczosMomenta]; (* Apply Lanczos starting from Odg|gs> *)
-			H = SparseArray[DiagonalMatrix[b, 1] + DiagonalMatrix[b, -1] + DiagonalMatrix[a] ]; (* Krylov matrix in the final sector *)
+			(*H = SparseArray[{Band[{1,1}] -> a, Band[{1,2}] -> b, Band[{2,1}] -> b}]; *)(* Krylov matrix in the final sector *)
 			GFOparticle = (Norm[Odggs]^2)*(
-				InverseElement[
-					SparseArray[(# + Egs) * IdentityMatrix[Length[a] ] - H]
+				getInverseElement[
+					SparseArray[{Band[{1,1}] -> (# + Egs) - a, Band[{1,2}] -> -b, Band[{2,1}] -> -b}]
 				, {1, 1}] &/@ zlist);
 		];
 	];
@@ -584,10 +584,10 @@ GreenFunctionImpurityNormalRaman[L_, f_, Norb_, orb_, {\[Sigma]_, \[Rho]_}, Egs_
 			GFOhole = ((Norm[Ogs]^2)/(# + H[[1,1]] - Egs)) &/@ zlist;,
 		(* else *)
 			{E0,a,b} = Lanczos[H, Normalize[Ogs], MinIter -> MinLanczosMomenta]; (* Apply Lanczos starting from O|gs> *)
-			H = SparseArray[DiagonalMatrix[b, 1] + DiagonalMatrix[b, -1] + DiagonalMatrix[a] ]; (* Krylov matrix in the final sector *)
+			(*H = SparseArray[{Band[{1,1}] -> a, Band[{1,2}] -> b, Band[{2,1}] -> b}];*) (* Krylov matrix in the final sector *)
 			GFOhole = (Norm[Ogs]^2)*(
-				InverseElement[
-					SparseArray[(# - Egs) * IdentityMatrix[Length[a] ] + H]
+				getInverseElement[
+					SparseArray[{Band[{1,1}] -> (# - Egs) + a, Band[{1,2}] -> b, Band[{2,1}] -> b}]
 				, {1, 1}] &/@ zlist);
 		];
 	];
