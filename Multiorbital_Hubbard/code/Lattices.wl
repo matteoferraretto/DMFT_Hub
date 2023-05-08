@@ -229,19 +229,29 @@ GetLatticeEnergiesRamanSublattices[HalfBandwidths_, \[Delta]_, M_, \[Gamma]_, La
 	(* --------------- to be checked ----------------------------- *)
 		LatticeDim == 2,
 		Do[
-			energies[[All, orb, orb]] = (ArrayFlatten[{{
-				(* A-A block *)
-				M[[orb]] + \[Delta][[orb]]*IdentityMatrix[f], 
-				(* A-B block *)
-				-HalfBandwidths[[orb]]*DiagonalMatrix[Table[
-					Exp[I*m*\[Gamma][[orb,1]]]*(1.0 + Exp[-2I #[[1]]]) + Exp[I*m*\[Gamma][[orb,2]]]*(Exp[I*(-#[[1]]+#[[2]])] + Exp[-I*(#[[1]]+#[[2]])]), 
-				{m, -(f-1)/2, (f-1)/2, 1}]]},
-				(* B-A block *)
-				{-HalfBandwidths[[orb]]*DiagonalMatrix[Table[
-					Exp[-I*m*\[Gamma][[orb,1]]]*(1.0 + Exp[2I #[[1]]]) + Exp[-I*m*\[Gamma][[orb,2]]]*(Exp[-I*(-#[[1]]+#[[2]])] + Exp[I*(#[[1]]+#[[2]])]), 
-				{m, -(f-1)/2, (f-1)/2, 1}]], 
-				(* B-B block *)
-				M[[orb]] + \[Delta][[orb]]*IdentityMatrix[f]}
+			energies[[All, orb, orb]] = (ArrayFlatten[{
+				{
+					(* A-A block *)
+					M[[orb]] + \[Delta][[orb]]*IdentityMatrix[f], 
+					(* A-B block *)
+					-W[[orb]]*DiagonalMatrix[Table[
+						Exp[I*m*\[Gamma][[orb,1]]] 
+						+ Exp[-I*m*\[Gamma][[orb,1]]]*Exp[-2I*#[[1]]] 
+						+ Exp[I*m*\[Gamma][[orb,2]]]*Exp[I*(-#[[1]]+#[[2]])/Sqrt[2]] 
+						+ Exp[-I*m*\[Gamma][[orb,2]]]*Exp[-I*(#[[1]]+#[[2]])/Sqrt[2]]
+					, {m, (f-1)/2, -(f-1)/2, -1}]]
+				},
+				{
+					(* B-A block *)
+					-W[[orb]]*DiagonalMatrix[Table[
+						Exp[-I*m*\[Gamma][[orb,1]]] 
+						+ Exp[I*m*\[Gamma][[orb,1]]]*Exp[2I*#[[1]]] 
+						+ Exp[-I*m*\[Gamma][[orb,2]]]*Exp[-I*(-#[[1]]+#[[2]])/Sqrt[2]] 
+						+ Exp[I*m*\[Gamma][[orb,2]]]*Exp[I*(#[[1]]+#[[2]])/Sqrt[2]]
+					, {m, (f-1)/2, -(f-1)/2, -1}]], 
+					(* B-B block *)
+					M[[orb]] + \[Delta][[orb]]*IdentityMatrix[f]
+				}
 			}]) &/@ MBZ
 		, {orb, Norb}];
 	];
