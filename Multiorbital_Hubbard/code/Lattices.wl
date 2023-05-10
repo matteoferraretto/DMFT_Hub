@@ -5,8 +5,11 @@ BeginPackage["Lattices`", {"MyLinearAlgebra`"}]
 
 DoSBethe::usage = "DoSBethe[\[Epsilon], DBethe] returns the density of states for the infinite dimensional Bethe lattice with half bandwidth DBethe and energy \[Epsilon]"
 
-BrillouinZone::usage = "BrillouinZone[LE, d] returns a list of LE points in the first Brillouin zone for a given lattice passed by option, for example Lattice -> ''Hypercubic''.
-d represents the dimensionality of such lattice, hence the dimension of each point in the Brillouin zone. "
+BrillouinZone::usage = "BrillouinZone[LE, LatticeDim, LatticeType] returns a list of LE^LatticeDim points in the first Brillouin zone for a given lattice, 
+for example LatticeType=''Hypercubic''. LatticeDim represents the dimensionality of such lattice, hence the dimension of each point in the Brillouin zone. "
+
+MagneticBrillouinZone::usage = "MagneticBrillouinZone[LE, LatticeDim, LatticeType] returns a list of (LE/2)^LatticeDim points in the first Magnetic Brillouin zone 
+(i.e. reduced Brillouin zone when the lattice Hamiltonian is written in the basis of two sublattices of the original lattice).  "
 
 GetLatticeEnergies::usage = "GetLatticeEnergies[HalfBandwidths, \[Delta], LatticeType, LatticeDim, NumberOfPoints] returns a list with two objects:
 {LatticeEnergies, LatticeWeights}. LatticeWeights is a list of weights used when performing sums over the momenta/energies; if summing over momenta this is simply a uniform list that
@@ -63,23 +66,22 @@ DispersionHypercubicRaman = Compile[
 
 
 (* returns a list of k points (d-dimensional vectors) in the 1st BZ *)
-BrillouinZone[LE_, d_, OptionsPattern[]] := With[
-	{dk = 2.Pi/LE, Lattice = OptionValue[Lattice]},
+BrillouinZone[LE_, LatticeDim_, LatticeType_] := With[
+	{dk = 2.Pi/LE, d = LatticeDim},
 	Which[
-		Lattice == "Hypercubic",
+		LatticeType == "Hypercubic",
 		Tuples[ Table[k, {k, -1.*Pi+dk, 1.*Pi, dk}], d],
 	(* ----------------------------------------------- *)
-		Lattice != "Hypercubic",
+		LatticeType != "Hypercubic",
 		Print["Brillouin zone for the specified lattice is not supported."];
 	]
 ];
-Options[BrillouinZone] = {Lattice -> "Hypercubic"};
 
 (* Magnetic Brillouin zone *)
-MagneticBrillouinZone[LE_, d_, lattice_] := With[
-	{BZ = BrillouinZone[LE, d, Lattice -> lattice]},
+MagneticBrillouinZone[LE_, LatticeDim_, LatticeType_] := With[
+	{BZ = BrillouinZone[LE, LatticeDim, LatticeType], d = LatticeDim},
 	If[
-		lattice == "Hypercubic",
+		LatticeType == "Hypercubic",
 		Which[
 			d == 1,
 			Select[BZ, (#[[1]] <= Pi/2 && #[[1]] > -Pi/2)&],
@@ -99,7 +101,9 @@ HighSymmetryPathBethe[LatticePoints_] := Range[LatticePoints];
 (* high symmetry path \[CapitalGamma]XM\[CapitalGamma] for the square lattice *)
 HighSymmetryPathSquare[LatticePoints_] := Module[
 	{LE = Sqrt[LatticePoints], \[CapitalGamma], X, M},
-	If[OddQ[LE], Print["Error: an odd number of points per lattice dimension does not describe the high symmetry path. "]; ];
+	If[OddQ[LE], 
+		Print["Error: an odd number of points per lattice dimension does not describe the high symmetry path. "]; 
+	];
 	\[CapitalGamma] = LE*(LE/2-1) + LE/2;
 	X = \[CapitalGamma] + (LE^2)/2;
 	M = LatticePoints;
@@ -118,7 +122,7 @@ HighSymmetryPath[LatticePoints_, LatticeType_, LatticeDim_] := Which[
 ];
 
 (* split the square lattice into two sublattices *)
-SplitSquareLatticeIntoSublattices[BZ_] := Module[
+(*SplitSquareLatticeIntoSublattices[BZ_] := Module[
 	{NumberOfPoints, LE, d, row, col, indexes, BZA, BZB},
 	{NumberOfPoints, d} = Dimensions[BZ];
 	LE = NumberOfPoints^(1/d);
@@ -128,7 +132,7 @@ SplitSquareLatticeIntoSublattices[BZ_] := Module[
 	BZA = Pick[BZ, EvenQ[row + col]];
 	BZB = Pick[BZ, OddQ[row + col]];
 	{BZA, BZB}
-];
+];*)
 
 (* Return the energy and weight lists for computing local G.F. *)
 GetLatticeEnergies[HalfBandwidths_, \[Delta]_, LatticeType_, LatticeDim_, NumberOfPoints_] := Module[
@@ -151,7 +155,7 @@ GetLatticeEnergies[HalfBandwidths_, \[Delta]_, LatticeType_, LatticeDim_, Number
 		(* number of points per lattice direction *)
 		LE = Floor[NumberOfPoints^(1./LatticeDim)];
 		(* get the Brillouin Zone *)
-		BZ = BrillouinZone[LE, LatticeDim, Lattice -> "Hypercubic"];
+		BZ = BrillouinZone[LE, LatticeDim, LatticeType];
 		(* initialize energies list of rank LE x Norb x Norb *)
 		energies = ConstantArray[0, {Length[BZ], Norb, Norb}];
 		(* equal weights to all the energies since we are sampling the Brillouin zone *)
@@ -174,7 +178,7 @@ GetLatticeEnergiesRaman[HalfBandwidths_, \[Delta]_, M_, \[Gamma]_, LatticeType_,
 		(* number of points per lattice direction *)
 		LE = Floor[NumberOfPoints^(1./LatticeDim)];
 		(* get the Brillouin Zone *)
-		BZ = BrillouinZone[LE, LatticeDim, Lattice -> "Hypercubic"];
+		BZ = BrillouinZone[LE, LatticeDim, LatticeType];
 		(* initialize energies list of rank LE x Norb x Norb x f x f *)
 		energies = ConstantArray[ConstantArray[0.0, {f, f}], {Length[BZ], Norb, Norb}];
 		(* equal weights to all the energies since we are sampling the Brillouin zone *)
@@ -198,7 +202,7 @@ GetLatticeEnergiesRamanSublattices[HalfBandwidths_, \[Delta]_, M_, \[Gamma]_, La
 	(* number of points per lattice direction *)
 	LE = Floor[NumberOfPoints^(1./LatticeDim)];
 	(* get the Brillouin Zone *)
-	MBZ = MagneticBrillouinZone[LE, LatticeDim, "Hypercubic"];
+	MBZ = MagneticBrillouinZone[LE, LatticeDim, LatticeType];
 	(* initialize energies list of rank LE x Norb x Norb x f x f *)
 	energies = ConstantArray[ConstantArray[0.0, {2f, 2f}], {Length[MBZ], Norb, Norb}];
 	(* equal weights to all the energies since we are sampling the Brillouin zone *)
@@ -404,15 +408,14 @@ LocalGreenFunction[LatticeEnergies_, weights_, \[Mu]_, \[CapitalSigma]_, zlist_,
 	{energies, LE = Length[LatticeEnergies], Norb = Length[LatticeEnergies[[1]]], \[CapitalSigma]matrix},
 	Which[
 		EdMode == "Normal" && !SublatticesQ,
-		energies = Flatten[LatticeEnergies]; (* the input will be {{e1},{e2},...} but we want {e1, e2, e3, ...} *)
-		LocalGreenFunctionNormal[energies, weights, \[Mu], \[CapitalSigma], zlist],
+		(* the input will be {{e1},{e2},...} but we want {e1, e2, e3, ...} *)
+		LocalGreenFunctionNormal[Flatten[LatticeEnergies], weights, \[Mu], \[CapitalSigma], zlist],
 	(* ------------------------------------------------------------------- *)
 		EdMode == "Superc" && !SublatticesQ,
-		energies = Flatten[LatticeEnergies];
 		If[Re[zlist[[-1]]] == 0.0, (* if we are using Matsubara frequencies, use a shortcut *)
-			LocalGreenFunctionSupercAnalytic[energies, weights, \[Mu], \[CapitalSigma], zlist],
+			LocalGreenFunctionSupercAnalytic[Flatten[LatticeEnergies], weights, \[Mu], \[CapitalSigma], zlist],
 		(* else if we are using real frequencies let's be safe and invert the matrix *)
-			LocalGreenFunctionSuperc[energies, weights, \[Mu], \[CapitalSigma], zlist]
+			LocalGreenFunctionSuperc[Flatten[LatticeEnergies], weights, \[Mu], \[CapitalSigma], zlist]
 		],
 	(* ------------------------------------------------------------------- *)
 		EdMode == "Raman" && !SublatticesQ,
@@ -427,8 +430,8 @@ LocalGreenFunction[LatticeEnergies_, weights_, \[Mu]_, \[CapitalSigma]_, zlist_,
 		LocalGreenFunctionRamanSublattices[LatticeEnergies, weights, \[Mu], OptionValue["StaggeredMagneticField"], \[CapitalSigma]matrix, zlist],
 	(* ------------------------------------------------------------------- *)
 		EdMode == "InterorbNormal",
-		energies = LatticeEnergies; (* in this situation the input tensor has the correct shape *)
-		LocalGreenFunctionInterorbNormal[energies, weights, \[Mu], \[CapitalSigma], zlist],
+		(* in this situation the input tensor has the correct shape *)
+		LocalGreenFunctionInterorbNormal[LatticeEnergies, weights, \[Mu], \[CapitalSigma], zlist],
 	(* ------------------------------------------------------------------- *)
 		EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
 		energies = ConstantArray[0, {LE, 2*Norb, 2*Norb}];
