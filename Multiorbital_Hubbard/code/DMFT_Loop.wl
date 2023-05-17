@@ -329,6 +329,8 @@ If[Norb == 1,
 (* else Norb > 1 *)
 	\[CapitalSigma] = {{0,0},{0,0}}; \[CapitalSigma]old = \[CapitalSigma]; IndependentParameters = {{0.,0.},{0.,0.}}; error = {0.,0.};
 ];
+(* *)
+SetSharedVariable[BathParameters, \[CapitalSigma], \[CapitalSigma]old, IndependentParameters];
 
 (* start DMFT loop *)
 Do[
@@ -407,6 +409,10 @@ Do[
 				Print["\!\(\*SuperscriptBox[\(c\), \(\[Dagger]\)]\)_",orb,"c_",orb," = ", MatrixForm[cdgc[[orb]]]]
 			, {orb, Norb}]
 		];
+		(* to avoid a lot of code, just save it now *)
+		If[LastIteration,
+			WriteOutput[True, OutputDirectory, "cdgc_sublattice_"<>If[sublattice==1,"A","B"], cdgc];
+		];
 		
 		
 		Which[
@@ -475,19 +481,30 @@ Do[
 		]
 	, {sublattice, 1, 2}];
 	
-	(* G_loc(i\[Omega]) *)
+	(* reshape \[CapitalSigma](i\[Omega])and compute G_loc(i\[Omega]) *)
 	If[OrbitalSymmetry,
-		LocalGold = If[DMFTiterator == 1, 0*\[CapitalSigma], LocalG];
-		LocalG = LocalGreenFunction[LatticeEnergies[[All,1,1]], LatticeWeights, \[Mu], \[CapitalSigma], i\[Omega], EdMode, SublatticesQ, "StaggeredMagneticField" -> hAFM];,
-	(* else *)
-		LocalGold = If[DMFTiterator == 1, 0*\[CapitalSigma], LocalG];
-		LocalG = Table[
-			LocalGreenFunction[LatticeEnergies[[All, orb, orb]], LatticeWeights, \[Mu], \[CapitalSigma][[orb]], i\[Omega], EdMode, SublatticesQ, "StaggeredMagneticField" -> hAFM]
+		(* NMatsubara x 2f x 2f tensor *)
+		\[CapitalSigma]matrix = (ArrayFlatten[{{#,0},{0,0*#}}] &/@ \[CapitalSigma][[1]]) + (ArrayFlatten[{{0*#,0},{0,#}}] &/@ \[CapitalSigma][[2]]);
+		(* 2 x NMatsubara x f x f tensor (much more handy) *)
+		LocalGold = If[DMFTiterator == 1, 0.0*\[CapitalSigma], LocalG];
+		LocalG = LocalGreenFunction[LatticeEnergies[[All,1,1]], LatticeWeights, \[Mu], \[CapitalSigma]matrix, i\[Omega], EdMode, SublatticesQ, "StaggeredMagneticField" -> hAFM];,
+	(* else, no orbital symmetry *)
+		(* Norb x NMatsubara x 2f x 2f tensor *)
+		\[CapitalSigma]matrix = Table[
+			(ArrayFlatten[{{#,0},{0,0*#}}] &/@ \[CapitalSigma][[orb, 1]]) + (ArrayFlatten[{{0*#,0},{0,#}}] &/@ \[CapitalSigma][[orb, 2]])
 		, {orb, Norb}];
-	]
+		(* Norb x 2 x NMatsubara x f x f tensor (much more handy) *)
+		LocalGold = If[DMFTiterator == 1, 0.0*\[CapitalSigma], LocalG];
+		LocalG = Table[
+			LocalGreenFunction[LatticeEnergies[[All, orb, orb]], LatticeWeights, \[Mu], \[CapitalSigma]matrix[[orb]], i\[Omega], EdMode, SublatticesQ, "StaggeredMagneticField" -> hAFM]
+		, {orb, Norb}];
+	];
+	(* finally save it *)
+	If[LastIteration,
+		WriteOutput[True, OutputDirectory, "self_energy", \[CapitalSigma]matrix];
+	];
 	
 	(* self consistency loop over sublattices *)
-	SetSharedVariable[BathParameters];
 	ParallelDo[
 		Which[
 		(* ----------------------------------------------------------------------------------------- *)
@@ -551,11 +568,16 @@ Do[
 	, {sublattice, 1, 2}];
 	
 	(* compute error with the self energy *)
-	error = (1.0/(2.0*Norb))*Sum[
-		DMFTError[\[CapitalSigma][[orb, sublattice]], \[CapitalSigma]old[[orb, sublattice]], EdMode]
-	, {orb, Norb}, {sublattice, 1, 2}];
-		
-		
+	If[Norb == 1,
+		error = (1./2.)*Sum[
+			DMFTError[\[CapitalSigma][[sublattice]], \[CapitalSigma]old[[sublattice]], EdMode]
+		, {sublattice, 1, 2}],
+	(* else if Norb > 1 *)
+		error = (1.0/(2.0*Norb))*Sum[
+			DMFTError[\[CapitalSigma][[orb, sublattice]], \[CapitalSigma]old[[orb, sublattice]], EdMode]
+		, {orb, Norb}, {sublattice, 1, 2}];
+	];
+	
 	(* store new bath parameters and error *)
 	WriteOutput[True, OutputDirectory, "hamiltonian_restart", BathParameters];
 	AppendTo[ErrorList, error];

@@ -115,7 +115,7 @@ Which[
 		Gs = Apply[GsSectorList[[##]]&, GsSectorIndex, {1}];
 		GsQns = QnsSectorList[[GsSectorIndex[[All, 1]]]];	
 		(* double occupancy *)
-		docc = Table[ SquareDensity[L, f, Norb, {1,1}, {1,2}, {orb,orb}, Sectors, EgsSectorList, GsSectorList, T], {orb, Norb}]
+		docc = Table[ SquareDensity[L, f, Norb, {1,1}, {1,2}, {orb,orb}, Sectors, EgsSectorList, GsSectorList, T], {orb, Norb}];
 		WriteOutput[True, OutputDirectory, "double_occupancy_sublattice_"<>If[sublattice==1,"A","B"], docc];
 		(* < cdg_\[Sigma] c_\[Rho] > *)
 		If[EdMode == "Raman",
@@ -170,7 +170,7 @@ Which[
 		\[CapitalSigma]matrix = (ArrayFlatten[{{#,0},{0,0*#}}] &/@ \[CapitalSigma][[1]]) + (ArrayFlatten[{{0*#,0},{0,#}}] &/@ \[CapitalSigma][[2]]);,
 	(* else Norb > 1 *)
 		\[CapitalSigma]matrix = Table[
-			(ArrayFlatten[{{#,0},{0,0*#}}] &/@ \[CapitalSigma][[orb, 1]]) + (ArrayFlatten[{{0*#,0},{0,#}}] &/@ \[CapitalSigma][[orb, 2]]);
+			(ArrayFlatten[{{#,0},{0,0*#}}] &/@ \[CapitalSigma][[orb, 1]]) + (ArrayFlatten[{{0*#,0},{0,#}}] &/@ \[CapitalSigma][[orb, 2]])
 		, {orb, Norb}]
 	];
 	ClearAll[\[CapitalSigma]]; \[CapitalSigma] = \[CapitalSigma]matrix; ClearAll[\[CapitalSigma]matrix];
@@ -240,8 +240,8 @@ If[ EdMode == "Raman",
 			Print["I_\[Sigma]="<>If[f==2, Which[\[Sigma]==1,"\[DownArrow]", \[Sigma]==2,"\[UpArrow]"], ToString[\[Sigma]]]<>",a="<>ToString[a]<>" = ", flavorcurrent[[\[Sigma],a]]];
 		, {\[Sigma], f}, {a, LatticeDim}];
 		(* kinetic energy *)
-		Ekin = KineticEnergy[\[Mu], LatticeEnergies, LatticeWeights, \[CapitalSigma], i\[Omega], EdMode, "OrbitalSymmetry" -> OrbitalSymmetry, "FlavorDistribution" -> {flavordistribution}];
-		Print["Ekin = ", Ekin];,
+		(*Ekin = KineticEnergy[\[Mu], LatticeEnergies, LatticeWeights, \[CapitalSigma], i\[Omega], EdMode, "OrbitalSymmetry" -> OrbitalSymmetry, "FlavorDistribution" -> {flavordistribution}];
+		Print["Ekin = ", Ekin];*),
 	(* -------- else, if no orbital symmetry ------------- *)
 		flavordistribution = Table[
 			MomentumDistributedDensityRaman[
@@ -250,21 +250,20 @@ If[ EdMode == "Raman",
 			]
 		, {orb, Norb}];
 		(* flavor current *)
-		flavorcurrent = Table[
+		flavorcurrent = ParallelTable[
 			FlavorCurrent[W[[orb]], \[Gamma][[orb]], \[Sigma], a, flavordistribution[[orb]], LatticeType, LatticeDim, LatticePoints, SublatticesQ]
 		, {orb, Norb}, {\[Sigma], f}, {a, LatticeDim}];
 		Do[
 			Print["I_orb="<>ToString[orb]<>",\[Sigma]="<>If[f==2, Which[\[Sigma]==1,"\[DownArrow]", \[Sigma]==2,"\[UpArrow]"], ToString[\[Sigma]]]<>",a="<>ToString[a]<>" = ", flavorcurrent[[orb,\[Sigma],a]]];
 		, {orb, Norb}, {\[Sigma], f}, {a, LatticeDim}];
 		(* kinetic energy *)
-		Ekin = KineticEnergy[\[Mu], LatticeEnergies, LatticeWeights, \[CapitalSigma], i\[Omega], EdMode, "FlavorDistribution" -> flavordistribution];
-		Print["Ekin = ", Ekin];
+		(*Ekin = KineticEnergy[\[Mu], LatticeEnergies, LatticeWeights, \[CapitalSigma], i\[Omega], EdMode, "FlavorDistribution" -> flavordistribution];
+		Print["Ekin = ", Ekin];*)
 	];
 
 	WriteOutput[True, OutputDirectory, "flavor_current", flavorcurrent];
 	(*WriteOutput[True, OutputDirectory, "kinetic_energy", Ekin];*)
 	WriteOutput[True, OutputDirectory, "flavor_resolved_momentum_distributed_cdgc", flavordistribution];
-	(*ClearAll[flavordistribution];*)
 ];
 
 

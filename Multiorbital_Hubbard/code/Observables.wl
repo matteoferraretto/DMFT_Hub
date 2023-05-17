@@ -527,7 +527,7 @@ FlavorCurrent[t_, \[Gamma]_, \[Sigma]_, a_, flavordistribution_, LatticeType_, L
 		MBZ = MagneticBrillouinZone[LE, LatticeDim, LatticeType];
 	];
 	(* spin projection quantum number labeled by \[Sigma]: e.g. with f=2, \[Sigma]=1 -> m=-1/2; \[Sigma]=2 -> m=1/2 *)
-	m = (\[Sigma]-(f+1)/2);
+	m = -(\[Sigma]-(f+1)/2);
 	(* compute flavor current *)
 	If[!SublatticesQ,
 		Which[
@@ -543,7 +543,7 @@ FlavorCurrent[t_, \[Gamma]_, \[Sigma]_, a_, flavordistribution_, LatticeType_, L
 	(* else, if SublatticesQ *)
 		Which[
 			LatticeType == "Hypercubic" && LatticeDim == 1,
-			Iflavor = -2.0*(t/NumberOfPoints) * Re[ Table[
+			Iflavor = -2.0*(t/(LE^LatticeDim)) * Re[ Table[
 				- I*Exp[I*m*\[Gamma][[1]]] + I*Exp[-I*m*\[Gamma][[1]]]*Exp[-2.0*I*k[[1]]]
 			, {k, MBZ}] . flavordistribution[[All, \[Sigma], 2+\[Sigma]]] ],
 			(* A - B - A - B *)

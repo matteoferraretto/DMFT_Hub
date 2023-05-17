@@ -423,11 +423,8 @@ LocalGreenFunction[LatticeEnergies_, weights_, \[Mu]_, \[CapitalSigma]_, zlist_,
 		LocalGreenFunctionRaman[LatticeEnergies, weights, \[Mu], \[CapitalSigma], zlist],
 	(* ------------------------------------------------------------------- *)
 		EdMode == "Raman" && SublatticesQ,
-		(* the input self energy is a list {\[CapitalSigma]_A, \[CapitalSigma]_B}, where the components are NMatsubara fxf matrices *)
-		(* we must convert it into a matrix of Nmatsubara 2fx2f matrices, with \[CapitalSigma]_A and \[CapitalSigma]_B as diagonal blocks *)
-		\[CapitalSigma]matrix = (ArrayFlatten[{{#,0},{0,0*#}}] &/@ \[CapitalSigma][[1]]) + (ArrayFlatten[{{0*#,0},{0,#}}] &/@ \[CapitalSigma][[2]]);
 		(* the input LatticeEnergies will be a list of 2fx2f matrices (orbital indexes will be specified) *)
-		LocalGreenFunctionRamanSublattices[LatticeEnergies, weights, \[Mu], OptionValue["StaggeredMagneticField"], \[CapitalSigma]matrix, zlist],
+		LocalGreenFunctionRamanSublattices[LatticeEnergies, weights, \[Mu], OptionValue["StaggeredMagneticField"], \[CapitalSigma], zlist],
 	(* ------------------------------------------------------------------- *)
 		EdMode == "InterorbNormal",
 		(* in this situation the input tensor has the correct shape *)
