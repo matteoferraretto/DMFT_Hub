@@ -96,6 +96,9 @@ Which[
 (* ------------------------------------------------------------------------------------ *)
 (* ------------------------------------------------------------------------------------ *)
 	(EdMode == "Normal" || EdMode == "Superc" || EdMode == "Raman") && SublatticesQ,
+	(* initialize AFM magnetization and <S^+> *)
+	m = ConstantArray[0.0, Norb];
+	s = ConstantArray[0.0, Norb];
 	(* repeat one more ED step *)
 	Do[
 		Hsectors = HImp[Norb, HnonlocBlocks, HlocBlocks, BathParameters[[sublattice]], InteractionParameters[[sublattice]], EdMode];
@@ -125,6 +128,8 @@ Which[
 					\[Sigma] == \[Rho], Density[L, f, Norb, 1, \[Sigma], orb, Sectors, EgsSectorList, GsSectorList, T]
 				]
 			, {orb, Norb}, {\[Sigma], f}, {\[Rho], f}];
+			m -= ((-1)^sublattice) * cdgc[[All,1,1]];
+			s += cdgc[[All,1,2]];
 			WriteOutput[True, OutputDirectory, "cdgc_sublattice_"<>If[sublattice==1,"A","B"], cdgc];
 		];
 		If[OrbitalSymmetry,
@@ -163,6 +168,10 @@ Which[
 		\[CapitalSigma]realfreq = InverseG0realfreq - InverseGrealfreq;
 		WriteOutput[True, OutputDirectory, "self_energy_real_frequency_sublattice_"<>If[sublattice==1,"A","B"], \[CapitalSigma]realfreq];*)
 	, {sublattice, 1, 2}];
+	(* Save the AFM magnetization and <S^+> *)
+	m = m/2.0; s = s/2.0;
+	WriteOutput[True, OutputDirectory, "AFM_magnetization", m];
+	WriteOutput[True, OutputDirectory, "s_plus", s];
 	(* Save the self energy as a Norb x 2 x NMatsubara x f x f tensor *)
 	Do[ WriteOutput[True, OutputDirectory, "self_energy_sublattice_"<>If[sublattice==1,"A","B"], \[CapitalSigma][[sublattice]]], {sublattice, 1, 2}];
 	(* reshape self energy to make it a Norb x NMatsubara x 2f x 2f tensor *)
