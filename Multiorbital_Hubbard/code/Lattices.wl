@@ -58,7 +58,7 @@ DispersionHypercubicRaman = Compile[
 	{{k,_Real,1}, {t,_Real}, {M,_Real,2}, {\[Gamma],_Real,1}},
 	-2.*t*DiagonalMatrix[
 		Table[
-			Sum[Cos[k[[a]] + \[Sigma] * \[Gamma][[a]]], {a, Length[k]}]
+			Sum[Cos[k[[a]] - \[Sigma] * \[Gamma][[a]]], {a, Length[k]}]
 		, {\[Sigma], -(Length[M]-1)/2, (Length[M]-1)/2}]
 	] + M,
 	CompilationTarget -> "C", RuntimeAttributes -> {Listable}
@@ -230,7 +230,7 @@ GetLatticeEnergiesRamanSublattices[HalfBandwidths_, \[Delta]_, M_, \[Gamma]_, La
 				}
 			}]) &/@ MBZ
 		, {orb, Norb}];,
-	(* --------------- to be checked ----------------------------- *)
+	(* -------------------------------------------- *)
 		LatticeDim == 2,
 		Do[
 			energies[[All, orb, orb]] = (ArrayFlatten[{
@@ -241,8 +241,8 @@ GetLatticeEnergiesRamanSublattices[HalfBandwidths_, \[Delta]_, M_, \[Gamma]_, La
 					-W[[orb]]*DiagonalMatrix[Table[
 						Exp[I*m*\[Gamma][[orb,1]]] 
 						+ Exp[-I*m*\[Gamma][[orb,1]]]*Exp[-2I*#[[1]]] 
-						+ Exp[I*m*\[Gamma][[orb,2]]]*Exp[I*(-#[[1]]+#[[2]])/Sqrt[2]] 
-						+ Exp[-I*m*\[Gamma][[orb,2]]]*Exp[-I*(#[[1]]+#[[2]])/Sqrt[2]]
+						+ Exp[I*m*\[Gamma][[orb,2]]]*Exp[I*(-#[[1]]+#[[2]])] 
+						+ Exp[-I*m*\[Gamma][[orb,2]]]*Exp[-I*(#[[1]]+#[[2]])]
 					, {m, (f-1)/2, -(f-1)/2, -1}]]
 				},
 				{
@@ -250,8 +250,8 @@ GetLatticeEnergiesRamanSublattices[HalfBandwidths_, \[Delta]_, M_, \[Gamma]_, La
 					-W[[orb]]*DiagonalMatrix[Table[
 						Exp[-I*m*\[Gamma][[orb,1]]] 
 						+ Exp[I*m*\[Gamma][[orb,1]]]*Exp[2I*#[[1]]] 
-						+ Exp[-I*m*\[Gamma][[orb,2]]]*Exp[-I*(-#[[1]]+#[[2]])/Sqrt[2]] 
-						+ Exp[I*m*\[Gamma][[orb,2]]]*Exp[I*(#[[1]]+#[[2]])/Sqrt[2]]
+						+ Exp[-I*m*\[Gamma][[orb,2]]]*Exp[-I*(-#[[1]]+#[[2]])] 
+						+ Exp[I*m*\[Gamma][[orb,2]]]*Exp[I*(#[[1]]+#[[2]])]
 					, {m, (f-1)/2, -(f-1)/2, -1}]], 
 					(* B-B block *)
 					M[[orb]] + \[Delta][[orb]]*IdentityMatrix[f]

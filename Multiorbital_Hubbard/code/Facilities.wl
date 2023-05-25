@@ -155,6 +155,8 @@ PlotSpectralFunctionRaman[spectralfunction_, \[Omega]_, \[Mu]_, LatticeType_, La
 			ListDensityPlot[
 				spectralfunction[[All, All, \[Sigma], \[Sigma]]] / max,
 				PlotRange -> All,
+				FrameLabel -> {"k","\[Omega]"},
+				FrameStyle -> Directive[Black, 18],
 				ColorFunction -> (Apply[RGBColor, Flatten[{ If[f==2 && \[Sigma]==2, {0,0,1}, (*else*) UnitVector[3, \[Sigma]]], #}]]&),
 				ColorFunctionScaling -> False,
 				DataRange -> datarange,

@@ -13,7 +13,7 @@ Print @ ListLogPlot[
 
 
 (* Plot momentum-resolved spectral function *)
-(* spectralfunctionresolved = Import[OutputDirectory<>"momentum_resolved_spectral_function.m"];
+spectralfunctionresolved = Import[OutputDirectory<>"momentum_resolved_spectral_function.m"];
 If[
 	OrbitalSymmetry || Norb == 1,
 	Print @ PlotSpectralFunctionRaman[Abs[spectralfunctionresolved], \[Omega], \[Mu], LatticeType, LatticeDim],
@@ -21,7 +21,7 @@ If[
 	Do[
 		Print @ PlotSpectralFunctionRaman[Abs[spectralfunctionresolved[[orb]]], \[Omega], \[Mu], LatticeType, LatticeDim]
 	, {orb, Norb}]	
-]; *)
+];
 
 
 (* plot the spectral function *)

@@ -205,7 +205,7 @@ If[!SublatticesQ,
 
 
 (* momentum resolved spectral function *)
-(*If[
+If[
 	OrbitalSymmetry || Norb == 1,
 	spectralfunctionresolved = MomentumResolvedSpectralFunction[
 		LatticeEnergies[[All, 1, 1]], 
@@ -229,7 +229,7 @@ If[!SublatticesQ,
 ];
 
 WriteOutput[True, OutputDirectory, "momentum_resolved_spectral_function", spectralfunctionresolved];
-ClearAll[spectralfunctionresolved];*)
+(*ClearAll[spectralfunctionresolved];*)
 
 
 (* specific observables of Raman coupled systems *)

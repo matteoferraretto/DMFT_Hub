@@ -13,6 +13,9 @@ FlavorCurrent::usage = "FlavorCurrent[t, \[Gamma], \[Sigma], a, flavordistributi
 associated to the flavor \[Sigma]=1,2,...,f. This function requires as an input ''flavordistribution'', i.e. the flavor-resolved momentum-distributed operator <cdg_k\[Alpha] c_k\[Beta]>, 
 which is a list of fxf matrices, each one associated to a given momentum. "
 
+ChiralCurrentNonInteracting::usage = "ChiralCurrentNonInteracting[t_, \[CapitalOmega]_, \[Gamma]_] returns the non interacting value of the chiral current in the thermodynamic limit by using an analytic
+expression."
+
 CdgCdg::usage = "CdgCdg[L, f, Norb, {i,j}, {\[Sigma]1,\[Sigma]2}, {orb1,orb2}, Sectors, EgsSectorList, GsSectorList, T]"
 
 CdgC::usage = "CdgC[L, f, Norb, {i,j}, {\[Sigma]1,\[Sigma]2}, {orb1,orb2}, Sectors, EgsSectorList, GsSectorList, T]"
@@ -546,13 +549,21 @@ FlavorCurrent[t_, \[Gamma]_, \[Sigma]_, a_, flavordistribution_, LatticeType_, L
 			Iflavor = -2.0*(t/(LE^LatticeDim)) * Re[ Table[
 				- I*Exp[I*m*\[Gamma][[1]]] + I*Exp[-I*m*\[Gamma][[1]]]*Exp[-2.0*I*k[[1]]]
 			, {k, MBZ}] . flavordistribution[[All, \[Sigma], 2+\[Sigma]]] ],
-			(* A - B - A - B *)
 		(* ----------------------------------------- *)
 			LatticeType == "Bethe",
 			Return["Error. Bethe lattice is incompatible with a gauge field. "]
 		];
 	];
 	Iflavor
+];
+
+(* non interacting chiral current in thermodynamic limit, d=1 *)
+ChiralCurrentNonInteracting[t_, \[CapitalOmega]_, \[Gamma]_]:= 
+If[
+	\[CapitalOmega] <= 2.0*t*Cos[\[Gamma]/2], (* metal *)
+		2.0*(-0.3183098861837907`)*(-((2.` Cos[\[Gamma]/2]^2 Sin[\[Gamma]/2])/Sqrt[1-0.25` \[CapitalOmega]^2-Sin[\[Gamma]/2]^2])-2.` Sin[\[Gamma]/2] Sqrt[1-0.25` \[CapitalOmega]^2-Sin[\[Gamma]/2]^2]+\[CapitalOmega] (0.5` Cot[\[Gamma]/2] (EllipticE[\[Pi]-ArcCos[Sqrt[0.25` \[CapitalOmega]^2+Sin[\[Gamma]/2]^2]],-((4.` Sin[\[Gamma]/2]^2)/\[CapitalOmega]^2)]-EllipticF[\[Pi]-ArcCos[Sqrt[0.25` \[CapitalOmega]^2+Sin[\[Gamma]/2]^2]],-((4.` Sin[\[Gamma]/2]^2)/\[CapitalOmega]^2)])-0.5` Cot[\[Gamma]/2] (EllipticE[ArcCos[Sqrt[0.25` \[CapitalOmega]^2+Sin[\[Gamma]/2]^2]],-((4.` Sin[\[Gamma]/2]^2)/\[CapitalOmega]^2)]-EllipticF[ArcCos[Sqrt[0.25` \[CapitalOmega]^2+Sin[\[Gamma]/2]^2]],-((4.` Sin[\[Gamma]/2]^2)/\[CapitalOmega]^2)])+(Cos[\[Gamma]/2] Sin[\[Gamma]/2] Sqrt[1+(4.` Sin[\[Gamma]/2]^2 (1-0.25` \[CapitalOmega]^2-Sin[\[Gamma]/2]^2))/\[CapitalOmega]^2])/(Sqrt[1-0.25` \[CapitalOmega]^2-Sin[\[Gamma]/2]^2] Sqrt[0.25` \[CapitalOmega]^2+Sin[\[Gamma]/2]^2]))),
+	(* else, insulator *)
+		2.0*(-0.15915494309189535`) \[CapitalOmega] Cot[\[Gamma]/2] (EllipticE[\[Pi],-((4.` Sin[\[Gamma]/2]^2)/\[CapitalOmega]^2)]-EllipticF[\[Pi],-((4.` Sin[\[Gamma]/2]^2)/\[CapitalOmega]^2)])
 ];
 
 
