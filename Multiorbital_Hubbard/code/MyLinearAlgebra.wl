@@ -27,6 +27,11 @@ Print["Package MyLinearAlgebra` loaded successfully."];
 (* get a single element of the inverse matrix *)
 InverseElement[m_, {i_,j_}] := (-1)^(i+j)Det[Drop[m,{j},{i}]]/Det[m];
 
+getInverseElement[m_, {row_, col_}] := Module[
+	{coeffs = SparseArray[{col}->1, Length[m]]},
+	LinearSolve[m, coeffs, Method -> "Banded"][[row]]
+];
+
 (* compiled and listable version of determinant specific for 2x2 matrices *)
 TwoByTwoDet = Compile[{
 	{A, _Complex, 2}

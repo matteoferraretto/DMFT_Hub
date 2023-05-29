@@ -13,6 +13,9 @@ FlavorCurrent::usage = "FlavorCurrent[t, \[Gamma], \[Sigma], a, flavordistributi
 associated to the flavor \[Sigma]=1,2,...,f. This function requires as an input ''flavordistribution'', i.e. the flavor-resolved momentum-distributed operator <cdg_k\[Alpha] c_k\[Beta]>, 
 which is a list of fxf matrices, each one associated to a given momentum. "
 
+ChiralCurrentNonInteracting::usage = "ChiralCurrentNonInteracting[t_, \[CapitalOmega]_, \[Gamma]_] returns the non interacting value of the chiral current in the thermodynamic limit by using an analytic
+expression."
+
 CdgCdg::usage = "CdgCdg[L, f, Norb, {i,j}, {\[Sigma]1,\[Sigma]2}, {orb1,orb2}, Sectors, EgsSectorList, GsSectorList, T]"
 
 CdgC::usage = "CdgC[L, f, Norb, {i,j}, {\[Sigma]1,\[Sigma]2}, {orb1,orb2}, Sectors, EgsSectorList, GsSectorList, T]"
@@ -75,18 +78,24 @@ MomentumDistributedDensitySuperc[i_, Energies_, \[Mu]_, \[CapitalSigma]_, i\[Ome
 ];
 
 (* returns a list of matrices < cdg_k\[Alpha] c_k\[Beta] > where \[Alpha],\[Beta] are flavor indexes *)
+(* this is also ok when there are sublattices, in that case \[Alpha]=(sub_1,\[Sigma]) \[Beta]=(sub_2,\[Rho]) *)  
 MomentumDistributedDensityRaman[kindexes_, Energies_, \[Mu]_, \[CapitalSigma]_, i\[Omega]_] := Module[
-	{TMats = Re[(i\[Omega][[2]]-i\[Omega][[1]])/(2.*Pi*I)], f = Length[\[CapitalSigma][[1]]], NFit = Floor[Length[i\[Omega]]/50], \[CapitalSigma]0},
+	{TMats = Re[(i\[Omega][[2]]-i\[Omega][[1]])/(2.*Pi*I)], f = Length[\[CapitalSigma][[1]]], NFit = Floor[Length[i\[Omega]]/50], \[CapitalSigma]0, flavdist},
 	\[CapitalSigma]0 = Mean[ \[CapitalSigma][[;;-NFit]] ];
-	(* compute the density: TMats \!\(
-\*SubscriptBox[\(\[Sum]\), \(i\[Omega]\)]\ \(\(Exp[\(-i\[Omega]\[Eta]\)]\)\ [P\  . \ G\((k, \ i\[Omega])\)\  . \ Pdg]_\[Sigma]\[Sigma]\)\) *)
-	Table[
-		2.0 * TMats * Total[(
-			(* G_numerical - G_tail *)
-				Inverse[#] &/@ (((#+\[Mu])*IdentityMatrix[f] - Energies[[i]]) &/@ i\[Omega] - \[CapitalSigma]) 
-				- (((Energies[[i]] + \[CapitalSigma]0)/(#^2)) &/@ i\[Omega]) 
-			)] + (1./2.)*IdentityMatrix[f] - (1./(4.*TMats)) * ((Energies[[i]] + \[CapitalSigma]0))\[Transpose]
-		(* correction term due to Matsubara sum of  G_tail *)
+	(* <cdg_k\[Alpha] c_k\[Beta]> = TMats \!\(
+\*SubscriptBox[\(\[Sum]\), \(i\[Omega]\)]\ \(Exp[\(-i\[Omega]\[Eta]\)]\ G\((k, \ i\[Omega])\)_\[Beta]\[Alpha]\)\) *)
+	flavdist = Table[
+		TMats * Total[(
+			(* G_numerical - G_tail (positive Matsubara frequencies) *)
+			Transpose[Inverse[#]] &/@ (((#+\[Mu])*IdentityMatrix[f] - Energies[[i]]) &/@ i\[Omega] - \[CapitalSigma]) 
+			- ((Transpose[Energies[[i]] + \[CapitalSigma]0]/(#^2)) &/@ i\[Omega]) 
+		)]
+	, {i, kindexes}];
+	(* add G_numerical - G_tail (negative Matsubara frequencies) *)
+	flavdist = flavdist + (ConjugateTranspose[#] &/@ flavdist);
+	(* add tail contribution *)
+	flavdist += Table[
+		(1./2.)*IdentityMatrix[f] - (1./(8.*TMats)) * ((Energies[[i]] + \[CapitalSigma]0)\[Transpose] + Conjugate[Energies[[i]] + \[CapitalSigma]0])
 	, {i, kindexes}]
 ];
 
@@ -224,7 +233,7 @@ SpectralFunction[LatticeEnergies_, weights_, \[Mu]_, \[CapitalSigma]_, zlist_, E
 
 (* A(k, \[Omega]) = (\[Omega] + \[Mu] - \[Epsilon]_k - \[CapitalSigma](\[Omega])^-1 *)
 MomentumResolvedSpectralFunction[LatticeEnergies_, \[Mu]_, \[CapitalSigma]_, kindexes_, zlist_, EdMode_] := Module[
-	{spectralfunction, energies, prova},
+	{spectralfunction, energies},
 	(* extract energies indicated by kindexes *)
 	energies = LatticeEnergies[[kindexes]];
 	(* *)
@@ -509,23 +518,52 @@ Options[KineticEnergy] = {"OrbitalSymmetry" -> False, "FlavorDistribution" -> {}
 
 
 (* flavor current for Raman coupled systems *)
-FlavorCurrent[t_, \[Gamma]_, \[Sigma]_, a_, flavordistribution_, LatticeType_, LatticeDim_, NumberOfPoints_] := Module[
-	{LE, BZ, Iflavor, f = Length[flavordistribution[[1]]]},
-	Which[
-		LatticeType == "Hypercubic",
-		(* get Brillouin zone *)
-		LE = Floor[NumberOfPoints^(1./LatticeDim)];
-		BZ = BrillouinZone[LE, LatticeDim, Lattice -> "Hypercubic"];
-		(* get flavor current *)
-		Iflavor = (2.*t / (LE^LatticeDim)) * (
-			Table[Sin[k[[a]] + (\[Sigma]-(f+1)/2)*\[Gamma][[a]]], {k, BZ}] . 
-			Re[ flavordistribution[[All, \[Sigma], \[Sigma]]] ]
-		);,
-	(* ----------------------------------------- *)
-		LatticeType == "Bethe",
-		Return["Error. Bethe lattice is incompatible with a gauge field. "]
+FlavorCurrent[t_, \[Gamma]_, \[Sigma]_, a_, flavordistribution_, LatticeType_, LatticeDim_, NumberOfPoints_, SublatticesQ_] := Module[
+	{LE, BZ, MBZ, Iflavor, f, m},
+	(* get Brillouin zone *)
+	LE = Floor[NumberOfPoints^(1./LatticeDim)];
+	If[!SublatticesQ, 
+		f = Length[flavordistribution[[1]]];
+		BZ = BrillouinZone[LE, LatticeDim, LatticeType];,
+	(* else if SublatticeQ *)
+		f = Length[flavordistribution[[1]]]/2;
+		MBZ = MagneticBrillouinZone[LE, LatticeDim, LatticeType];
+	];
+	(* spin projection quantum number labeled by \[Sigma]: e.g. with f=2, \[Sigma]=1 -> m=-1/2; \[Sigma]=2 -> m=1/2 *)
+	m = -(\[Sigma]-(f+1)/2);
+	(* compute flavor current *)
+	If[!SublatticesQ,
+		Which[
+			LatticeType == "Hypercubic",
+			Iflavor = (2.*t / (LE^LatticeDim)) * (
+				Table[Sin[k[[a]] + m*\[Gamma][[a]]], {k, BZ}] . 
+				Re[ flavordistribution[[All, \[Sigma], \[Sigma]]] ]
+			);,
+		(* ----------------------------------------- *)
+			LatticeType == "Bethe",
+			Return["Error. Bethe lattice is incompatible with a gauge field. "]
+		];,
+	(* else, if SublatticesQ *)
+		Which[
+			LatticeType == "Hypercubic" && LatticeDim == 1,
+			Iflavor = -2.0*(t/(LE^LatticeDim)) * Re[ Table[
+				- I*Exp[I*m*\[Gamma][[1]]] + I*Exp[-I*m*\[Gamma][[1]]]*Exp[-2.0*I*k[[1]]]
+			, {k, MBZ}] . flavordistribution[[All, \[Sigma], 2+\[Sigma]]] ],
+		(* ----------------------------------------- *)
+			LatticeType == "Bethe",
+			Return["Error. Bethe lattice is incompatible with a gauge field. "]
+		];
 	];
 	Iflavor
+];
+
+(* non interacting chiral current in thermodynamic limit, d=1 *)
+ChiralCurrentNonInteracting[t_, \[CapitalOmega]_, \[Gamma]_]:= 
+If[
+	\[CapitalOmega] <= 2.0*t*Cos[\[Gamma]/2], (* metal *)
+		2.0*(-0.3183098861837907`)*(-((2.` Cos[\[Gamma]/2]^2 Sin[\[Gamma]/2])/Sqrt[1-0.25` \[CapitalOmega]^2-Sin[\[Gamma]/2]^2])-2.` Sin[\[Gamma]/2] Sqrt[1-0.25` \[CapitalOmega]^2-Sin[\[Gamma]/2]^2]+\[CapitalOmega] (0.5` Cot[\[Gamma]/2] (EllipticE[\[Pi]-ArcCos[Sqrt[0.25` \[CapitalOmega]^2+Sin[\[Gamma]/2]^2]],-((4.` Sin[\[Gamma]/2]^2)/\[CapitalOmega]^2)]-EllipticF[\[Pi]-ArcCos[Sqrt[0.25` \[CapitalOmega]^2+Sin[\[Gamma]/2]^2]],-((4.` Sin[\[Gamma]/2]^2)/\[CapitalOmega]^2)])-0.5` Cot[\[Gamma]/2] (EllipticE[ArcCos[Sqrt[0.25` \[CapitalOmega]^2+Sin[\[Gamma]/2]^2]],-((4.` Sin[\[Gamma]/2]^2)/\[CapitalOmega]^2)]-EllipticF[ArcCos[Sqrt[0.25` \[CapitalOmega]^2+Sin[\[Gamma]/2]^2]],-((4.` Sin[\[Gamma]/2]^2)/\[CapitalOmega]^2)])+(Cos[\[Gamma]/2] Sin[\[Gamma]/2] Sqrt[1+(4.` Sin[\[Gamma]/2]^2 (1-0.25` \[CapitalOmega]^2-Sin[\[Gamma]/2]^2))/\[CapitalOmega]^2])/(Sqrt[1-0.25` \[CapitalOmega]^2-Sin[\[Gamma]/2]^2] Sqrt[0.25` \[CapitalOmega]^2+Sin[\[Gamma]/2]^2]))),
+	(* else, insulator *)
+		2.0*(-0.15915494309189535`) \[CapitalOmega] Cot[\[Gamma]/2] (EllipticE[\[Pi],-((4.` Sin[\[Gamma]/2]^2)/\[CapitalOmega]^2)]-EllipticF[\[Pi],-((4.` Sin[\[Gamma]/2]^2)/\[CapitalOmega]^2)])
 ];
 
 

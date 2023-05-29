@@ -8,6 +8,8 @@ EdModeInfo::usage = "EdModeInfo[EdMode] print useful information about EdMode. "
 
 PlotMatsubara::usage = "."
 
+BandPlot2D::usage = "BandPlot2D[Energies, BZ]"
+
 PlotSpectralFunctionRaman::usage = "PlotSpectralFunctionRaman[spectralfunction_, \[Omega]_, \[Mu]_, LatticeType_, LatticeDim_]"
 
 WriteOutput::usage = "WriteOutputNew[condition_, OutputDirectory_, label_, data_]"
@@ -126,6 +128,20 @@ PlotMatsubara[function_, i\[Omega]_, EdMode_, OptionsPattern[ListPlot]] := Which
 ];
 *)
 
+(* plot 2d band structure *)
+BandPlot2D[Energies_, BZ_] := Module[
+	{energies = Sort[Eigenvalues[#]] &/@ Energies},
+		ListPlot3D[
+			Table[
+				Join[BZ[[#]], {energies[[#, bandindex]]}] &/@ Range[Length[BZ]]
+			, {bandindex, Length[energies[[1]]]}],
+		(* options *)
+			AxesLabel -> {"\!\(\*SubscriptBox[\(k\), \(x\)]\)","\!\(\*SubscriptBox[\(k\), \(y\)]\)","energy"},
+			AxesStyle -> Directive[Black, 14],
+			PlotStyle -> Opacity[.5]
+		]
+];
+
 (* Plot flavor resolved spectral function for Raman *)
 PlotSpectralFunctionRaman[spectralfunction_, \[Omega]_, \[Mu]_, LatticeType_, LatticeDim_] := Module[
 	{\[Omega]min = Min[\[Omega]], \[Omega]max = Max[\[Omega]], f = Length[spectralfunction[[1,1]]], ticks, max, Fermiline, datarange},
@@ -155,6 +171,8 @@ PlotSpectralFunctionRaman[spectralfunction_, \[Omega]_, \[Mu]_, LatticeType_, La
 			ListDensityPlot[
 				spectralfunction[[All, All, \[Sigma], \[Sigma]]] / max,
 				PlotRange -> All,
+				FrameLabel -> {"k","\[Omega]"},
+				FrameStyle -> Directive[Black, 18],
 				ColorFunction -> (Apply[RGBColor, Flatten[{ If[f==2 && \[Sigma]==2, {0,0,1}, (*else*) UnitVector[3, \[Sigma]]], #}]]&),
 				ColorFunctionScaling -> False,
 				DataRange -> datarange,
