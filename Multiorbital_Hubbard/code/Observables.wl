@@ -28,7 +28,7 @@ SuperfluidStiffness::usage = "SuperfluidStiffness[DBethe, \[CapitalSigma], i\[Om
 
 KineticEnergy::usage = "KineticEnergy[\[Mu], LatticeEnergies, LatticeWeights, \[CapitalSigma], i\[Omega], EdMode] computes the Kinetic energy (expectation value of non-local impurity Hamiltonian). "
 
-SpectralFunction::usage = "SpectralFunction[LatticeEnergies_, weights_, \[Mu]_, \[CapitalSigma]_, zlist_, EdMode_]"
+SpectralFunction::usage = "SpectralFunction[LatticeEnergies_, weights_, \[Mu]_, \[CapitalSigma]_, zlist_, EdMode_, SublatticesQ_]"
 
 MomentumResolvedSpectralFunction::usage = "MomentumResolvedSpectralFunction"
 
@@ -95,7 +95,7 @@ MomentumDistributedDensityRaman[kindexes_, Energies_, \[Mu]_, \[CapitalSigma]_, 
 	flavdist = flavdist + (ConjugateTranspose[#] &/@ flavdist);
 	(* add tail contribution *)
 	flavdist += Table[
-		(1./2.)*IdentityMatrix[f] - (1./(4.*TMats)) * ((Energies[[i]] + \[CapitalSigma]0))\[Transpose]
+		(1./2.)*IdentityMatrix[f] - (1./(8.*TMats)) * ((Energies[[i]] + \[CapitalSigma]0)\[Transpose] + Conjugate[Energies[[i]] + \[CapitalSigma]0])
 	, {i, kindexes}]
 ];
 
@@ -205,7 +205,7 @@ SpectralFunctionImpurity[L_, f_, Norb_, \[Sigma]_, orb_, Egs_, Gs_, GsQns_, Hsec
 ];
 
 (* spectral function of the lattice problem *)
-SpectralFunction[LatticeEnergies_, weights_, \[Mu]_, \[CapitalSigma]_, zlist_, EdMode_] := Module[
+SpectralFunction[LatticeEnergies_, weights_, \[Mu]_, \[CapitalSigma]_, zlist_, EdMode_, SublatticesQ_] := Module[
 	{spectralfunction},
 	Which[
 		EdMode == "Normal",
@@ -220,7 +220,7 @@ SpectralFunction[LatticeEnergies_, weights_, \[Mu]_, \[CapitalSigma]_, zlist_, E
 	(* ---------------------------------------------- *)
 		EdMode == "Raman",
 		spectralfunction = -(1./Pi) * Im[ Tr[#] &/@
-			LocalGreenFunction[LatticeEnergies, weights, \[Mu], \[CapitalSigma], zlist, EdMode]
+			LocalGreenFunction[LatticeEnergies, weights, \[Mu], \[CapitalSigma], zlist, EdMode, SublatticesQ]
 		] / Length[\[CapitalSigma][[1]]],
 	(* ---------------------------------------------- *)
 		EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
@@ -548,6 +548,17 @@ FlavorCurrent[t_, \[Gamma]_, \[Sigma]_, a_, flavordistribution_, LatticeType_, L
 			LatticeType == "Hypercubic" && LatticeDim == 1,
 			Iflavor = -2.0*(t/(LE^LatticeDim)) * Re[ Table[
 				- I*Exp[I*m*\[Gamma][[1]]] + I*Exp[-I*m*\[Gamma][[1]]]*Exp[-2.0*I*k[[1]]]
+			, {k, MBZ}] . flavordistribution[[All, \[Sigma], 2+\[Sigma]]] ],
+		(* ----------------------------------------- *)
+			LatticeType == "Hypercubic" && LatticeDim == 2,
+			Iflavor = -2.0*(t/(LE^LatticeDim)) * Re[ Table[
+				If[a == 1, (* x direction *)
+					- I * Exp[I*m*\[Gamma][[1]]] 
+					+ I * Exp[-I*m*\[Gamma][[1]]]*Exp[-2I*k[[1]]],
+				(* else, y direction *)
+					- I * Exp[I*m*\[Gamma][[2]]]*Exp[I*(-k[[1]]+k[[2]])] 
+					+ I * Exp[-I*m*\[Gamma][[2]]]*Exp[-I*(k[[1]]+k[[2]])]
+				]
 			, {k, MBZ}] . flavordistribution[[All, \[Sigma], 2+\[Sigma]]] ],
 		(* ----------------------------------------- *)
 			LatticeType == "Bethe",

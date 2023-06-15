@@ -90,7 +90,7 @@ If[OrbitalSymmetry && Norb > 1,
 
 
 (* GET BATH AND INTERACTION PARAMETERS *)
-BathParameters = StartingBath[L, f, Norb, \[Delta]-\[Mu], InitializeBathMode, EdMode, SublatticesQ, V0 -> 1.0, \[CapitalDelta]0 -> 0.2, \[CapitalXi]0 -> 0.2, \[CapitalOmega]0 -> 0.2];
+BathParameters = StartingBath[L, f, Norb, \[Delta]-\[Mu], InitializeBathMode, EdMode, SublatticesQ, V0 -> 1.0, \[CapitalDelta]0 -> 0.2, \[CapitalXi]0 -> 0.2, \[CapitalOmega]0 -> 0.5];
 InteractionParameters = LocalParameters[M, \[Delta], U, Ust, Usec, Jph, Jse, \[Mu], shift, SublatticesQ, hAFM, V];
 symbols = Symbols[L, f, Norb, EdMode]; (* define a suitable list of symbols depending on EdMode *)
 

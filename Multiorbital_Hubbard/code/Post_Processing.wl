@@ -2,9 +2,9 @@
 
 (* Compute many body functions for all the Matsubara frequencies *)
 (* get all Matsubara frequencies *)
-i\[Omega] = Table[(2n-1)Pi*I*TMats, {n, NMatsubara}];
+i\[Omega] = Table[(2n-1)Pi*I*TMats, {n, 1, NMatsubara}];
 (* initialize real frequencies *)
-\[Omega] = Table[\[Omega]min + n*d\[Omega], {n, 0, NReal}];
+\[Omega] = Table[\[Omega]min + n*d\[Omega], {n, 0, NReal-1}];
 
 (* compute converged many body functions in Matsubara and real frequencies *)
 Which[
@@ -34,7 +34,7 @@ Which[
 	(* G_loc(i\[Omega]) *)
 	LocalG = LocalGreenFunction[LatticeEnergies[[All,1,1]], LatticeWeights, \[Mu], \[CapitalSigma], i\[Omega], EdMode, SublatticesQ];
 	(* compute the lattice spectral function A(\[Omega]) *)
-	(*spectralfunction = SpectralFunction[LatticeEnergies[[All, 1, 1]], LatticeWeights, \[Mu], \[CapitalSigma]realfreq, \[Omega]+I*\[Eta], EdMode];*),
+	spectralfunction = SpectralFunction[LatticeEnergies[[All, 1, 1]], LatticeWeights, \[Mu], \[CapitalSigma]realfreq, \[Omega]+I*\[Eta], EdMode, SublatticesQ];,
 (* ------------------------------------------------------------------------------------ *)
 (* ------------------------------------------------------------------------------------ *)
 (* ------------------------------------------------------------------------------------ *)
@@ -73,7 +73,7 @@ Which[
 	, {orb, Norb}];
 	(* compute the lattice spectral function A(\[Omega]) *)
 	spectralfunction = Table[
-		SpectralFunction[LatticeEnergies[[All, orb, orb]], LatticeWeights, \[Mu], \[CapitalSigma]realfreq[[orb]], \[Omega]+I*\[Eta], EdMode]
+		SpectralFunction[LatticeEnergies[[All, orb, orb]], LatticeWeights, \[Mu], \[CapitalSigma]realfreq[[orb]], \[Omega]+I*\[Eta], EdMode, SublatticesQ]
 	, {orb, Norb}];,
 (* ------------------------------------------------------------------------------------ *)
 (* ------------------------------------------------------------------------------------ *)
@@ -155,9 +155,9 @@ Which[
 			Do[\[CapitalSigma][[orb, sublattice]] = InverseG0[[orb]] - InverseG[[orb]];, {orb, Norb}];
 		];
 		(* real frequency many body functions *)
-		(*Gimprealfreq = Table[
+		Gimprealfreq = Table[
 			Mean[Apply[
-				GreenFunctionImpurity[L, f, Norb, 1, orb, Egs, ##, Hsectors, Sectors, SectorsDispatch, 200, EdMode, \[Omega] + I*\[Eta]]&,
+				GreenFunctionImpurity[L, f, Norb, 1, orb, Egs, ##, Hsectors, Sectors, SectorsDispatch, MinLanczosMomenta, EdMode, \[Omega] + I*\[Eta]]&,
 				{Gs, GsQns}\[Transpose]
 			, {1}]]
 		, {orb, Norb}];
@@ -166,7 +166,7 @@ Which[
 			Weiss[[orb, sublattice]]/.Thread[symbols -> IndependentParameters[[orb, sublattice]]])/.{z -> #}&/@(\[Omega]+I*\[Eta])
 		, {orb, Norb}];
 		\[CapitalSigma]realfreq = InverseG0realfreq - InverseGrealfreq;
-		WriteOutput[True, OutputDirectory, "self_energy_real_frequency_sublattice_"<>If[sublattice==1,"A","B"], \[CapitalSigma]realfreq];*)
+		WriteOutput[True, OutputDirectory, "self_energy_real_frequency_sublattice_"<>If[sublattice==1,"A","B"], \[CapitalSigma]realfreq];
 	, {sublattice, 1, 2}];
 	(* Save the AFM magnetization and <S^+> *)
 	m = m/2.0; s = s/2.0;
@@ -214,9 +214,9 @@ If[
 		HighSymmetryPath[ Length[LatticeEnergies[[All,1,1]]], LatticeType, LatticeDim],
 		\[Omega] + I*\[Eta], 
 		EdMode
-	],
+	]
 (* else, if no orbital symmetry *)
-	spectralfunctionresolved = Table[
+	(* spectralfunctionresolved = Table[
 		MomentumResolvedSpectralFunction[
 			LatticeEnergies[[All, orb, orb]], 
 			\[Mu] - \[Delta][[orb]], 
@@ -225,7 +225,7 @@ If[
 			\[Omega] + I*\[Eta], 
 			EdMode
 		]
-	, {orb, Norb}]
+	, {orb, Norb}] *)
 ];
 
 WriteOutput[True, OutputDirectory, "momentum_resolved_spectral_function", spectralfunctionresolved];
@@ -237,8 +237,7 @@ WriteOutput[True, OutputDirectory, "momentum_resolved_spectral_function", spectr
 If[ EdMode == "Raman",
 	If[OrbitalSymmetry,
 		flavordistribution = MomentumDistributedDensityRaman[
-			HighSymmetryPath[ Length[ LatticeEnergies[[All, 1, 1]] ], LatticeType, LatticeDim], 
-			LatticeEnergies[[All, 1, 1]], \[Mu], \[CapitalSigma], i\[Omega]
+			Range[Length[LatticeEnergies]], LatticeEnergies[[All, 1, 1]], \[Mu], \[CapitalSigma], i\[Omega]
 		];
 		Print["Dimensions of the tensor <cdg_k\[Alpha] c_k\[Beta]>: ", Dimensions[flavordistribution]];
 		(* flavor current *)
@@ -254,8 +253,7 @@ If[ EdMode == "Raman",
 	(* -------- else, if no orbital symmetry ------------- *)
 		flavordistribution = Table[
 			MomentumDistributedDensityRaman[
-				HighSymmetryPath[ Length[ LatticeEnergies[[All, orb, orb]] ], LatticeType, LatticeDim], 
-				LatticeEnergies[[All, orb, orb]], \[Mu], \[CapitalSigma][[orb]], i\[Omega]
+				Range[Length[LatticeEnergies]], LatticeEnergies[[All, orb, orb]], \[Mu], \[CapitalSigma][[orb]], i\[Omega]
 			]
 		, {orb, Norb}];
 		(* flavor current *)

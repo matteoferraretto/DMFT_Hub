@@ -8,6 +8,8 @@ EdModeInfo::usage = "EdModeInfo[EdMode] print useful information about EdMode. "
 
 PlotMatsubara::usage = "."
 
+BandPlot2D::usage = "BandPlot2D[Energies, BZ]"
+
 PlotSpectralFunctionRaman::usage = "PlotSpectralFunctionRaman[spectralfunction_, \[Omega]_, \[Mu]_, LatticeType_, LatticeDim_]"
 
 WriteOutput::usage = "WriteOutputNew[condition_, OutputDirectory_, label_, data_]"
@@ -125,6 +127,20 @@ PlotMatsubara[function_, i\[Omega]_, EdMode_, OptionsPattern[ListPlot]] := Which
 	]
 ];
 *)
+
+(* plot 2d band structure *)
+BandPlot2D[Energies_, BZ_] := Module[
+	{energies = Sort[Eigenvalues[#]] &/@ Energies},
+		ListPlot3D[
+			Table[
+				Join[BZ[[#]], {energies[[#, bandindex]]}] &/@ Range[Length[BZ]]
+			, {bandindex, Length[energies[[1]]]}],
+		(* options *)
+			AxesLabel -> {"\!\(\*SubscriptBox[\(k\), \(x\)]\)","\!\(\*SubscriptBox[\(k\), \(y\)]\)","energy"},
+			AxesStyle -> Directive[Black, 14],
+			PlotStyle -> Opacity[.5]
+		]
+];
 
 (* Plot flavor resolved spectral function for Raman *)
 PlotSpectralFunctionRaman[spectralfunction_, \[Omega]_, \[Mu]_, LatticeType_, LatticeDim_] := Module[
