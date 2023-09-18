@@ -246,6 +246,21 @@ c = Compile[{
 		f*(orb-1)+\[Sigma]
 	], CompilationTarget->"C", RuntimeAttributes->{Listable}];
 
+(* modify the spin on site i and orbital orb from \[Sigma]2 to \[Sigma]1 (spin ladder operator) *)
+s = Compile[{
+	{L,_Integer}, {f,_Integer}, {i,_Integer}, {\[Sigma]1,_Integer}, {\[Sigma]2,_Integer}, {orb,_Integer}, {state,_Integer,1}},
+	MapAt[
+		BitSet[#, L-i]&,
+		MapAt[
+			BitClear[#, L-i]&,
+			state,
+			f*(orb-1)+\[Sigma]2
+		],
+		f*(orb-1)+\[Sigma]1
+	],
+	CompilationTarget->"C", RuntimeAttributes->{Listable}, RuntimeOptions->"Speed"
+];
+
 (* Counts how many fermions there are before state[[\[Sigma],orb,i]] (excluded). If you set i=1,\[Sigma]=1,orb=1 you get 0; if you set i=L+1,\[Sigma]=f,orb=Norb you get the total number of fermions in the state *)
 CountFermions = Compile[{
 	{L,_Integer}, {f,_Integer}, {i,_Integer}, {\[Sigma],_Integer}, {orb,_Integer}, {state,_Integer,1}
