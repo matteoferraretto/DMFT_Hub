@@ -67,7 +67,13 @@ SectorList[L_, f_, Norb_, EdMode_] := Module[
 		,Norb], Min[1, Norb-1]],
 (* --------------------------------------- *)
 		EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
-		QnsSectorList = Range[-Norb*L,Norb*L];
+		QnsSectorList = Range[-Norb*L,Norb*L],
+(* --------------------------------------- *)
+		EdMode == "Spin",
+		QnsSectorList = Select[
+			Flatten[Outer[{##}&,##]&@@ConstantArray[Range[0,L],Norb*f],Norb*f-1],
+			Total[#]==L&
+		];
 	];
 	QnsSectorList
 ];
@@ -143,7 +149,15 @@ BuildSector[L_, f_, Norb_, qns_, EdMode_] := Module[
 			QnsList, 
 	    	(Table[(-1)^(1+j),{j,1,Norb*f}] . #==qns)&
 	    ];
-		states = Flatten[BASIS[L,Norb*f,#]&/@QnsList,1]
+		states = Flatten[BASIS[L,Norb*f,#]&/@QnsList,1],
+(*----------------------------------------------*)
+		EdMode == "Spin",
+		QnsList = SectorList[L,f,Norb,"Spin"];
+		states = Flatten[BASIS[L,Norb*f,#]&/@QnsList,1];
+		states = Select[
+			states,
+			(Total[IntegerDigits[#,2,L]] == ConstantArray[1,L])&
+		];
 	];
 	states
 ];
@@ -172,6 +186,22 @@ DestroyParticleQ = Compile[{
 	CompilationTarget->"C", RuntimeAttributes->{Listable}, Parallelization->True
 ];
 
+(* gives True if it is possible to increase the spin \[Sigma] on site {i,\[Sigma],orb}, False otherwise *)
+IncreaseSpinQ = Compile[{
+	{L,_Integer},{f,_Integer},{i,_Integer},{\[Sigma],_Integer},{orb,_Integer},{state,_Integer,1}
+	},
+	(\[Sigma] != 1) && ((IntegerDigits[#,2,L]&@state[[f*(orb-1)+\[Sigma]]])[[i]] == 1),
+	CompilationTarget->"C", RuntimeAttributes->{Listable}, Parallelization->True
+];
+
+(* gives True if it is possible to increase the spin \[Sigma] on site {i,\[Sigma],orb}, False otherwise *)
+DecreaseSpinQ = Compile[{
+	{L,_Integer},{f,_Integer},{i,_Integer},{\[Sigma],_Integer},{orb,_Integer},{state,_Integer,1}
+	},
+	(\[Sigma] != f) && ((IntegerDigits[#,2,L]&@state[[f*(orb-1)+\[Sigma]]])[[i]] == 1),
+	CompilationTarget->"C", RuntimeAttributes->{Listable}, Parallelization->True
+];
+
 (* select states for which it is possible to create a particle on site (i,\[Sigma],orb) *)
 CreateParticleSelect[L_, f_, i_, \[Sigma]_, orb_, stateList_] := Module[
 	{criteria = CreateParticleQ[L, f, i, \[Sigma], orb, stateList]},
@@ -181,6 +211,18 @@ CreateParticleSelect[L_, f_, i_, \[Sigma]_, orb_, stateList_] := Module[
 (* select states for which it is possible to destroy a particle on site (i,\[Sigma],orb) *)
 DestroyParticleSelect[L_, f_, i_, \[Sigma]_, orb_, stateList_] := Module[
 	{criteria = DestroyParticleQ[L, f, i, \[Sigma], orb, stateList]},
+	Pick[stateList, criteria]
+];
+
+(* select states for which it is possible to increase the spin on site (i,\[Sigma],orb)*)
+IncreaseSpinSelect[L_,f_,i_,\[Sigma]_,orb_,stateList_] := Module[
+	{criteria = IncreaseSpinQ[L,f,i,\[Sigma],orb,stateList]},
+	Pick[stateList, criteria]
+];
+
+(* select states for which it is possible to decrease the spin on site (i,\[Sigma],orb)*)
+DecreaseSpinSelect[L_,f_,i_,\[Sigma]_,orb_,stateList_] := Module[
+	{criteria = DecreaseSpinQ[L,f,i,\[Sigma],orb,stateList]},
 	Pick[stateList, criteria]
 ];
 
