@@ -9,18 +9,13 @@ $Path = Join[$Path, {"C:\\Users\\matte\\Desktop\\Mathematica_package\\"}];
 <<"InputFile.wl";
 (* Prepare everything *)
 <<"Preparation.wl";
-(*BathParameters[[2,1]] = ConstantArray[1.0*IdentityMatrix[f], Nbath];*)
 
-BathParameters[[1,1]] = {-0.5*PauliMatrix[3], 0.5*PauliMatrix[3]};
-BathParameters[[1,2]] = {-0.5*PauliMatrix[3], 0.5*PauliMatrix[3]};
-BathParameters[[2,1]] = {1.0*IdentityMatrix[f], 1.0*IdentityMatrix[f]};
-BathParameters[[2,2]] = {1.0*IdentityMatrix[f], 1.0*IdentityMatrix[f]};
-BathParameters
+(*
+BathParameters[[2,1]] = ConstantArray[1.0*IdentityMatrix[f], Nbath];
+BathParameters[[2,2]] = ConstantArray[1.0*IdentityMatrix[f], Nbath];*)
 
 
 Do[
-	ClearAll[Hsectors, EgsSectorList, GsSectorList];
-	
 	(* First print *)
 	Print[Style["DMFT Loop n. ", 20, Bold, Red], Style[DMFTiterator, 20, Bold, Red]];
 	Print[Style["\t\t Exact Diagonalization start", 16, Bold, Orange]];
@@ -30,17 +25,19 @@ Do[
 	Print["E.D. time: ", First @ AbsoluteTiming[
 	
 		Hsectors = HImp[HnonlocBlocks, HlocBlocks, BathParameters];
-		checkhermiticity = Apply[And, HermitianMatrixQ[#] &/@ Hsectors];
-		If[!checkhermiticity, Abort[]; ];
+		(*checkhermiticity = Apply[And, HermitianMatrixQ[#] &/@ Hsectors];
+		If[!checkhermiticity, Abort[]; ];*)
 		
 		eigs = Map[
-			Eigs[#, 
+			Eigs[
+				Hsectors[[#]], 
 				"Temperature" -> T, 
 				"MinLanczosDim" -> MinLanczosDim, 
 				"DegeneracyThreshold" -> DegeneracyThreshold,
-				"MaxIterations" -> MaxLanczosIter, 
+				(*"MaxIterations" -> MaxLanczosIter, *)
 				"MinEigenvalues" -> MinNumberOfEigs
-			]&, Hsectors];
+			]&, (QnsSectorListToDiagonalize /. SectorsDispatch)
+		];
 		EgsSectorList = eigs[[All, 1]];
 		GsSectorList = eigs[[All, 2]];
 		
@@ -63,16 +60,20 @@ Do[
 	(* list of all the degenerate ground states *)
 	Gs = Apply[GsSectorList[[##]]&, GsSectorIndex, {1}];
 	(* list of quantum numbers of the degenerate ground states *)
-	GsQns = QnsSectorList[[GsSectorIndex[[All, 1]]]];	
+	GsQns = QnsSectorListToDiagonalize[[GsSectorIndex[[All, 1]]]];	
 		
 	(* print relevant information about the ground state and observables *)
 	Print["\t\t Ground state info:\n", "Egs = ", Egs, "   Quantum numbers = ", GsQns];
 	Print["\n\t\t Observables:"];
 	cdgc = Table[ Which[
 		\[Sigma] != \[Rho],
-		CdgC[L, f, Norb, {1,1}, {\[Sigma], \[Rho]}, {orb, orb}, Sectors, EgsSectorList, GsSectorList, T],
+		If[EdMode == "Magnetic", 
+			0,
+		(* else EdMode Raman *) 
+			CdgC[L, f, Norb, {1,1}, {\[Sigma], \[Rho]}, {orb, orb}, Sectors, EgsSectorList, GsSectorList, T] 
+		],
 		\[Sigma] == \[Rho],
-		Density[L, f, Norb, 1, \[Sigma], orb, Sectors, EgsSectorList, GsSectorList, T]
+		Density[L, f, Norb, 1, \[Sigma], orb, Sectors[[QnsSectorListToDiagonalize/.SectorsDispatch]], EgsSectorList, GsSectorList, T]
 	], {orb, Norb}, {\[Sigma], f}, {\[Rho], f}];
 	Table[
 		Print["\!\(\*SuperscriptBox[\(c\), \(\[Dagger]\)]\)_",orb,"c_",orb," = ", MatrixForm[cdgc[[orb]]]]
@@ -80,7 +81,7 @@ Do[
 	density = Tr[#] &/@ cdgc;
 	Print["Impurity density = ", density, "; total density = ", Total[density] ];
 	docc = Table[ 
-		Sum[ SquareDensity[L, f, Norb, {1,1}, {\[Sigma],\[Rho]}, {orb,orb}, Sectors, EgsSectorList, GsSectorList, T], {\[Sigma], f}, {\[Rho], \[Sigma]+1, f}]
+		Sum[ SquareDensity[L, f, Norb, {1,1}, {\[Sigma],\[Rho]}, {orb,orb}, Sectors[[QnsSectorListToDiagonalize/.SectorsDispatch]], EgsSectorList, GsSectorList, T], {\[Sigma], f}, {\[Rho], \[Sigma]+1, f}]
 	, {orb, Norb}];
 	Print["Impurity double occupancy = ", docc ];
 		
@@ -246,23 +247,23 @@ Do[
 Which[
 	OrbitalSymmetry,
 	(* compute fit *)
-	If[Norb == 1,
-		fitcheck = {
-			Inverse[#] &/@ InverseG0,
-			Inverse[#] &/@ WeissNumeric
-		},
-		(* else Norb > 1 *)
-		fitcheck = {
-			Inverse[#] &/@ InverseG0[[1]],
-			Inverse[#] &/@ WeissNumeric[[1]]
-		}
-	];
+	fitcheck = {
+		SmartInverse[#] &/@ InverseG0,
+		SmartInverse[#] &/@ WeissNumeric
+	};
 	(* <\[Psi]dg_k \[Psi]_k> *)
 	\[Psi]dg\[Psi] = PsidgPsi[
 		Range[LatticePoints], 
 		LatticeEnergies[[All,1,1]], 
 		\[Mu], \[CapitalSigma], i\[Omega]
 	];
+	(* flavor current *)
+	flavorcurrent = Table[
+		FlavorCurrent[W[[1]], \[Gamma][[1]], \[Sigma], a, \[Psi]dg\[Psi], LatticeType, LatticeDim, LatticePoints, SublatticesQ]
+	, {\[Sigma], f}, {a, LatticeDim}];
+	Do[
+		Print["I_\[Sigma]="<>If[f==2, Which[\[Sigma]==1,"\[DownArrow]", \[Sigma]==2,"\[UpArrow]"], ToString[\[Sigma]]]<>",a="<>ToString[a]<>" = ", flavorcurrent[[\[Sigma],a]]];
+	, {\[Sigma], f}, {a, LatticeDim}];
 	Print[
 		"(1/N)\!\(\*SubscriptBox[\(\[Sum]\), \(k\)]\) <\!\(\*SuperscriptBox[SubscriptBox[\(\[Psi]\), \(k\)], \(\[Dagger]\)]\) \!\(\*SubscriptBox[\(\[Psi]\), \(k\)]\)> = ", 
 		MatrixForm[Table[Re[Mean[\[Psi]dg\[Psi][[All,\[Sigma],\[Rho]]]]], {\[Sigma], f}, {\[Rho], f}]]
@@ -284,11 +285,11 @@ Which[
 	!OrbitalSymmetry,
 	(* fit *)
 	fitcheck = {
-		Table[ Inverse[#] &/@ InverseG0[[orb]], {orb, Norb}],
-		Table[ Inverse[#] &/@ WeissNumeric[[orb]], {orb, Norb}]
+		Table[ SmartInverse[#] &/@ InverseG0[[orb]], {orb, Norb}],
+		Table[ SmartInverse[#] &/@ WeissNumeric[[orb]], {orb, Norb}]
 	};
 	(* <\[Psi]dg_k \[Psi]_k> *)
-	\[Psi]dg\[Psi] = Table[ PsidgPsi[
+(*	\[Psi]dg\[Psi] = ParallelTable[ PsidgPsi[
 		Range[LatticePoints], 
 		LatticeEnergies[[All,orb,orb]], 
 		\[Mu], \[CapitalSigma][[orb]], i\[Omega]
@@ -299,6 +300,13 @@ Which[
 			MatrixForm[Table[Re[Mean[\[Psi]dg\[Psi][[orb,All,\[Sigma],\[Rho]]]]], {\[Sigma], f}, {\[Rho], f}]]
 		];
 	, {orb, Norb}];
+	(* flavor current *)
+	flavorcurrent = ParallelTable[
+		FlavorCurrent[W[[orb]], \[Gamma][[orb]], \[Sigma], a, \[Psi]dg\[Psi][[orb]], LatticeType, LatticeDim, LatticePoints, SublatticesQ]
+	, {orb, Norb}, {\[Sigma], f}, {a, LatticeDim}];
+	Do[
+		Print["I_orb="<>ToString[orb]<>",\[Sigma]="<>If[f==2, Which[\[Sigma]==1,"\[DownArrow]", \[Sigma]==2,"\[UpArrow]"], ToString[\[Sigma]]]<>",a="<>ToString[a]<>" = ", flavorcurrent[[orb,\[Sigma],a]]];
+	, {orb, Norb}, {\[Sigma], f}, {a, LatticeDim}];*)
 	(* Gimp(\[Omega]) *)
 	Gimprealfreq = Table[
 		Mean[Apply[
@@ -308,21 +316,32 @@ Which[
 	(* compute G(\[Omega])^-1 *)
 	InverseGrealfreq = InverseGreenFunction[#, EdMode] &/@ Gimprealfreq;
 	(* compute G0(\[Omega])^-1 *)
-	InverseG0realfreq = Table[(
+	InverseG0realfreq = ParallelTable[(
 		Weiss[[orb]]/.Thread[independentsymbols -> IndependentParameters])/.{z -> #}&/@(\[Omega] + I*\[Eta])
 	, {orb, Norb}];
 	(* compute \[CapitalSigma](\[Omega]) *)
 	\[CapitalSigma]realfreq = InverseG0realfreq - InverseGrealfreq;
 	(* compute the lattice spectral function A(\[Omega]) *)
-	spectralfunction = Table[
+	spectralfunction = ParallelTable[
 		SpectralFunction[LatticeEnergies[[All, orb, orb]], LatticeWeights, \[Mu], \[CapitalSigma]realfreq[[orb]], \[Omega]+I*\[Eta], EdMode, SublatticesQ]
 	, {orb, Norb}];
 ]
+
+(* print density correlations *)
+Table[
+	Table[
+		Print[
+			"<n_orb=",orb1,"_spin=",\[Sigma]," n_orb=",orb2,"_spin=",\[Rho],"> = ",
+			SquareDensity[L, f, Norb, {1,1}, {\[Sigma],\[Rho]}, {orb1,orb2}, Sectors[[QnsSectorListToDiagonalize/.SectorsDispatch]], EgsSectorList, GsSectorList, T]
+		]
+	, {\[Sigma], f}, {\[Rho], f}]
+, {orb1, Norb}, {orb2, Norb}];
 
 (* store output *)
 WriteOutput[False, OutputDirectory, "fit", fitcheck];
 WriteOutput[False, OutputDirectory, "density", density];
 WriteOutput[False, OutputDirectory, "double_occupancy", docc];
+WriteOutput[False, OutputDirectory, "flavor_current", flavorcurrent];
 WriteOutput[False, OutputDirectory, "quasiparticle_weight", Z];
 WriteOutput[False, OutputDirectory, "self_energy", \[CapitalSigma]];
 WriteOutput[False, OutputDirectory, "self_energy_real_frequency", \[CapitalSigma]realfreq];
@@ -330,48 +349,60 @@ WriteOutput[False, OutputDirectory, "spectral_function", spectralfunction];
 WriteOutput[False, OutputDirectory, "psidgpsi", \[Psi]dg\[Psi]];
 
 
-Eigenvalues[#] &/@ HImp[HnonlocBlocks, HlocBlocks, BathParameters*0]
-
-
-Module[{
-e = BathParameters[[1,1]],
-V = BathParameters[[2,1]],
-zero = {{0,0},{0,0}},
-list
-},
-Print[MatrixForm[
-	ArrayFlatten[{
-		{0*M[[1]], V[[1]], V[[2]], V[[3]]},
-		{V[[1]], e[[1]], zero, zero},
-		{V[[2]], zero, e[[2]], zero},
-		{V[[3]], zero, zero, e[[3]]}
-	}]
-]];
-list = Sort @ Eigenvalues[
-	ArrayFlatten[{
-		{0*M[[1]], V[[1]], V[[2]], V[[3]]},
-		{V[[1]], e[[1]], zero, zero},
-		{V[[2]], zero, e[[2]], zero},
-		{V[[3]], zero, zero, e[[3]]}
-	}]
-];
-Print[list];
-Sum[list[[i]], {i,5}]
-]
-
-
-Min[Eigenvalues[#]] &/@ HImp[HnonlocBlocks, 0*HlocBlocks, BathParameters]
-
-
 ListPlot[{
-	Im[ fitcheck[[1,1, All, 1,1]] ],
-	Im[ fitcheck[[2,1, All, 1,1]]]
-}, Joined->True, PlotStyle->{Thick,Dashed}, PlotRange->{{0,100}, All}]
-
+	Im[ fitcheck[[1, 2, All, 1]] ],
+	Im[ fitcheck[[2, 2, All, 1]] ]
+}, Joined->True, PlotMarkers->Automatic, PlotStyle->{Thick,Dashed}, PlotRange->{{0,50}, All}, AxesLabel->{"n"," "}]
 
 
 PlotSpectralFunction[spectralfunction[[1]]]
-PlotSpectralFunction[spectralfunction[[2]]]
 
 
 
+(*
+Table[
+	CdgC[L, f, Norb, {1,1}, {\[Sigma],\[Rho]}, {orb,orb}, Sectors, EgsSectorList, GsSectorList, T]
+, {orb, Norb}, {\[Sigma],f}, {\[Rho],f}]
+
+< n1 n2 > = 
+< (n1up + n1dw)(n2up + n2dw) >=
+< n1up n2up > + < n1up n2dw > + < n1dw n2up > + < n1dw n2dw >
+*)
+
+
+
+ListPlot[{
+Partition[
+	\[Psi]dg\[Psi][[1,All,1,1]] 
+	, Sqrt[LatticePoints]
+]\[Transpose][[1,All]],
+Partition[
+	\[Psi]dg\[Psi][[2,All,1,1]] 
+	, Sqrt[LatticePoints]
+]\[Transpose][[1,All]]
+},
+DataRange->{-Pi,Pi},
+PlotRange->{0,1}, Joined->True, 
+Filling->Axis,
+PlotLabel->"s=5, \[CapitalOmega] = 0.5D, \[Gamma]=\[Pi]/2",
+Axes->False, Frame->True,
+FrameStyle->Directive[Black,16],
+AspectRatio->0.5,
+Epilog->Line[{{0,0},{0,1}}],
+FrameLabel->{"\!\(\*SubscriptBox[\(k\), \(x\)]\)a",None},
+PlotLegends->{"\!\(\*SubscriptBox[\(n\), \(g\)]\)(\!\(\*SubscriptBox[\(k\), \(x\)]\),\!\(\*SubscriptBox[\(k\), \(y\)]\)=0)","\!\(\*SubscriptBox[\(n\), \(e\)]\)(\!\(\*SubscriptBox[\(k\), \(x\)]\),\!\(\*SubscriptBox[\(k\), \(y\)]\)=0)"}
+
+]
+
+
+QnsSectorListToDiagonalize = Select[
+	QnsSectorList,
+	(
+		#[[1]] + #[[2]] == 5
+		&& ((#[[3]] == 2 && #[[4]] == 3) || (#[[3]] == 3 && #[[4]] == 2))
+	)&
+];
+
+QnsSectorList[[
+	QnsSectorListToDiagonalize /. SectorsDispatch
+]] == QnsSectorListToDiagonalize
