@@ -10,11 +10,18 @@ PlotMatsubara::usage = "."
 
 BandPlot2D::usage = "BandPlot2D[Energies, BZ]"
 
+PlotSpectralFunction::usage = "PlotSpectralFunction[spectralfunction]"
+
 PlotSpectralFunctionRaman::usage = "PlotSpectralFunctionRaman[spectralfunction_, \[Omega]_, \[Mu]_, LatticeType_, LatticeDim_]"
 
 WriteOutput::usage = "WriteOutputNew[condition_, OutputDirectory_, label_, data_]"
 
 HNonlocalInfo::usage = "HNonlocalInfo[L, f, Norb, EdMode] print info about the organization of Hamiltonian blocks. "
+
+Wannier1D::usage = "Wannier1D[s, BZ, xlist] computes the lowest-band 1-dimensional Wannier function associated to the lattice potential V(x) = s Er Sin[Pi*x/a]^2, where Er=1 and a=1 are
+units of energy and of length respectively. The result is expressed in units of 1/a. BZ is a list of wavevectors in the first Brillouin Zone; while xlist is a list of positions where the
+function is computed. An option ''dim'' can be provided: it specifies the dimension of the hamiltonian matrix used in the solution of the central equation; this is 41 by default."
+
 
 Begin["Private`"];
 (*
@@ -142,28 +149,53 @@ BandPlot2D[Energies_, BZ_] := Module[
 		]
 ];
 
+(* plot the spectral function A(\[Omega]) *)
+PlotSpectralFunction[spectralfunction_] := Module[{
+		\[Omega]min = spectralfunction[[1,1]], 
+		\[Omega]max = spectralfunction[[-1,1]], 
+		Amax = Max[spectralfunction[[All,2]]]
+	},
+	Print @ ListPlot[
+		spectralfunction, 
+		Joined -> True, 
+		Filling -> Axis,
+		AspectRatio -> 0.6,
+		Axes -> False, Frame -> True,
+		FrameStyle -> Directive[Black, 18],
+		PlotRange-> {{\[Omega]min - 0.1, \[Omega]max + 0.1}, All},
+		FrameLabel -> {"\[Omega]", "spectral weight"},
+		Epilog -> {Dashing[.05], Line[{{0,0}, {0,Amax}}]}
+	];
+];
+
 (* Plot flavor resolved spectral function for Raman *)
 PlotSpectralFunctionRaman[spectralfunction_, \[Omega]_, \[Mu]_, LatticeType_, LatticeDim_] := Module[
 	{\[Omega]min = Min[\[Omega]], \[Omega]max = Max[\[Omega]], f = Length[spectralfunction[[1,1]]], ticks, max, Fermiline, datarange},
-	If[f > 3, Return["Not supported. Only f=2,3 are available. "] ];
+	(*If[f > 3, Return["Not supported. Only f=2,3 are available. "] ];*)
 	max = Max[spectralfunction[[All, All]]]; (* max value of spin resolved spectral function (normalization factor) *)
 	ticks = {
-		{Range[\[Omega]min, \[Omega]max, 1.0], None},
+		{Range[\[Omega]min, \[Omega]max, 1.0]/0.25, None},
 		Which[
 			LatticeDim == 1,
-			{{{-Pi,"-\[Pi]"}, {-Pi/2, "-\[Pi]/2"}, {0, "0"}, {Pi/2, "\[Pi]/2"}, {Pi, "\[Pi]"}}, None}
+			{{{-Pi,"-\[Pi]"}, {-Pi/2, "-\[Pi]/2"}, {0, "0"}, {Pi/2, "\[Pi]/2"}, {Pi, "\[Pi]"}}, None},
+			LatticeDim > 1,
+			{None, None}
 		]
 	};
 	datarange = {
 		Which[
 			LatticeDim == 1, 
-			{-Pi, Pi}
+			{-Pi, Pi},
+			LatticeDim > 1,
+			{0, 1}
 		],
-		{\[Omega]min, \[Omega]max}
+		{(\[Omega]min + 0.5)/0.25, (\[Omega]max - 0.4)/0.25}
 	};
 	Fermiline = Which[
 		LatticeDim == 1,
-		Line[{{-Pi, \[Mu]}, {Pi, \[Mu]}}]
+		Line[{{-Pi, \[Mu]}, {Pi, \[Mu]}}],
+		LatticeDim > 1,
+		Line[{{0, \[Mu]}, {1, \[Mu]}}]
 	];
 	(* plot everything *)
 	Show[
@@ -172,108 +204,17 @@ PlotSpectralFunctionRaman[spectralfunction_, \[Omega]_, \[Mu]_, LatticeType_, La
 				spectralfunction[[All, All, \[Sigma], \[Sigma]]] / max,
 				PlotRange -> All,
 				FrameLabel -> {"k","\[Omega]"},
-				FrameStyle -> Directive[Black, 18],
 				ColorFunction -> (Apply[RGBColor, Flatten[{ If[f==2 && \[Sigma]==2, {0,0,1}, (*else*) UnitVector[3, \[Sigma]]], #}]]&),
 				ColorFunctionScaling -> False,
 				DataRange -> datarange,
-				FrameStyle->Directive[Black,16],
+				FrameStyle -> Directive[Black,20],
 				FrameTicks -> ticks, 
+				AspectRatio -> 1/GoldenRatio,
 				Epilog -> Fermiline
 			]
 		, {\[Sigma], f}]
 	]
 ];
-
-(* manage output  
-WriteOutput[condition_, file_, label_, U_, data_] := Module[
-	{fout},
-	Which[
-		label == "BathParameters",
-		If[condition,
-			Export[file, data];
-			(*Print["Converged bath parameters stored on file."]*)
-		],
-	(* ---------------------------------------- *)
-		label == "SelfEnergy",
-		If[condition,
-			Export[file, data];
-			Print["Self Energy stored on file."]
-		],
-	(* ---------------------------------------- *)
-		label == "Error",
-		If[condition,
-			Export[file, data];
-			(*Print["Error list stored on file."]*)
-		],
-	(* ---------------------------------------- *)
-		label == "SpectralFunction",
-		If[condition,
-			Export[file, data];
-			Print["Spectral Function stored on file."]
-		],
-	(* ---------------------------------------- *)
-		label == "z",
-		If[condition,
-			fout = OpenAppend[file];(* open output stream on file *)
-			WriteString[fout, data, "\n"]; (*write the data string*)
-			Close[fout](* close output stream *)
-		];
-		Print["z saved to file."];
-		Print["z = ", data, "\n"],(* print data on screen *)
-	(* ---------------------------------------- *)
-		label == "\[Phi]",
-		If[condition,
-			fout = OpenAppend[file];(* open output stream on file *)
-			WriteString[fout, data, "\n"]; (*write the data string*)
-			Close[fout](* close output stream *)
-		];
-		Print["\[Phi] = ", data, "\n"],(* print data on screen *)
-	(* ---------------------------------------- *)
-		label == "Ekin",
-		If[condition,
-			fout = OpenAppend[file];(* open output stream on file *)
-			WriteString[fout, data, "\n"]; (*write the data string*)
-			Close[fout](* close output stream *)
-		];
-		Print["\!\(\*SubscriptBox[\(E\), \(kin\)]\) = ", data, "\n"],(* print data on screen *)
-	(* ---------------------------------------- *)
-		label == "Ds",
-		If[condition,
-			fout = OpenAppend[file];(* open output stream on file *)
-			WriteString[fout, DecimalForm@data, "\n"]; (*write the data string*)
-			Close[fout](* close output stream *)
-		];
-		Print["\!\(\*SubscriptBox[\(D\), \(s\)]\) = ", data, "\n"],(* print data on screen *)
-	(* ---------------------------------------- *)
-		label == "Occupancy",
-		If[condition,
-			fout = OpenAppend[file];(* open output stream on file *)
-			WriteString[fout, DecimalForm@data[[1]]," ",data[[2]]," ",data[[3]]," ",data[[2]]+2.*data[[3]],"\n"]; (*write the data string*)
-			Close[fout](* close output stream *)
-		];
-		Print["U","\t\t\t","Double Occ.","\t\t\t","Single Occ.","\t\t\t","Empty Occ.","\t\t\t","Density"];
-		Print[U,"\t\t\t",data[[1]],"\t\t\t ",data[[2]],"\t\t\t\t",data[[3]],"\t\t\t\t",data[[2]]+2.*data[[3]],"\n"],(* print data on screen *)
-	(* ---------------------------------------- *)
-		label == "Density",
-		If[condition,
-			fout = OpenAppend[file];(* open output stream on file *)
-			WriteString[fout,U," ",DecimalForm@data[[1]]," ",data[[2]]," ",data[[3]],"\n"]; (*write the data string*)
-			Close[fout](* close output stream *)
-		];
-		Print["U","\t\t\t\t","<n>","\t\t\t\t","<\!\(\*SuperscriptBox[\(n\), \(2\)]\)>","\t\t\t\t","\[CapitalDelta]n"];
-		Print[U,"\t\t\t",data[[1]],"\t\t\t ",data[[2]],"\t\t\t\t",data[[3]],"\n"],(* print data on screen *)
-	(* ---------------------------------------- *)
-		label == "Spin",
-		If[condition,
-			fout = OpenAppend[file];(* open output stream on file *)
-			WriteString[fout,U," ",DecimalForm@data[[1]]," ",data[[2]]," ",data[[3]],"\n"]; (*write the data string*)
-			Close[fout](* close output stream *)
-		];
-		Print["U","\t\t\t\t","<\!\(\*SubscriptBox[\(s\), \(z\)]\)>","\t\t\t\t","<\!\(\*SuperscriptBox[SubscriptBox[\(s\), \(z\)], \(2\)]\)>","\t\t\t","\!\(\*SubscriptBox[\(\[CapitalDelta]s\), \(z\)]\)"];
-		Print[U,"\t\t\t",data[[1]],"\t\t\t ",data[[2]],"\t\t\t\t",data[[3]],"\n"](* print data on screen *)
-	]
-];
-*)
 
 WriteOutput[condition_, OutputDirectory_, label_, data_] := 
 If[
@@ -281,6 +222,41 @@ If[
 	Export[OutputDirectory<>label<>".m", data];
 	Print["Data stored on file: "<>label<>".m"];
 ];
+
+(* compute 1D Wannier function for the potential s Er Sin[Pi*x/a]^2 in units of 1/a *)
+Wannier1D[s_, BZ_, xlist_, OptionsPattern[]] := Module[{
+	Nx = Length[xlist],
+	dx = xlist[[2]]-xlist[[1]],
+	a = 1.0,
+	Nq = Length[BZ],
+	dq = BZ[[2]]-BZ[[1]],
+	dim = OptionValue["dim"],
+	M, Clist, \[Theta], \[Psi]},
+	(* avoid stupid bugs: dim must be odd! *)
+	If[EvenQ[dim], dim+=1; Print["warning: dim modified to ",dim]];
+	(* Nq x dim x dim *)
+	M = SparseArray[{
+		Band[{1,1}]->Table[(2j+#*a/Pi)^2+s/2, {j,-(dim-1)/2,(dim-1)/2}],
+		Band[{1,2}]->-s/4,
+		Band[{2,1}]->-s/4
+	}, {dim, dim}] &/@ BZ; 
+	(* Nq x dim *)
+	Clist = MinimalBy[
+		Eigensystem[#, Method->"Banded"]\[Transpose],
+		First
+	][[1,2]] &/@ M;
+	(* Nq *)
+	\[Theta] = Arg[Total[#]] &/@ Clist;
+	(* vector of dim. Nx *)
+	(1.0/Sqrt[2.Pi])*Sqrt[a/(2.0*Pi)]*dq*Total[
+		Table[
+			Exp[-I*\[Theta][[qindex]]]*Clist[[qindex]] . Table[
+				Exp[I*((Pi/a)*2j+BZ[[qindex]])*#]
+			, {j, -(dim-1)/2, (dim-1)/2}] 
+		,{qindex, Nq}] 
+	]&/@ xlist
+];
+Options[Wannier1D] = {"dim"->41};
 
 (* --- in progress --- *)
 (*

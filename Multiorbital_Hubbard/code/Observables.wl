@@ -16,6 +16,8 @@ which is a list of fxf matrices, each one associated to a given momentum. "
 ChiralCurrentNonInteracting::usage = "ChiralCurrentNonInteracting[t_, \[CapitalOmega]_, \[Gamma]_] returns the non interacting value of the chiral current in the thermodynamic limit by using an analytic
 expression."
 
+PsidgPsi::usage = "PsidgPsi[kindexes, H, \[Mu], \[CapitalSigma], i\[Omega]] computes < \[Psi]dag_k \[Psi]_k > from the converged self-energy. Should work for every EdMode. "
+
 CdgCdg::usage = "CdgCdg[L, f, Norb, {i,j}, {\[Sigma]1,\[Sigma]2}, {orb1,orb2}, Sectors, EgsSectorList, GsSectorList, T]"
 
 CdgC::usage = "CdgC[L, f, Norb, {i,j}, {\[Sigma]1,\[Sigma]2}, {orb1,orb2}, Sectors, EgsSectorList, GsSectorList, T]"
@@ -152,6 +154,27 @@ CdgCdg[L_, f_, Norb_, {i_,j_}, {\[Sigma]1_,\[Sigma]2_}, {orb1_,orb2_}, Sectors_,
 ];
 Options[CdgCdg] = {DegeneracyThreshold -> 1.*10^(-9)};
 
+(* < \[Psi]dag_k \[Psi]_k > computed from the converged self-energy *)
+PsidgPsi[kindexes_, H_, \[Mu]_, \[CapitalSigma]_, i\[Omega]_] := Module[
+	{TMats = Re[(i\[Omega][[2]]-i\[Omega][[1]])/(2.*Pi*I)], f = Length[\[CapitalSigma][[1]]], NFit = Floor[Length[i\[Omega]]/50], \[CapitalSigma]0, \[Psi]dg\[Psi]},
+	\[CapitalSigma]0 = Mean[ \[CapitalSigma][[;;-NFit]] ];
+	(* <cdg_k\[Alpha] c_k\[Beta]> = TMats \!\(
+\*SubscriptBox[\(\[Sum]\), \(i\[Omega]\)]\ \(Exp[\(-i\[Omega]\[Eta]\)]\ G\((k, \ i\[Omega])\)_\[Beta]\[Alpha]\)\) *)
+	\[Psi]dg\[Psi] = Table[
+		TMats * Total[(
+			(* G_numerical - G_tail (positive Matsubara frequencies) *)
+			Transpose[Inverse[#]] &/@ (((#+\[Mu])*IdentityMatrix[f] - H[[k]]) &/@ i\[Omega] - \[CapitalSigma]) 
+			- ((Transpose[H[[k]] + \[CapitalSigma]0]/(#^2)) &/@ i\[Omega]) 
+		)]
+	, {k, kindexes}];
+	(* add G_numerical - G_tail (negative Matsubara frequencies) *)
+	\[Psi]dg\[Psi] = \[Psi]dg\[Psi] + (ConjugateTranspose[#] &/@ \[Psi]dg\[Psi]);
+	(* add tail contribution *)
+	\[Psi]dg\[Psi] += Table[
+		(1./2.)*IdentityMatrix[f] - (1./(8.*TMats)) * ((H[[k]] + \[CapitalSigma]0)\[Transpose] + Conjugate[H[[k]] + \[CapitalSigma]0])
+	, {k, kindexes}]
+];
+
 (* < cdg_(i \[Sigma]1 orb1) c_(j \[Sigma]2 orb2) > *)
 CdgC[L_, f_, Norb_, {i_,j_}, {\[Sigma]1_,\[Sigma]2_}, {orb1_,orb2_}, Sectors_, EgsSectorList_, GsSectorList_, T_, OptionsPattern[]] := Module[
 	{Egs, Gs, GsQns, GsSectorIndex, \[Epsilon] = OptionValue[DegeneracyThreshold], cdgc, dim, gs, \[Psi], \[Psi]1, \[Chi], rows, cols, pos, \[CapitalSigma], dispatch, hop},
@@ -210,12 +233,12 @@ SpectralFunction[LatticeEnergies_, weights_, \[Mu]_, \[CapitalSigma]_, zlist_, E
 	Which[
 		EdMode == "Normal",
 		spectralfunction = -(1./Pi) * Im[
-			LocalGreenFunction[LatticeEnergies, weights, \[Mu], \[CapitalSigma], zlist, EdMode]
+			LocalGreenFunction[LatticeEnergies, weights, \[Mu], \[CapitalSigma], zlist, EdMode, SublatticesQ]
 		],
 	(* ---------------------------------------------- *)
 		EdMode == "Superc",
 		spectralfunction = -(1./Pi) * Im[
-			LocalGreenFunction[LatticeEnergies, weights, \[Mu], \[CapitalSigma], zlist, EdMode][[All, 1, 1]]
+			LocalGreenFunction[LatticeEnergies, weights, \[Mu], \[CapitalSigma], zlist, EdMode, SublatticesQ][[All, 1, 1]]
 		],
 	(* ---------------------------------------------- *)
 		EdMode == "Raman",
@@ -283,13 +306,21 @@ MomentumResolvedSpectralFunction[LatticeEnergies_, \[Mu]_, \[CapitalSigma]_, kin
 		EdMode == "Superc", \[CapitalSigma][[All,1,1]],
 		EdMode == "InterorbSuperc" || EdMode == "FullSuperc", \[CapitalSigma][[All, 2(orb-1)+1, 2(orb-1)+1]]
 	];
-	(* if EdMode == "Raman" there are f distinct weights, one per effective flavor *)
+	(* if EdMode == "Raman"/"Magnetic" there are f distinct weights, one per effective flavor *)
 	If[EdMode == "Raman",
 		z = Table[
-			data = ({Im[i\[Omega]], Im[\[CapitalSigma][[All, \[Alpha], \[Alpha]]]]}\[Transpose])[[;;cutoff]];
+			data = ({Im[i\[Omega]], Im[\[CapitalSigma][[All, \[Sigma], \[Sigma]]]]}\[Transpose])[[;;cutoff]];
 			a = Fit[data, {x, x^2}, x, "BestFitParameters"][[1]];
 			1./(1.-a)
-		, {\[Alpha], f}];
+		, {\[Sigma], f}];
+		Return[z]; (* quit the function *)
+	];
+	If[EdMode == "Magnetic",
+		z = Table[
+			data = ({Im[i\[Omega]], Im[\[CapitalSigma][[All, \[Sigma]]]]}\[Transpose])[[;;cutoff]];
+			a = Fit[data, {x, x^2}, x, "BestFitParameters"][[1]];
+			1./(1.-a)
+		, {\[Sigma], f}];
 		Return[z]; (* quit the function *)
 	];
 	(* in all the other cases it is just one number (orbital asymmetries are accounted at higher level in the code) *)
@@ -297,7 +328,7 @@ MomentumResolvedSpectralFunction[LatticeEnergies_, \[Mu]_, \[CapitalSigma]_, kin
 	a = Fit[data, {x, x^2}, x, "BestFitParameters"][[1]];
 	z = 1./(1.-a)
 ];
-Options[QuasiparticleWeight] = {FitCutoff -> 50, Orb -> 1};
+Options[QuasiparticleWeight] = {FitCutoff -> 10, Orb -> 1};
 
 (* \[Phi]: superconductive order parameter computed through the Green function *)
 OrderParameter[InverseG_, TMats_] := With[

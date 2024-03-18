@@ -346,6 +346,23 @@ LocalGreenFunctionRaman = Compile[{
 	RuntimeAttributes->{Listable}, Parallelization->True
 ];
 
+(* when EdMode == "Raman" *)
+LocalGreenFunctionMagnetic = Compile[{
+	{Energies,_Real,2}, {weights, _Real,1}, {\[Mu], _Real}, {\[CapitalSigma], _Complex, 2}, {zlist, _Complex, 1}
+	},
+	Module[
+		{LE = Length[Energies], NMatsubara = Length[zlist], f = Length[Energies[[1]]]},
+		Total[
+			Table[
+				weights[[i]] / (
+					ConstantArray[# + \[Mu], f] &/@ zlist - ConstantArray[Energies[[i]], NMatsubara] - \[CapitalSigma]
+				)
+			, {i, LE}]
+		]
+	],
+	RuntimeAttributes->{Listable}, Parallelization->True
+];
+
 (* when EdMode == "Raman" and there is sublattice structure *)
 LocalGreenFunctionRamanSublattices = Compile[{
 	{Energies,_Complex,3}, {weights, _Real,1}, {\[Mu], _Real}, {h,_Real}, {\[CapitalSigma], _Complex, 3}, {zlist, _Complex, 1}
@@ -425,6 +442,10 @@ LocalGreenFunction[LatticeEnergies_, weights_, \[Mu]_, \[CapitalSigma]_, zlist_,
 		EdMode == "Raman" && SublatticesQ,
 		(* the input LatticeEnergies will be a list of 2fx2f matrices (orbital indexes will be specified) *)
 		LocalGreenFunctionRamanSublattices[LatticeEnergies, weights, \[Mu], OptionValue["StaggeredMagneticField"], \[CapitalSigma], zlist],
+	(* ------------------------------------------------------------------- *)
+		EdMode == "Magnetic" && !SublatticesQ,
+		(* the input LatticeEnergies will be a list of fxf matrices (orbital indexes will be specified) *)
+		LocalGreenFunctionMagnetic[LatticeEnergies, weights, \[Mu], \[CapitalSigma], zlist],
 	(* ------------------------------------------------------------------- *)
 		EdMode == "InterorbNormal",
 		(* in this situation the input tensor has the correct shape *)

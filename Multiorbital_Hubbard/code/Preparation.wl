@@ -9,12 +9,23 @@ Converged = False;
 ErrorList = {}; 
 (* initialize Matsubara frequencies [use just CGNMatsubara frequencies, not NMatsubara!] *)
 i\[Omega] = Table[(2n-1)Pi*I*TMats, {n, CGNMatsubara}]; 
+(* initialize real frequencies *)
+\[Omega] = Table[\[Omega]min + n*d\[Omega], {n, 0, NReal}];
 
 
 (* AVOID BUGS AND SHOW WARNINGS *)
 (* set OrbitalSymmetry in some cases *)
 If[EdMode == "InterorbNormal" || EdMode == "InterorbSuperc" || EdMode == "FullSuperc", OrbitalSymmetry = False];
 If[Norb == 1, OrbitalSymmetry = True];
+(* avoid stpid bugs related to Magnetic mode *)
+If[EdMode == "Magnetic" && Apply[And, !DiagonalMatrixQ[#] &/@ M], 
+	Print[Style["Error, EdMode = ''Magnetic'' does not support spin off-diagonal terms in H0.", Red] ]; 
+	Abort[]; 
+];
+If[EdMode == "Magnetic" && Jse != 0.0,
+	Jse = 0.0;
+	Print[Style["A spin-exchange interaction is not compatible with EdMode = ''Magnetic''. Proceeding with Jse = 0.0" , Red]];
+]
 (* avoid stupid bugs related to the C.G. *)
 If[CGNMatsubara > NMatsubara, CGNMatsubara = NMatsubara];
 If[Length[CGWeight] != CGNMatsubara, 
@@ -42,8 +53,8 @@ Do[
 		Print[Style["Warning. In orbital "<>ToString[orb]<>" there's no Raman field, but a gauge field has been provided. ", Red]];
 	];
 , {orb, Norb}];
-If[EdMode != "Raman" && M != ConstantArray[0.0, {Norb,f,f}],
-	Print[Style["Error. A Raman matrix is provided, but EdMode is not set to ''Raman''. Switch EdMode to ''Raman'' or remove the Raman field.", Red]];
+If[EdMode != "Raman" && EdMode != "Magnetic" && M != ConstantArray[0.0, {Norb,f,f}],
+	Print[Style["Error. A Raman matrix is provided, but EdMode is not set to ''Raman'' or ''Magnetic''. Switch EdMode to ''Raman''/''Magnetic'' or remove the Raman field.", Red]];
 	Abort[];
 ];
 (* avoid bugs related to sublattice calculation mode *)
@@ -90,14 +101,27 @@ If[OrbitalSymmetry && Norb > 1,
 
 
 (* GET BATH AND INTERACTION PARAMETERS *)
-BathParameters = StartingBath[L, f, Norb, \[Delta]-\[Mu], InitializeBathMode, EdMode, SublatticesQ, V0 -> 1.0, \[CapitalDelta]0 -> 0.2, \[CapitalXi]0 -> 0.2, \[CapitalOmega]0 -> 0.5];
-InteractionParameters = LocalParameters[M, \[Delta], U, Ust, Usec, Jph, Jse, \[Mu], shift, SublatticesQ, hAFM, V];
-symbols = Symbols[L, f, Norb, EdMode]; (* define a suitable list of symbols depending on EdMode *)
+BathParameters = StartingBath[L, f, Norb, \[Delta]-\[Mu], InitializeBathMode, EdMode, SublatticesQ, V0 -> 1.0, \[CapitalDelta]0 -> 0.2, \[CapitalXi]0 -> 0.2, \[CapitalOmega]0 -> 0.0];
+InteractionParameters = LocalParameters[M, \[Delta], U, Ust, Usec, Jph, Jse, \[CapitalDelta]ext, \[Mu], shift, SublatticesQ, hAFM, V, EdMode];
+
+(* GET SYMBOLS *)
+symbols = Symbols[L, f, Norb, EdMode, SymbolsFile, LoadSymbolsQ]; 
+If[!LoadSymbolsQ,
+	symbols = SymmetrizeSymbols[symbols, EdMode, OrbitalSymmetry, ParticleHoleSymmetry];
+	Export[SymbolsFile, symbols];
+]; (* if not loaded from file, apply default symmetrization *)
+independentsymbols = IndependentSymbols[symbols];
+independentsymbolsindexes = IndependentSymbolsIndexes[symbols, independentsymbols];
 
 
 (* GET SECTORS *)
 (* list of quantum numbers of all the sectors *)
-QnsSectorList = SectorList[L, f, Norb, EdMode]; 
+If[LoadSectorsQ,
+	QnsSectorList = Import[SectorsFile];,
+(* else *)
+	QnsSectorList = SectorList[L, f, Norb, EdMode]; 
+	Export[SectorsFile, QnsSectorList]
+];
 (* list of dimensions of all the sectors *)
 DimSectorList = DimSector[L, f, Norb, #, EdMode] &/@ QnsSectorList; 
 (* list of all the sectors *)
@@ -112,19 +136,40 @@ Print["Nsectors: ", Length[QnsSectorList], ". Dim. of the largest sector: ", Max
 
 
 (* GET LATTICE ENERGIES *)
-If[EdMode == "Raman",
+Which[
+	EdMode == "Raman",
 	If[SublatticesQ,
 		{LatticeEnergies, LatticeWeights} = GetLatticeEnergiesRamanSublattices[W, \[Delta], M, \[Gamma], LatticeType, LatticeDim, LatticePoints],
 		(* else *)
 		{LatticeEnergies, LatticeWeights} = GetLatticeEnergiesRaman[W, \[Delta], M, \[Gamma], LatticeType, LatticeDim, LatticePoints]
 	],
+	EdMode == "Magnetic",
+	If[SublatticesQ,
+		Print["Sublattice mode not implemented with EdMode = ''Magnetic''."; Abort[];];,
+		(* else *)
+		{LatticeEnergies, LatticeWeights} = GetLatticeEnergiesRaman[W, \[Delta], M, \[Gamma], LatticeType, LatticeDim, LatticePoints];
+		LatticeEnergies = Map[Diagonal, LatticeEnergies, {3}]; (* Npoints x Norb x Norb x f *)
+	],
 	(* else *)
+	True,
 	If[SublatticesQ,
 		{LatticeEnergies, LatticeWeights} = GetLatticeEnergiesSublattices[W, \[Delta], LatticeType, LatticeDim, LatticePoints],
 		(* else *)
 		{LatticeEnergies, LatticeWeights} = GetLatticeEnergies[W, \[Delta], LatticeType, LatticeDim, LatticePoints]
 	];
 ];
+
+(* GET H_0, THE IMPURITY HAMILTONIAN *)
+Which[
+	EdMode == "Normal",
+	H0 = \[Delta] - \[Mu];, (* Norb *)
+	EdMode == "Superc",
+	H0 = ((IdentityMatrix[2] * #) &/@ (\[Delta]-\[Mu])) + ((PauliMatrix[1] * #) &/@ \[CapitalDelta]ext);,(* Norb x 2 x 2 *)
+	EdMode == "Raman",
+	H0 = M + ((IdentityMatrix[f] * #) &/@ (\[Delta]-\[Mu]));, (* Norb x f x f *)
+	EdMode == "Magnetic",
+	H0 = Diagonal[#] &/@ M + (ConstantArray[#, f] &/@ (\[Delta]-\[Mu])); (* Norb x f *)
+]
 
 
 (* GET IMPURITY HAMILTONIAN *)
@@ -133,15 +178,15 @@ HnonlocFile = CodeDirectory<>"Hnonloc_L="<>ToString[L]<>"_f="<>ToString[f]<>"_No
 (* file name for import / export of local Hamiltonian blocks *)
 HlocFile = CodeDirectory<>"Hloc_L="<>ToString[L]<>"_f="<>ToString[f]<>"_Norb="<>ToString[Norb]<>"_EdMode="<>EdMode<>".mx";
 (* get hamiltonians *)
-{HnonlocBlocks, HlocBlocks} = GetHamiltonian[L, f, Norb, Nimp, Sectors, LoadHamiltonianQ, HnonlocFile, HlocFile, EdMode];
+{HnonlocBlocks, HlocBlocks} = GetHamiltonian[L, f, Norb, Nimp, HFMode, Sectors, LoadHamiltonianQ, HnonlocFile, HlocFile, EdMode, InteractionParameters];
 
 
 (* COPY INPUT FILE *)
 Save[
 	OutputDirectory<>"InputFile_Used.wl",
-	{Nbath, Norb, Nimp, L, f, EdMode, LatticeType, LatticeDim, LatticePoints, SublatticesQ, V, OrbitalSymmetry, W, U, JH, Ust, Usec, Jph, Jse, HundMode, \[Mu], \[Delta], T, TMats, NMatsubara, 
-	\[Omega]min, \[Omega]max, NReal, d\[Omega], \[Eta], CodeDirectory, OutputDirectory, LoadHamiltonianQ, InitializeBathMode, HFMode, FullDiagonalizationMode, DegeneracyThreshold, MinLanczosDim, MaxLanczosIter, 
-	MinNumberOfEigs, DMFTMinIterations, DMFTMaxIterations, DMFTerror, Mixing, MinimizationType, MinimizationMethod, CGMaxIterations, CGNMatsubara, CGAccuracy, CGWeight}
+	{Nbath, Norb, Nimp, L, f, EdMode, LatticeType, LatticeDim, LatticePoints, SublatticesQ, hAFM, V, OrbitalSymmetry, W, U, JH, Ust, Usec, Jph, Jse, HundMode, \[Mu], \[Delta], M, \[Gamma], T, TMats, 
+	NMatsubara, \[Omega]min, \[Omega]max, NReal, d\[Omega], \[Eta], CodeDirectory, OutputDirectory, LoadHamiltonianQ, InitializeBathMode, HFMode, FullDiagonalizationMode, DegeneracyThreshold, MinLanczosDim, 
+	MaxLanczosIter, MinNumberOfEigs, DMFTMinIterations, DMFTMaxIterations, DMFTerror, Mixing, MinimizationType, MinimizationMethod, CGMaxIterations, CGNMatsubara, CGAccuracy}
 ]
 
 

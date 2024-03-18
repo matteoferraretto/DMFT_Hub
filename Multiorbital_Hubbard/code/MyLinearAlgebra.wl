@@ -18,10 +18,26 @@ the list {a11, a12, a22} is transformed into {{a11, a12}, {a12, a22}}."
 
 ArrayFromSymmetricMatrix::usage = "ArrayFromSymmetricMatrix[M] takes a matrix M and gives its upper triangular part flattened out as an array. "
 
+Lanczos::usage = ""
+
+LanczosCore::usage = ""
+
 
 Begin["Private`"]
 
 Print["Package MyLinearAlgebra` loaded successfully."];
+
+(* Gell-Mann matrices *)
+GellMannMatrix[n_] := Which[
+	n == 1, {{0,1,0},{1,0,0},{0,0,0}},
+	n == 2, {{0,-I,0},{I,0,0},{0,0,0}},
+	n == 3, {{1,0,0},{0,-1,0},{0,0,0}},
+	n == 4, {{0,0,1},{0,0,0},{1,0,0}},
+	n == 5, {{0,0,-I},{0,0,0},{I,0,0}},
+	n == 6, {{0,0,0},{0,0,1},{0,1,0}},
+	n == 7, {{0,0,0},{0,0,-I},{0,I,0}},
+	n == 8, (1/Sqrt[3])*{{1,0,0},{0,1,0},{0,0,-2}}
+];
 
 (* tools to invert matrices more efficiently *)
 (* get a single element of the inverse matrix *)
@@ -160,7 +176,15 @@ Eigs[H_, OptionsPattern[]] := Module[
 	(* else *)
 		(* if the matrix is large, apply Lanczos *)
 		Do[
-			eigs = -Eigensystem[-H, n, Method->{"Arnoldi","Criteria"->"RealPart",MaxIterations->OptionValue["MaxIterations"]}];
+			eigs = -Eigensystem[
+				-H, n, 
+				Method -> {
+					"Arnoldi",
+					"Criteria" -> "RealPart",
+					"MaxIterations" -> OptionValue["MaxIterations"],
+					"StartingVector" -> OptionValue["StartingVector"]
+				}
+			];
 			values = eigs[[1]];
 			(* sometimes if H has degeneracies, eigenvalues are not sorted properly. We fix this by the following code *)
 			If[values[[1]] > values[[2]], values = Sort[values]; eigs = SortBy[eigs\[Transpose], First]\[Transpose];];
@@ -177,7 +201,15 @@ Eigs[H_, OptionsPattern[]] := Module[
 		Return[Drop[#,-1] &/@ eigs]
 	];
 ];
-Options[Eigs] = {"Temperature" -> 0, "MinLanczosDim" -> 32, "DegeneracyThreshold" -> 10^(-9), "BoltzmannThreshold" -> 10^(-9), "MaxIterations" -> 1000, "MinEigenvalues" -> 10};
+Options[Eigs] = {
+	"Temperature" -> 0, 
+	"MinLanczosDim" -> 32, 
+	"DegeneracyThreshold" -> 10^(-9), 
+	"BoltzmannThreshold" -> 10^(-9), 
+	"MaxIterations" -> 1000, 
+	"MinEigenvalues" -> 10,
+	"StartingVector" -> Automatic
+};
 
 
 (*                       LANCZOS                       *)

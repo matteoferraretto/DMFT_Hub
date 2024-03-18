@@ -5,6 +5,7 @@ BeginPackage["SelfConsistency`", {"MyLinearAlgebra`"}]
 
 (* Self consistency *)
 WeissField::usage = "WeissField[L_, f_, Norb_, \[Mu]_, symbols_, z_, EdMode]"
+WeissFieldNew::usage = "WeissFieldNew[L_, f_, Norb_, H0_, symbols_, z_, EdMode]"
 
 WeissFieldNumeric::usage = "WeissFieldNumeric[DBethe, \[Mu], LocalG, LocalGold, \[CapitalSigma], \[CapitalSigma]old, zlist, EdMode, OptionsPattern] gives a numeric evaluation of the Weiss field at the n-th iteration.
 The calculation is based on the knowledge of the n-th and (n-1)-th local Green function and the n-th and (n-1)-th self energy, that are mixed up when setting the option Mix -> ...
@@ -23,7 +24,7 @@ Print["Package SelfConsistency` loaded successfully."];
 
 (* ANALYTIC EVALUATION OF NONINTERACTING IMPURITY GREEN FUNCTION *)
 (* symbolic non-interacting Green function obtained by inverting the impurity-bath Hamiltonian *)
-WeissField[L_, f_, Norb_, \[Mu]_, M_, symbols_, z_, EdMode_] := Module[
+(*WeissField[L_, f_, Norb_, \[Mu]_, M_, symbols_, z_, EdMode_] := Module[
 	{e, V, \[CapitalDelta], \[CapitalXi], H0, H, Vmat},
 	Which[
 		EdMode == "Normal", 
@@ -57,6 +58,90 @@ WeissField[L_, f_, Norb_, \[Mu]_, M_, symbols_, z_, EdMode_] := Module[
 		(Vmat[[#]] = SymmetricMatrixFromArray[V[[#]], f]) &/@ Range[L-1];
 		(* compute Weiss field *)
 		z*IdentityMatrix[f] - H0 - Sum[Vmat[[k]] . Inverse[z*IdentityMatrix[f] - H[[k]]] . Vmat[[k]] , {k, L-1}],
+	(* ---------------------------------------- *)
+		EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
+		(* split symbols according to their meaning, e, V ... *)
+		e = symbols[[1 ;; Norb*(L-1)]];
+		V = symbols[[Norb*(L-1)+1 ;; 2*Norb*(L-1)]];
+		\[CapitalDelta] = symbols[[2*Norb*(L-1)+1 ;; 3*Norb*(L-1)]];
+		\[CapitalXi] = symbols[[3*Norb*(L-1)+1 ;; (3*Norb+1)*(L-1)]];
+		(* separate into the various orbital parts *)
+		e = Partition[e, L-1]; V = Partition[V, L-1]; \[CapitalDelta] = Partition[\[CapitalDelta], L-1];
+		(* get Hamiltonian blocks *)
+		(* the chemical potential is now a list of Norb numbers given by \[Mu] + \[Delta][[orb]] *)
+		(* Only compatible with Mathematica 13.1 *)
+		(* H0 = BlockDiagonalMatrix[
+			Table[-\[Mu][[orb]] * PauliMatrix[3], {orb, Norb}]
+		]; *)
+		(* compatible with Mathematica 13.0 *)
+		H0 = DiagonalMatrix[
+			Flatten[
+				Table[-\[Mu][[orb]]*{1, -1}, {orb, Norb}]
+			]
+		];
+		H = SparseArray[{}, {L-1, Norb, Norb}];
+		Vmat = SparseArray[{}, {L-1, Norb, Norb}];
+		Do[
+			If[orb1 == orb2,
+				H[[#]][[orb1, orb1]] = e[[orb1]][[#]] * PauliMatrix[3] + \[CapitalDelta][[orb1]][[#]] * PauliMatrix[1];
+				Vmat[[#]][[orb1, orb1]] = V[[orb1]][[#]] * PauliMatrix[3];
+			];
+		(* else, if orb1 != orb2 *)
+			If[orb2 > orb1,
+				H[[#]][[orb1, orb2]] = \[CapitalXi][[#]] * PauliMatrix[1]
+			];
+			If[orb2 < orb1,
+				H[[#]][[orb1, orb2]] = \[CapitalXi][[#]] * PauliMatrix[1]
+			];
+		, {orb1, Norb}, {orb2, Norb}] &/@ Range[L-1];
+		(* give a matrix form to the block form above *)
+		Do[
+			H[[k]] = ArrayFlatten[H[[k]]];
+			Vmat[[k]] = ArrayFlatten[Vmat[[k]]];
+		, {k, L-1}];
+		(* compute Weiss field *)
+		z * IdentityMatrix[2Norb] - H0 - Sum[Vmat[[k]] . (Inverse[z * IdentityMatrix[2Norb] - H[[k]]] . Vmat[[k]]) , {k, L-1}]
+	]
+];*)
+
+
+WeissFieldNew[L_, f_, Norb_, H0_, symbols_, z_, EdMode_] := Module[
+	{e, V, \[CapitalDelta], \[CapitalXi], H, Vmat},
+	Which[
+		EdMode == "Normal", 
+		e = symbols[[1]]; V = symbols[[2]];
+		Table[
+			z - H0[[orb]] - Sum[(V[[orb, l]]^2)/(z - e[[orb, l]]), {l, L-1}]
+		, {orb, Norb}],
+	(* ---------------------------------------- *)
+		EdMode == "Superc", 
+		e = symbols[[1]]; V = symbols[[2]]; \[CapitalDelta] = symbols[[3]];
+		(* initialize stuff *)
+		H = ConstantArray[0, {Norb, L-1, 2, 2}];
+		Vmat = H;
+		Table[
+			(* define the hamiltonian blocks *)
+			(H[[orb, #]] = e[[orb, #]]*PauliMatrix[3] + \[CapitalDelta][[orb, #]]*PauliMatrix[1]) &/@ Range[L-1];
+			(Vmat[[orb, #]] = V[[orb, #]]*PauliMatrix[3]) &/@ Range[L-1];
+			(* compute Weiss field *)
+			z*IdentityMatrix[2] - H0[[orb]] - Sum[Vmat[[orb, l]] . Inverse[z*IdentityMatrix[2] - H[[orb, l]]] . Vmat[[orb, l]] , {l, L-1}]
+		, {orb, Norb}],
+	(* ---------------------------------------- *)
+		EdMode == "Raman",
+		(* symbols = {e, V} *)
+		e = symbols[[1]]; V = symbols[[2]];
+		(* compute Weiss field *)
+		Table[
+			z*IdentityMatrix[f] - H0[[orb]] - Sum[V[[orb, l]] . Inverse[z*IdentityMatrix[f] - e[[orb, l]]] . V[[orb, l]] , {l, L-1}]
+		, {orb, Norb}],
+	(* ---------------------------------------- *)
+		EdMode == "Magnetic",
+		(* symbols = {e, V} *)
+		e = symbols[[1]]; V = symbols[[2]];
+		(* compute Weiss field *)
+		Table[
+			ConstantArray[z, f] - H0[[orb]] - Sum[(V[[orb, l]]^2)/(ConstantArray[z,f] - e[[orb, l]]), {l, L-1}] 
+		, {orb, Norb}],
 	(* ---------------------------------------- *)
 		EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
 		(* split symbols according to their meaning, e, V ... *)
@@ -152,6 +237,13 @@ WeissFieldNumeric[DBethe_, \[Mu]_, LocalG_, LocalGold_, \[CapitalSigma]_, \[Capi
 			]);
 		],
 	(* ------------------------------------ *)
+		EdMode == "Magnetic",
+		If[\[Alpha] == 0.0, 
+			Weff = 1.0/LocalG + \[CapitalSigma],
+		(* else, if mixing is active *)
+			Weff = \[Alpha] * (1.0/LocalGold + \[CapitalSigma]old) + (1.0 - \[Alpha]) * (1.0/LocalG + \[CapitalSigma]);
+		],
+	(* ------------------------------------ *)
 		EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
 		(* Mix up the effective Weiss field *)
 		If[\[Alpha] == 0.0, 
@@ -195,6 +287,15 @@ SelfConsistency[Weiss_, symbols_, z_, IndependentParameters_, WeissNumeric_, zli
 				)]^2
 			)];,
 	(* ------------------------------------ *)
+		EdMode == "Magnetic",
+		\[Chi][symbols] = Mean[
+			Total[#, 2] &/@ (
+				Abs[ 
+					weight * (
+					(Weiss/.{z -> #} &/@ zlist) - WeissNumeric
+				)]^2
+			)];,
+	(* ------------------------------------ *)
 		EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
 		(* distance function *)
 		\[Chi][symbols] = Mean[
@@ -229,7 +330,7 @@ SelfConsistency[Weiss_, symbols_, z_, IndependentParameters_, WeissNumeric_, zli
 			];
 	];
 	Print["Fit residue: ", residue];
-	symbols/.newparameters
+	newparameters
 ];
 Options[SelfConsistency] = { 
 	NumberOfFrequencies -> 2000, 
@@ -385,6 +486,18 @@ DMFTError[Xnew_, Xold_, EdMode_] := Module[
 				]
 			];
 		, {\[Alpha], Length[Xnew[[1]]]}, {\[Beta], \[Alpha], Length[Xnew[[1]]]}];
+		error = Mean[error],
+(* --------------------------------- *)
+		EdMode == "Magnetic",
+		error = {};
+		Do[
+			AppendTo[error, Total[
+					Abs[Xnew[[All, \[Alpha]]] - Xold[[All, \[Alpha]]]]
+				]/Max[
+					Total[Abs[Xnew[[All, \[Alpha]]]]], Total[Abs[Xold[[All, \[Alpha]]]]]		
+				]
+			];
+		, {\[Alpha], Length[Xnew[[1]]]}];
 		error = Mean[error],
 (* ----------------------------------- *)
 		EdMode == "InterorbSuperc" || EdMode == "FullSuperc",

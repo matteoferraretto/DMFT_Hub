@@ -21,10 +21,12 @@ If EdMode = ''InterorbSuperc'', then qns = sz is the total spin-z.
 The states are created in the integer represenation. L is the total number of sites, f is the number of flavours and Norb is the number of orbitals. 
 The superconductive EdModes only support f=2 at the moment. "
 
+SectorsAround::usage = "SectorsAround[qns, EdMode] generates a list of quantum numbers obtained starting from qns and adding/removing a particle from every possible spin or orbital 
+channel. It also includes qns. The function SectorsAround[] is stupid, meaning that it doesn't know if a sector is such that adding or removing particles makes no sense: for example, 
+removing a particle from n_up = 0, n_dw = 0 makes no sense, but it will return unphysical sectors with e.g. n_up=-1, n_dw=0."
+
 
 Begin["Private`"]
-
-Print["Package Sectors` loaded successfully."];
 
 (*              HILBERT SPACE SECTORS              *)
 (* integer version of basis for a single flavour *)
@@ -38,21 +40,28 @@ basis = Compile[{
 (* integer version of the full basis for all flavours *)
 BASIS[L_, flavors_, qns_] := Flatten[Outer[{##}&,##]&@@Table[basis[L,qns[[\[Sigma]]]],{\[Sigma],1,flavors}],flavors-1];
 
+(* transform a state from the integer form (output of BASIS[]) to boolean form *)
+BooleanState[L_, state_] := Map[
+	#==1&,
+	IntegerDigits[#, 2, L] &/@ state,
+	{3}
+];
+
 (* list of all the quantum numbers that label the sectors *)
 SectorList[L_, f_, Norb_, EdMode_] := Module[
 	{QnsSectorList},
 	Which[
-		EdMode == "Normal",
-		QnsSectorList=Flatten[
-		Outer[{##}&,##]&@@ConstantArray[
-			Range[0,L]
-		,Norb*f],Norb*f-1],
+		EdMode == "Normal" || EdMode == "Magnetic",
+		QnsSectorList = Flatten[
+			Outer[{##}&,##] &@@ ConstantArray[
+				Range[0,L]
+			, Norb*f], Norb*f-1],
 (* --------------------------------------- *)
 		EdMode == "InterorbNormal",
-		QnsSectorList=Flatten[
-		Outer[{##}&,##]&@@ConstantArray[
-			Range[0,Norb*L]
-		,f],f-1],
+		QnsSectorList = Flatten[
+			Outer[{##}&,##] &@@ ConstantArray[
+				Range[0, Norb*L]
+			, f], f-1],
 (* --------------------------------------- *)		
 		EdMode == "Raman",
 		QnsSectorList = Flatten[
@@ -82,7 +91,7 @@ SectorList[L_, f_, Norb_, EdMode_] := Module[
 DimSector[L_, f_, Norb_, qns_, EdMode_] := Module[
 	{n, nup, sz, dim},
 	Which[
-		EdMode == "Normal",
+		EdMode == "Normal" || EdMode == "Magnetic",
 		dim = Product[
 			Binomial[L,qns[[i]]]
 		,{i,1,Norb*f}],
@@ -116,7 +125,7 @@ DimSector[L_, f_, Norb_, qns_, EdMode_] := Module[
 BuildSector[L_, f_, Norb_, qns_, EdMode_] := Module[
 	{QnsList,states},
 	Which[
-		EdMode == "Normal",
+		EdMode == "Normal" || EdMode == "Magnetic",
 		states = BASIS[L,f*Norb,qns],
 (* ---------------------------------------------- *)
 		EdMode == "InterorbNormal",
@@ -162,6 +171,27 @@ BuildSector[L_, f_, Norb_, qns_, EdMode_] := Module[
 	states
 ];
 
+(* returns all the quantum numbers of sectors obtained starting from qns and adding/removing a particle in all the possible spin/orbital channels. It includes qns. *)
+SectorsAround[qns_, EdMode_] := Module[
+	{n},
+	Print["Remember: SectorsAround[] is a ''stupid'' function!"];
+	Which[
+		EdMode == "Magnetic",
+		n = Length[qns]; 
+		(qns + #) &/@ Join[
+			Table[ IntegerDigits[2^k, 2, n], {k, 0, n}],
+			- Table[ IntegerDigits[2^k, 2, n], {k, 0, n-1}]
+		],
+	(* ------------------------------------ *)
+		EdMode == "Raman",
+		n = Length[qns];
+		(qns + #) &/@ Join[
+			Table[ IntegerDigits[2^k, 2, n], {k, 0, n}],
+			- Table[ IntegerDigits[2^k, 2, n], {k, 0, n-1}]
+		]
+	]
+];
+
 (* returns the position of state (i,\[Sigma],orb) in the flattened version of a given Fock state *)
 Index = Compile[
 	{{L, _Integer}, {f, _Integer}, {Norb, _Integer}, {i, _Integer}, {\[Sigma], _Integer}, {orb, _Integer}},
@@ -186,19 +216,11 @@ DestroyParticleQ = Compile[{
 	CompilationTarget->"C", RuntimeAttributes->{Listable}, Parallelization->True
 ];
 
-(* gives True if it is possible to increase the spin \[Sigma] on site {i,\[Sigma],orb}, False otherwise *)
-IncreaseSpinQ = Compile[{
-	{L,_Integer},{f,_Integer},{i,_Integer},{\[Sigma],_Integer},{orb,_Integer},{state,_Integer,1}
+(* gives True if at position i and orbital orb the spin is \[Sigma] *)
+ChangeSpinQ = Compile[{
+	{L,_Integer}, {f,_Integer}, {i,_Integer}, {\[Sigma],_Integer}, {orb,_Integer}, {state,_Integer,1}
 	},
-	(\[Sigma] != 1) && ((IntegerDigits[#,2,L]&@state[[f*(orb-1)+\[Sigma]]])[[i]] == 1),
-	CompilationTarget->"C", RuntimeAttributes->{Listable}, Parallelization->True
-];
-
-(* gives True if it is possible to increase the spin \[Sigma] on site {i,\[Sigma],orb}, False otherwise *)
-DecreaseSpinQ = Compile[{
-	{L,_Integer},{f,_Integer},{i,_Integer},{\[Sigma],_Integer},{orb,_Integer},{state,_Integer,1}
-	},
-	(\[Sigma] != f) && ((IntegerDigits[#,2,L]&@state[[f*(orb-1)+\[Sigma]]])[[i]] == 1),
+	(IntegerDigits[#,2,L]&@state[[f*(orb-1)+\[Sigma]]])[[i]]==1,
 	CompilationTarget->"C", RuntimeAttributes->{Listable}, Parallelization->True
 ];
 
@@ -215,14 +237,8 @@ DestroyParticleSelect[L_, f_, i_, \[Sigma]_, orb_, stateList_] := Module[
 ];
 
 (* select states for which it is possible to increase the spin on site (i,\[Sigma],orb)*)
-IncreaseSpinSelect[L_,f_,i_,\[Sigma]_,orb_,stateList_] := Module[
-	{criteria = IncreaseSpinQ[L,f,i,\[Sigma],orb,stateList]},
-	Pick[stateList, criteria]
-];
-
-(* select states for which it is possible to decrease the spin on site (i,\[Sigma],orb)*)
-DecreaseSpinSelect[L_,f_,i_,\[Sigma]_,orb_,stateList_] := Module[
-	{criteria = DecreaseSpinQ[L,f,i,\[Sigma],orb,stateList]},
+ChangeSpinSelect[L_, f_, i_, \[Sigma]_, orb_, stateList_] := Module[
+	{criteria = ChangeSpinQ[L,f,i,\[Sigma],orb,stateList]},
 	Pick[stateList, criteria]
 ];
 
@@ -246,7 +262,7 @@ c = Compile[{
 		f*(orb-1)+\[Sigma]
 	], CompilationTarget->"C", RuntimeAttributes->{Listable}];
 
-(* modify the spin on site i and orbital orb from \[Sigma]2 to \[Sigma]1 (spin ladder operator) *)
+(* modify the spin on site i and orbital orb from \[Sigma]2 to \[Sigma]1 and return the new state *)
 s = Compile[{
 	{L,_Integer}, {f,_Integer}, {i,_Integer}, {\[Sigma]1,_Integer}, {\[Sigma]2,_Integer}, {orb,_Integer}, {state,_Integer,1}},
 	MapAt[
@@ -445,6 +461,8 @@ SpinExchange = Compile[{
 	],
 	CompilationTarget->"C", RuntimeAttributes->{Listable}, RuntimeOptions->"Speed"
 ];
+
+Print["Package Sectors` loaded successfully."];
 
 End[]
 
