@@ -246,6 +246,11 @@ SpectralFunction[LatticeEnergies_, weights_, \[Mu]_, \[CapitalSigma]_, zlist_, E
 			LocalGreenFunction[LatticeEnergies, weights, \[Mu], \[CapitalSigma], zlist, EdMode, SublatticesQ]
 		] / Length[\[CapitalSigma][[1]]],
 	(* ---------------------------------------------- *)
+		EdMode == "Magnetic",
+		spectralfunction = -(1./Pi) * Im[ Total[#] &/@
+			LocalGreenFunction[LatticeEnergies, weights, \[Mu], \[CapitalSigma], zlist, EdMode, SublatticesQ]
+		] / Length[\[CapitalSigma][[1]]],
+	(* ---------------------------------------------- *)
 		EdMode == "InterorbSuperc" || EdMode == "FullSuperc",
 		spectralfunction = -(1./Pi) * Im[ Tr[#] &/@
 			LocalGreenFunction[LatticeEnergies, weights, \[Mu], \[CapitalSigma], zlist, EdMode]

@@ -13,6 +13,8 @@ InverseElement::usage = "InverseElement[m_, {i_,j_}]"
 
 TwoByTwoInverse::usage = "TwoByTwoInverse[A] returns the inverse of the 2x2 complex invertible matrix A. The function is listable. "
 
+SmartInverse::usage = "SmartInverse[A] returns the inverse of A: if A is a number, gives 1/A; if A is a 1d array, it gives {1/A[[1]], 1/A[[2]], ...}; if A is a matrix, gives A^(-1)."
+
 SymmetricMatrixFromArray::usage = "SymmetricMatrixFromArray[list, n] takes a list of n(n+1)/2 symbols or numbers and transforms it into a n x n symmetric matrix. For example, if n=2, 
 the list {a11, a12, a22} is transformed into {{a11, a12}, {a12, a22}}."
 
@@ -92,6 +94,23 @@ ThreeByThreeInverse = Compile[{
 		Return[(1./detA)*(0.5*(trA^2-trA2)*Id - trA*A + A2)]
 	],
 	CompilationTarget->"C", RuntimeAttributes->{Listable}, Parallelization->True
+];
+
+(* flexible matrix inversion: if the input is a number or a 1d array, it returns their numerical inverse *)
+SmartInverse[m_] := Which[
+	ArrayDepth[m] == 0,(* just a number *)
+	1.0/m,
+	ArrayDepth[m] == 1, (* 1d array *)
+	1.0/m,
+	ArrayDepth[m] == 2, 
+	Which[
+		Length[m] == 2,(* 2x2 matrix *)
+		TwoByTwoInverse[m],
+		Length[m] == 3,(* 3x3 matrix *)
+		ThreeByThreeInverse[m],
+		Length[m] > 3,(* NxN matrix, N>3 *)
+		Inverse[m]
+	]
 ];
 
 

@@ -116,12 +116,7 @@ independentsymbolsindexes = IndependentSymbolsIndexes[symbols, independentsymbol
 
 (* GET SECTORS *)
 (* list of quantum numbers of all the sectors *)
-If[LoadSectorsQ,
-	QnsSectorList = Import[SectorsFile];,
-(* else *)
-	QnsSectorList = SectorList[L, f, Norb, EdMode]; 
-	Export[SectorsFile, QnsSectorList]
-];
+QnsSectorList = SectorList[L, f, Norb, EdMode]; 
 (* list of dimensions of all the sectors *)
 DimSectorList = DimSector[L, f, Norb, #, EdMode] &/@ QnsSectorList; 
 (* list of all the sectors *)
@@ -130,9 +125,16 @@ Sectors = BuildSector[L, f, Norb, #, EdMode] &/@ QnsSectorList;
 SectorsDispatch = Dispatch[Flatten[MapIndexed[{#1->#2[[1]]}&, QnsSectorList], 1]]; 
 (* if full diagonalization is required, make sure that Lanczos will never be used *)
 If[FullDiagonalizationMode, MinLanczosDim = Max @ DimSectorList];
+(* choose the sectors to diagonalize from a file *)
+If[LoadSectorsQ,
+	QnsSectorListToDiagonalize = Import[SectorsFile];,
+(* else *)
+	QnsSectorListToDiagonalize = QnsSectorList;
+];
 (* print recap *)
 Print[Style["Recap of input:", 16, Bold]];
 Print["Nsectors: ", Length[QnsSectorList], ". Dim. of the largest sector: ", Max @ DimSectorList];
+If[LoadSectorsQ, Print["Diagonalizing only ", Length[QnsSectorListToDiagonalize], " out of ", Length[QnsSectorList], " sectors."]; ];
 
 
 (* GET LATTICE ENERGIES *)

@@ -151,10 +151,19 @@ BandPlot2D[Energies_, BZ_] := Module[
 
 (* plot the spectral function A(\[Omega]) *)
 PlotSpectralFunction[spectralfunction_] := Module[{
-		\[Omega]min = spectralfunction[[1,1]], 
-		\[Omega]max = spectralfunction[[-1,1]], 
-		Amax = Max[spectralfunction[[All,2]]]
+	rank = ArrayDepth[spectralfunction], \[Omega]min, \[Omega]max, Amax
 	},
+	Which[
+		rank == 2,
+		\[Omega]min = spectralfunction[[1,1]];
+		\[Omega]max = spectralfunction[[-1,1]];
+		Amax = Max[spectralfunction[[All,2]]];,
+	(* ----------------------------------- *)
+		rank == 3,
+		\[Omega]min = Min[spectralfunction[[All,1,1]]];
+		\[Omega]max = Max[spectralfunction[[All,-1,1]]];
+		Amax = Max[Flatten[spectralfunction[[All,All,2]]]];
+	];
 	Print @ ListPlot[
 		spectralfunction, 
 		Joined -> True, 
@@ -163,7 +172,7 @@ PlotSpectralFunction[spectralfunction_] := Module[{
 		Axes -> False, Frame -> True,
 		FrameStyle -> Directive[Black, 18],
 		PlotRange-> {{\[Omega]min - 0.1, \[Omega]max + 0.1}, All},
-		FrameLabel -> {"\[Omega]", "spectral weight"},
+		FrameLabel -> {"\[HBar]\[Omega]/D", "spectral weight"},
 		Epilog -> {Dashing[.05], Line[{{0,0}, {0,Amax}}]}
 	];
 ];
