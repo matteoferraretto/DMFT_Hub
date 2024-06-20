@@ -1,7 +1,7 @@
 (* ::Package:: *)
 
 (* generates the list of bosonic Fock states with exactly nbosons on a lattice with L sites *)
-BosonicBASIS[L_, nbosons_]:= SortBy[
+BosonicBASIS[L_, nbosons_] := SortBy[
 	Flatten[
 		Permutations[#] &/@ (
 			PadRight[#, L] &/@ IntegerPartitions[nbosons, L]
@@ -10,21 +10,21 @@ BosonicBASIS[L_, nbosons_]:= SortBy[
 
 (* gives True if bosonic hopping from site j to site i is possible on a given state. *)
 BosonicHopQ = Compile[{
-	{i,_Integer}, {j,_Integer}, {state,_Integer,1}
+	{i, _Integer}, {j, _Integer}, {state, _Integer, 1}
 	},
-	state[[j]]!=0, 
+	state[[j]] != 0, 
 	CompilationTarget->"C", RuntimeAttributes->{Listable}, Parallelization->True, RuntimeOptions->"Speed"
 ];
 
 (* select states on the Hilber space for which hopping j->i is possible *)
 BosonicHopSelect[i_, j_, stateList_] := With[
-	{criteria = BosonicHopQ[i,j,stateList]},
+	{criteria = BosonicHopQ[i, j, stateList]},
 	Pick[stateList, criteria]
 ];
 
 (* actually perform a hopping j->i on a given state *)
 BosonicHop = Compile[{
-	{i, _Integer}, {j, _Integer}, {state, _Integer,1}
+	{i, _Integer}, {j, _Integer}, {state, _Integer, 1}
 	},
 	Module[{newstate = state},
 		newstate[[i]] = state[[i]] + 1;
@@ -36,7 +36,7 @@ BosonicHop = Compile[{
 
 (* return the coefficient of a bosonc hopping j->i on a given state *)
 BosonicHopCoefficient = Compile[{
-	{i,_Integer}, {j,_Integer}, {state,_Integer,1}
+	{i, _Integer}, {j, _Integer}, {state, _Integer, 1}
 	},
 	Sqrt[1.0*(state[[i]]+1)*state[[j]]],
 	RuntimeAttributes->{Listable}, CompilationTarget->"C"
@@ -195,4 +195,84 @@ FisherInformation[\[Rho]_, nbosons_] := Module[
 	densdiffsquare = DensityDifferenceToPowerK[2, L, {sector}][[1]];
 	densdiff = DensityDifferenceToPowerK[1, L, {sector}][[1]];
 	(Tr[\[Rho] . densdiffsquare] - Tr[\[Rho] . densdiff]^2)/(nbosons^2)
+];
+
+
+(* COMPUTING ENTROPY AND FISHER INFORMATION AT FIXED T AND nbosons *)
+Module[{
+	T = 0.002,
+	J = 1.0,
+	Umin = -1.0,
+	Umax = +1.0,
+	dU = 0.005,
+	L = 2, 
+	nbosons = 20, 
+	\[Epsilon]list = {0,0},
+	Ulist, sector, Hnonint, Hint, Hlist, eigslist, parameters, \[Rho]list, \[Rho]listexplicit, Slist, Smax, Flist
+},
+Ulist = Table[U, {U, Umin, Umax, dU}];
+(* build Hilbert space *)
+sector = BosonicBASIS[L, nbosons];
+(* build Hamiltonians for every U, takes a few steps *)
+Hint = BosonicHint[L,{sector}];
+parameters = Join[\[Epsilon]list, ConstantArray[-J, L-1]];
+Hnonint = Sum[
+	parameters[[n]] * #[[n]]
+, {n, Length[parameters]}] &/@ BosonicHnonint[L, {sector}];
+Hlist = (Hnonint + #*Hint) &/@ Ulist;
+ClearAll[Hnonint, Hint];
+(* diagonalize everything and build density matrices *)
+Print[
+	"Diagonalizing Hamiltonians. Elapsed time [s]: ",
+	First @ AbsoluteTiming[
+		eigslist = Eigs[#[[1]]] &/@ Hlist;
+		\[Rho]list = DensityMatrix[#, T] &/@ eigslist;
+	]
+];
+ClearAll[Hlist];
+(* check normalization *)
+(*Print[Tr[#] &/@ \[Rho]list];
+(* check that \[Rho]list == \[Rho]listexplicit *)
+Print[AbsoluteTiming[
+	\[Rho]listexplicit = (
+	(#/Tr[#]) &/@ (MatrixExp[-#[[1]]/T] &/@ Hlist) 
+);
+]];
+Print[
+Norm[Flatten[Chop[
+\[Rho]list - \[Rho]listexplicit
+]]] == 0
+];*)
+(* compute entropy and Fisher info *)
+Print[
+	"Computing entropy and Fisher info. Elapsed time [s]: ", 
+	First @ AbsoluteTiming[
+		Slist = Re[EntanglementEntropy[\[Rho]list]];
+		Flist = FisherInformation[#, nbosons] &/@ \[Rho]list;
+		Smax = Max[Slist];
+	]
+];
+(* plot entropy and Fisher info *)
+Print @ ListPlot[
+	{Ulist, Slist}\[Transpose],
+	Axes -> False,
+	Frame -> True,
+	FrameStyle -> Directive[Black, 16],
+	FrameLabel -> {"U/J", "S"},
+	AspectRatio -> 1/2,
+	Joined -> True,
+	PlotStyle -> Thickness[.005]
+];
+Print @ ListPlot[
+	{Ulist, Flist}\[Transpose],
+	Axes -> False,
+	Frame -> True,
+	FrameStyle -> Directive[Black, 16],
+	FrameLabel -> {"U/J", "F"},
+	AspectRatio -> 1/2,
+	Joined -> True,
+	PlotStyle -> Thickness[.005]
+];
+Print["\!\(\*SubscriptBox[\(S\), \(max\)]\) = ", Smax];
+Print["U/J (@ \!\(\*SubscriptBox[\(S\), \(max\)]\)) = ", Ulist[[Position[Slist, Smax][[1,1]]]]];
 ];
